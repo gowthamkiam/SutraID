@@ -25,6 +25,9 @@ export class AuthService {
     const resendApiKey = this.config.get<string>('RESEND_API_KEY');
     if (resendApiKey) {
       this.resend = new Resend(resendApiKey);
+      console.log('✅ Resend initialized successfully');
+    } else {
+      console.log('⚠️  Resend NOT initialized - magic links will be logged to console');
     }
 
     // JWT secret
@@ -37,6 +40,8 @@ export class AuthService {
     // Frontend URL for magic link
     this.frontendUrl =
       this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    console.log(`📧 Email FROM: ${this.config.get<string>('EMAIL_FROM') || 'noreply@sutraid.com'}`);
+    console.log(`🌐 Frontend URL: ${this.frontendUrl}`);
   }
 
   /**
@@ -205,15 +210,22 @@ export class AuthService {
     email: string,
     magicLink: string,
   ): Promise<void> {
+    console.log(`\n📧 Attempting to send magic link to: ${email}`);
+    console.log(`🔗 Magic link URL: ${magicLink}`);
+
     if (!this.resend) {
       // In development without Resend configured, just log the link
+      console.log(`⚠️  Resend NOT configured - logging link instead of sending email\n`);
       console.log(`\n🔗 Magic link for ${email}:\n${magicLink}\n`);
       return;
     }
 
+    const fromEmail = this.config.get<string>('EMAIL_FROM') || 'noreply@sutraid.com';
+    console.log(`📤 Sending email via Resend from: ${fromEmail}`);
+
     try {
-      await this.resend.emails.send({
-        from: this.config.get<string>('EMAIL_FROM') || 'noreply@sutraid.com',
+      const result = await this.resend.emails.send({
+        from: fromEmail,
         to: email,
         subject: '🔐 Sign in to SutraID',
         html: `
@@ -244,8 +256,13 @@ export class AuthService {
           </html>
         `,
       });
+
+      console.log(`✅ Email sent successfully via Resend!`);
+      console.log(`📬 Email ID: ${result.data?.id || 'N/A'}\n`);
     } catch (error) {
-      console.error('Failed to send magic link email:', error);
+      console.error('❌ Failed to send magic link email:', error);
+      // Also log the magic link so user can still login
+      console.log(`\n🔗 Fallback - Magic link for ${email}:\n${magicLink}\n`);
       throw new Error('Failed to send magic link email');
     }
   }

@@ -6,9 +6,10 @@ import { SamlSpService } from './services/saml-sp.service';
 import { OidcClientService } from './services/oidc-client.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { OrganizationModule } from '../organization/organization.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [PrismaModule, OrganizationModule],
+  imports: [PrismaModule, OrganizationModule, AuthModule],
   controllers: [SsoController, SsoAuthController],
   providers: [SsoService, SamlSpService, OidcClientService],
   exports: [SsoService, SamlSpService, OidcClientService],
