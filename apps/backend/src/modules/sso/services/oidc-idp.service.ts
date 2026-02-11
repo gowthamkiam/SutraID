@@ -1,13 +1,21 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import Provider, { type KoaContextWithOIDC, type Account } from 'oidc-provider';
+// oidc-provider v9 is ESM-only, use dynamic import
+let Provider: any;
+const loadProvider = async () => {
+  if (!Provider) {
+    const mod = await import('oidc-provider');
+    Provider = mod.default;
+  }
+  return Provider;
+};
 import { User } from '@prisma/client';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class OidcIdpService {
-  private providerInstances: Map<string, Provider> = new Map();
+  private providerInstances: Map<string, any> = new Map();
 
   constructor(
     private prisma: PrismaService,
@@ -17,7 +25,7 @@ export class OidcIdpService {
   /**
    * Get or create OIDC Provider instance for an organization
    */
-  async getProviderInstance(organizationId: string): Promise<Provider> {
+  async getProviderInstance(organizationId: string): Promise<any> {
     // Check cache
     if (this.providerInstances.has(organizationId)) {
       return this.providerInstances.get(organizationId)!;
@@ -36,7 +44,8 @@ export class OidcIdpService {
     const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}`;
 
     // Create OIDC Provider instance
-    const provider = new Provider(issuer, {
+    const ProviderClass = await loadProvider();
+    const provider = new ProviderClass(issuer, {
       // Adapter for storing authorization codes, tokens, etc.
       adapter: this.createAdapter(organizationId),
 
@@ -67,7 +76,7 @@ export class OidcIdpService {
       },
 
       // Find account by ID
-      findAccount: async (ctx: KoaContextWithOIDC, sub: string): Promise<Account | undefined> => {
+      findAccount: async (ctx: any, sub: string): Promise<any> => {
         return this.findAccount(organizationId, sub);
       },
 
@@ -94,7 +103,7 @@ export class OidcIdpService {
 
       // Interaction URL (custom consent screen)
       interactions: {
-        url: async (ctx: KoaContextWithOIDC, interaction: any): Promise<string> => {
+        url: async (ctx: any, interaction: any): Promise<string> => {
           const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
           return `${frontendUrl}/auth/consent?uid=${interaction.uid}`;
         },
