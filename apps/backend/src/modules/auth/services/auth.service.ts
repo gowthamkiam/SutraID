@@ -300,4 +300,32 @@ export class AuthService {
       },
     });
   }
+
+  /**
+   * Verify access token and return payload
+   */
+  async verifyAccessToken(token: string): Promise<any> {
+    try {
+      const { jwtVerify } = await import('jose');
+      const { payload } = await jwtVerify(token, this.jwtSecret);
+      return payload;
+    } catch (error) {
+      throw new UnauthorizedException('Invalid access token');
+    }
+  }
+
+  /**
+   * Get user by ID
+   */
+  async getUserById(userId: string): Promise<any> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
 }
