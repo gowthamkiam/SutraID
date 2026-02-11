@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import Provider from 'oidc-provider';
+import Provider, { type KoaContextWithOIDC, type Account } from 'oidc-provider';
 import { User } from '@prisma/client';
 import * as crypto from 'crypto';
 
@@ -67,7 +67,7 @@ export class OidcIdpService {
       },
 
       // Find account by ID
-      findAccount: async (ctx, sub) => {
+      findAccount: async (ctx: KoaContextWithOIDC, sub: string): Promise<Account | undefined> => {
         return this.findAccount(organizationId, sub);
       },
 
@@ -94,7 +94,7 @@ export class OidcIdpService {
 
       // Interaction URL (custom consent screen)
       interactions: {
-        url: async (ctx, interaction) => {
+        url: async (ctx: KoaContextWithOIDC, interaction: any): Promise<string> => {
           const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
           return `${frontendUrl}/auth/consent?uid=${interaction.uid}`;
         },
@@ -126,16 +126,16 @@ export class OidcIdpService {
 
         await this.prisma.oidcToken.upsert({
           where: {
-            organizationId_type_id: {
+            organizationId_type_tokenId: {
               organizationId,
               type: this.name,
-              id,
+              tokenId: id,
             },
           },
           create: {
             organizationId,
             type: this.name,
-            id,
+            tokenId: id,
             payload: JSON.stringify(payload),
             expiresAt,
           },
@@ -149,10 +149,10 @@ export class OidcIdpService {
       async find(id: string) {
         const token = await this.prisma.oidcToken.findUnique({
           where: {
-            organizationId_type_id: {
+            organizationId_type_tokenId: {
               organizationId,
               type: this.name,
-              id,
+              tokenId: id,
             },
           },
         });
@@ -203,14 +203,15 @@ export class OidcIdpService {
       async consume(id: string) {
         await this.prisma.oidcToken.update({
           where: {
-            organizationId_type_id: {
+            organizationId_type_tokenId: {
               organizationId,
               type: this.name,
-              id,
+              tokenId: id,
             },
           },
           data: {
             consumed: true,
+            consumedAt: new Date(),
           },
         });
       }
@@ -218,10 +219,10 @@ export class OidcIdpService {
       async destroy(id: string) {
         await this.prisma.oidcToken.delete({
           where: {
-            organizationId_type_id: {
+            organizationId_type_tokenId: {
               organizationId,
               type: this.name,
-              id,
+              tokenId: id,
             },
           },
         });
@@ -288,7 +289,7 @@ export class OidcIdpService {
 
     return {
       accountId: user.id,
-      async claims(use, scope) {
+      async claims(use: string, scope: string): Promise<any> {
         return {
           sub: user.id,
           email: user.email,

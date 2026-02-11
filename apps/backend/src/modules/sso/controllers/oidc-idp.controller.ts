@@ -167,7 +167,10 @@ export class OidcIdpController {
         organizationId,
       );
 
-      const interaction = await provider.interactionDetails(req, res);
+      // oidc-provider requires both req and res for interactionDetails
+      // Create a minimal response object for the interaction
+      const mockRes: any = {};
+      const interaction = await provider.interactionDetails(req, mockRes);
 
       // Get application details
       const application = await this.prisma.application.findFirst({
