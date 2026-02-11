@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SsoService } from '../sso.service';
-import * as openid from 'openid-client';
+import { Issuer, generators } from 'openid-client';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -26,14 +26,15 @@ export class OidcClientService {
 
     try {
       // Discover OIDC provider configuration
-      const issuerUrl = new URL(provider.oidcIssuer);
-      const config = await openid.discovery(
-        issuerUrl,
-        provider.oidcClientId,
-        provider.oidcClientSecret || undefined,
-      );
+      const issuer = await Issuer.discover(provider.oidcIssuer);
+      const client = new issuer.Client({
+        client_id: provider.oidcClientId,
+        client_secret: provider.oidcClientSecret || undefined,
+        redirect_uris: [redirectUri],
+        response_types: ['code'],
+      });
 
-      return { config, redirectUri, provider };
+      return { client, redirectUri, provider };
     } catch (error: any) {
       throw new BadRequestException(
         `Failed to initialize OIDC client: ${error.message}`,
@@ -42,31 +43,17 @@ export class OidcClientService {
   }
 
   /**
-   * Generate random code verifier for PKCE
-   */
-  private generateCodeVerifier(): string {
-    return openid.randomPKCECodeVerifier();
-  }
-
-  /**
-   * Generate code challenge from verifier (async)
-   */
-  private async generateCodeChallenge(verifier: string): Promise<string> {
-    return await openid.calculatePKCECodeChallenge(verifier);
-  }
-
-  /**
    * Generate random nonce
    */
   private generateNonce(): string {
-    return crypto.randomBytes(16).toString('hex');
+    return generators.nonce();
   }
 
   /**
    * Generate random state
    */
   private generateState(): string {
-    return crypto.randomBytes(16).toString('hex');
+    return generators.state();
   }
 
   /**
@@ -84,18 +71,18 @@ export class OidcClientService {
       throw new BadRequestException('SSO provider not found');
     }
 
-    const { config, redirectUri } = await this.getOidcConfig(providerId);
+    const { client, redirectUri } = await this.getOidcConfig(providerId);
 
     // Generate PKCE code verifier and challenge
-    const codeVerifier = this.generateCodeVerifier();
-    const codeChallenge = await this.generateCodeChallenge(codeVerifier);
+    const codeVerifier = generators.codeVerifier();
+    const codeChallenge = generators.codeChallenge(codeVerifier);
 
     // Generate nonce and state
     const nonce = this.generateNonce();
     const stateValue = state || this.generateState();
 
-    // Build authorization parameters
-    const parameters: Record<string, string> = {
+    // Build authorization URL
+    const authorizationUrl = client.authorizationUrl({
       redirect_uri: redirectUri,
       scope:
         (providerData.oidcScopes || ['openid', 'profile', 'email']).join(' '),
@@ -103,12 +90,9 @@ export class OidcClientService {
       nonce,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
-    };
+    });
 
-    // Build authorization URL
-    const authorizationUrl = openid.buildAuthorizationUrl(config, parameters);
-
-    return { url: authorizationUrl.href, codeVerifier, nonce };
+    return { url: authorizationUrl, codeVerifier, nonce };
   }
 
   /**
@@ -126,35 +110,26 @@ export class OidcClientService {
     lastName?: string;
     attributes: any;
   }> {
-    const { config, redirectUri } = await this.getOidcConfig(providerId);
+    const { client, redirectUri } = await this.getOidcConfig(providerId);
 
     try {
       // Build callback parameters
-      const currentUrl = new URL(redirectUri);
-      currentUrl.searchParams.set('code', code);
+      const params = { code };
 
       // Exchange authorization code for tokens
-      const tokens = await openid.authorizationCodeGrant(
-        config,
-        currentUrl,
-        {
-          pkceCodeVerifier: codeVerifier,
-          expectedNonce: nonce,
-        },
-      );
+      const tokenSet = await client.callback(redirectUri, params, {
+        code_verifier: codeVerifier,
+        nonce,
+      });
 
-      // Extract ID token claims (already validated by authorizationCodeGrant)
-      const claims = tokens.claims() as any;
+      // Extract ID token claims
+      const claims = tokenSet.claims();
 
       // Get user info if access token is available
       let userinfo: any = {};
-      if (tokens.access_token) {
+      if (tokenSet.access_token) {
         try {
-          userinfo = await openid.fetchUserInfo(
-            config,
-            tokens.access_token,
-            claims.sub,
-          );
+          userinfo = await client.userinfo(tokenSet.access_token);
         } catch (error) {
           // If userinfo fails, just use ID token claims
           console.warn('Failed to fetch userinfo, using ID token claims only');
