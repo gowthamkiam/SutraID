@@ -3,7 +3,7 @@ nixPkgs = ["nodejs_20", "openssl"]
 cmds = ["npm install -g pnpm@8.15.1"]
 
 [phases.install]
-cmds = ["pnpm install --frozen-lockfile || pnpm install"]
+cmds = ["pnpm install --no-frozen-lockfile"]
 
 [phases.build]
 cmds = ["npx prisma generate", "pnpm build"]
