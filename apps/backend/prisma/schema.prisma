@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // ============================================================================
@@ -252,6 +253,10 @@ model Application {
   samlNameIdFormat   String?  // NameID format (default: emailAddress)
   samlAttributeMapping Json?  // Map our attributes to SP's expected attributes
 
+  // OIDC Identity Provider Configuration (Phase 3)
+  oidcIdpEnabled     Boolean  @default(false)  // Enable this app to use us as OIDC IDP
+  oidcScopes         String[] @default(["openid", "profile", "email"])  // Allowed scopes
+
   // Timestamps
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -370,10 +375,43 @@ model SsoIdentity {
 }
 
 // ============================================================================
-// FUTURE TABLES (Will add in Phase 3-5)
+// OIDC IDENTITY PROVIDER (Phase 3)
 // ============================================================================
 
-// Phase 3: Identity Provider mode (we become IdP)
+// OidcToken - Stores OIDC Provider tokens (authorization codes, access tokens, etc.)
+// Used by oidc-provider library
+model OidcToken {
+  id                String   @id @default(uuid())
+  organizationId    String
+
+  // Token type (AuthorizationCode, AccessToken, RefreshToken, etc.)
+  type              String
+
+  // Token identifier (from oidc-provider)
+  tokenId           String
+
+  // Serialized payload (JSON)
+  payload           String   @db.Text
+
+  // Expiration
+  expiresAt         DateTime
+
+  // Consumption tracking
+  consumed          Boolean  @default(false)
+  consumedAt        DateTime?
+
+  createdAt         DateTime @default(now())
+
+  @@unique([organizationId, type, tokenId])
+  @@index([organizationId, type])
+  @@index([expiresAt])
+  @@map("oidc_tokens")
+}
+
+// ============================================================================
+// FUTURE TABLES (Will add in Phase 4-5)
+// ============================================================================
+
 // Phase 4: Policy & NetworkZone models
 // Phase 5: AuditLog model
 // Future: Identity (social OAuth), MfaMethod, Agent, AgentToken, McpServer, ApiKey

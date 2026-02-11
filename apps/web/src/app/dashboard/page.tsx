@@ -5,11 +5,96 @@ import { useRouter } from 'next/navigation';
 
 type ColorMode = 'light' | 'dark' | 'auto';
 
+interface StatCard {
+  label: string;
+  value: string;
+  change: string;
+  trend: 'up' | 'down' | 'neutral';
+  icon: string;
+}
+
+interface QuickAction {
+  title: string;
+  description: string;
+  icon: string;
+  href: string;
+  color: string;
+}
+
+interface Activity {
+  id: string;
+  type: string;
+  message: string;
+  time: string;
+  icon: string;
+}
+
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [colorMode, setColorMode] = useState<ColorMode>('light');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const router = useRouter();
+
+  // Mock data - replace with API calls
+  const stats: StatCard[] = [
+    { label: 'Total Users', value: '2,543', change: '+12.5%', trend: 'up', icon: '👥' },
+    { label: 'Active Sessions', value: '1,234', change: '+8.2%', trend: 'up', icon: '🟢' },
+    { label: 'SSO Providers', value: '3', change: '0', trend: 'neutral', icon: '🔐' },
+    { label: 'Auth Events (24h)', value: '12.4K', change: '+18.3%', trend: 'up', icon: '📊' },
+  ];
+
+  const quickActions: QuickAction[] = [
+    {
+      title: 'SSO Providers',
+      description: 'Manage SAML and OIDC integrations',
+      icon: '🔐',
+      href: '/dashboard/sso/providers',
+      color: '#6366f1',
+    },
+    {
+      title: 'Applications',
+      description: 'Configure your applications',
+      icon: '📱',
+      href: '/dashboard/applications',
+      color: '#8b5cf6',
+    },
+    {
+      title: 'Users',
+      description: 'Manage user accounts',
+      icon: '👤',
+      href: '/dashboard/users',
+      color: '#ec4899',
+    },
+    {
+      title: 'Authentication',
+      description: 'Configure auth methods',
+      icon: '🔑',
+      href: '/dashboard/authentication',
+      color: '#f59e0b',
+    },
+    {
+      title: 'Audit Logs',
+      description: 'View security events',
+      icon: '📜',
+      href: '/dashboard/audit',
+      color: '#10b981',
+    },
+    {
+      title: 'Settings',
+      description: 'Organization settings',
+      icon: '⚙️',
+      href: '/dashboard/settings',
+      color: '#6b7280',
+    },
+  ];
+
+  const recentActivity: Activity[] = [
+    { id: '1', type: 'login', message: 'User john@example.com logged in via SSO', time: '2 min ago', icon: '🔓' },
+    { id: '2', type: 'sso', message: 'SSO Provider "Okta" was updated', time: '1 hour ago', icon: '🔐' },
+    { id: '3', type: 'user', message: 'New user sarah@example.com was created', time: '3 hours ago', icon: '👤' },
+    { id: '4', type: 'auth', message: 'Magic link sent to admin@example.com', time: '5 hours ago', icon: '✉️' },
+  ];
 
   // Load saved color mode
   useEffect(() => {
@@ -39,7 +124,6 @@ export default function DashboardPage() {
       }
 
       try {
-        // Verify token is still valid by calling /auth/me
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
         const response = await fetch(`${apiUrl}/auth/me`, {
           headers: {
@@ -54,7 +138,6 @@ export default function DashboardPage() {
         const data = await response.json();
         setUser(data.user);
       } catch (error) {
-        // Token invalid or expired, redirect to login
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
@@ -84,12 +167,9 @@ export default function DashboardPage() {
       }
     }
 
-    // Clear local storage
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
-
-    // Redirect to login
     router.push('/login');
   };
 
@@ -100,13 +180,14 @@ export default function DashboardPage() {
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100vh',
-        fontFamily: 'system-ui, sans-serif'
+        background: 'var(--bg-primary, #0f1419)',
+        fontFamily: 'system-ui, -apple-system, sans-serif'
       }}>
         <div style={{
           width: '60px',
           height: '60px',
-          border: '4px solid #f3f3f3',
-          borderTop: '4px solid #000',
+          border: '4px solid rgba(99, 102, 241, 0.1)',
+          borderTop: '4px solid #6366f1',
           borderRadius: '50%',
           animation: 'spin 1s linear infinite'
         }} />
@@ -127,212 +208,421 @@ export default function DashboardPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      fontFamily: 'system-ui, sans-serif',
-      background: 'var(--bg-primary, #f9fafb)',
-      color: 'var(--text-primary, #000)'
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      background: 'var(--bg-primary, #0f1419)',
+      color: 'var(--text-primary, #e6edf3)',
+      display: 'flex'
     }}>
-      {/* Header */}
-      <header style={{
-        background: 'var(--bg-card, #fff)',
-        borderBottom: '1px solid var(--border-color, #e5e7eb)',
-        padding: '1rem 2rem'
+      {/* Sidebar */}
+      <aside style={{
+        width: sidebarCollapsed ? '80px' : '260px',
+        background: 'var(--bg-card, #161b22)',
+        borderRight: '1px solid var(--border-color, #30363d)',
+        display: 'flex',
+        flexDirection: 'column',
+        transition: 'width 0.3s ease',
+        position: 'fixed',
+        height: '100vh',
+        zIndex: 100,
       }}>
+        {/* Logo */}
         <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
+          padding: '1.5rem',
+          borderBottom: '1px solid var(--border-color, #30363d)',
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          justifyContent: 'space-between'
         }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: '600' }}>
-            SutraID Dashboard
-          </h1>
+          {!sidebarCollapsed && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.25rem'
+              }}>
+                🔐
+              </div>
+              <span style={{ fontWeight: '700', fontSize: '1.1rem' }}>SutraID</span>
+            </div>
+          )}
           <button
-            onClick={handleLogout}
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             style={{
-              padding: '0.5rem 1rem',
-              background: 'var(--bg-card, #fff)',
-              color: 'var(--text-primary, #000)',
-              border: '1px solid var(--border-input, #ddd)',
-              borderRadius: '6px',
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-secondary, #7d8590)',
               cursor: 'pointer',
-              fontSize: '0.9rem'
+              fontSize: '1.2rem',
+              padding: '0.25rem'
             }}
           >
-            Logout
+            {sidebarCollapsed ? '→' : '←'}
           </button>
         </div>
-      </header>
+
+        {/* Navigation */}
+        <nav style={{ flex: 1, padding: '1rem', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {[
+              { icon: '📊', label: 'Dashboard', href: '/dashboard', active: true },
+              { icon: '🔐', label: 'SSO Providers', href: '/dashboard/sso/providers' },
+              { icon: '📱', label: 'Applications', href: '/dashboard/applications' },
+              { icon: '👥', label: 'Users', href: '/dashboard/users' },
+              { icon: '🔑', label: 'Auth Methods', href: '/dashboard/authentication' },
+              { icon: '📜', label: 'Audit Logs', href: '/dashboard/audit' },
+              { icon: '⚙️', label: 'Settings', href: '/dashboard/settings' },
+            ].map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.75rem',
+                  borderRadius: '8px',
+                  background: item.active ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                  color: item.active ? '#a5b4fc' : 'var(--text-secondary, #7d8590)',
+                  textDecoration: 'none',
+                  fontSize: '0.95rem',
+                  fontWeight: item.active ? '600' : '500',
+                  transition: 'all 0.2s',
+                  border: item.active ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid transparent',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => {
+                  if (!item.active) {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!item.active) {
+                    e.currentTarget.style.background = 'transparent';
+                  }
+                }}
+              >
+                <span style={{ fontSize: '1.25rem' }}>{item.icon}</span>
+                {!sidebarCollapsed && <span>{item.label}</span>}
+              </a>
+            ))}
+          </div>
+        </nav>
+
+        {/* User Profile */}
+        <div style={{
+          padding: '1rem',
+          borderTop: '1px solid var(--border-color, #30363d)',
+        }}>
+          {!sidebarCollapsed ? (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.75rem',
+              background: 'rgba(255, 255, 255, 0.03)',
+              borderRadius: '8px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #ec4899, #f59e0b)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  color: '#fff'
+                }}>
+                  {user?.email?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {user?.email}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary, #6e7681)' }}>
+                    Admin
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-secondary, #7d8590)',
+                  cursor: 'pointer',
+                  fontSize: '1.1rem',
+                  padding: '0.25rem'
+                }}
+                title="Logout"
+              >
+                🚪
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleLogout}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'var(--text-secondary, #7d8590)',
+                cursor: 'pointer',
+                fontSize: '1.5rem'
+              }}
+              title="Logout"
+            >
+              🚪
+            </button>
+          )}
+        </div>
+      </aside>
 
       {/* Main Content */}
       <main style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: '2rem'
+        flex: 1,
+        marginLeft: sidebarCollapsed ? '80px' : '260px',
+        transition: 'margin-left 0.3s ease',
+        overflowY: 'auto'
       }}>
-        {/* Welcome Card */}
-        <div style={{
-          background: 'var(--bg-card, #fff)',
-          padding: '2rem',
-          borderRadius: '12px',
-          boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.1))',
-          marginBottom: '2rem'
+        {/* Top Bar */}
+        <header style={{
+          background: 'var(--bg-card, #161b22)',
+          borderBottom: '1px solid var(--border-color, #30363d)',
+          padding: '1.25rem 2rem',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          backdropFilter: 'blur(8px)',
         }}>
-          <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-            Welcome back!
-          </h2>
-          <p style={{ color: 'var(--text-secondary, #666)', marginBottom: '1.5rem' }}>
-            You're successfully authenticated with SutraID
-          </p>
-
           <div style={{
-            background: 'var(--bg-primary, #f9fafb)',
-            padding: '1.5rem',
-            borderRadius: '8px',
-            border: '1px solid var(--border-color, #e5e7eb)'
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
           }}>
-            <h3 style={{ fontSize: '1rem', marginBottom: '1rem', fontWeight: '600' }}>
-              Your Profile
-            </h3>
-            <div style={{ display: 'grid', gap: '0.75rem' }}>
-              <div>
-                <span style={{ color: 'var(--text-secondary, #666)', fontSize: '0.9rem' }}>Email: </span>
-                <span style={{ fontWeight: '500' }}>{user.email}</span>
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-secondary, #666)', fontSize: '0.9rem' }}>User ID: </span>
-                <span style={{ fontWeight: '500', fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                  {user.id}
-                </span>
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-secondary, #666)', fontSize: '0.9rem' }}>Status: </span>
-                <span style={{
-                  background: 'var(--success-bg, #d4edda)',
-                  color: 'var(--success-text, #155724)',
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '4px',
-                  fontSize: '0.85rem',
-                  fontWeight: '500'
-                }}>
-                  {user.status}
-                </span>
-              </div>
-              {user.emailVerified && (
-                <div>
-                  <span style={{ color: 'var(--text-secondary, #666)', fontSize: '0.9rem' }}>Email Verified: </span>
-                  <span style={{ color: 'var(--success-text, #155724)' }}>Yes</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div style={{
-          background: 'var(--bg-card, #fff)',
-          padding: '2rem',
-          borderRadius: '12px',
-          boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.1))',
-          marginBottom: '2rem'
-        }}>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', fontWeight: '600' }}>
-            Quick Actions
-          </h2>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => router.push('/dashboard/sso/providers')}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: 'var(--btn-primary-bg, #000)',
-                color: 'var(--btn-primary-text, #fff)',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '0.95rem',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
-              }}
-            >
-              Manage SSO Providers
-            </button>
-          </div>
-        </div>
-
-        {/* Mode Settings */}
-        <div style={{
-          background: 'var(--bg-card, #fff)',
-          padding: '2rem',
-          borderRadius: '12px',
-          boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.1))',
-          marginBottom: '2rem'
-        }}>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '0.25rem', fontWeight: '600' }}>
-            Mode
-          </h2>
-          <p style={{ color: 'var(--text-secondary, #666)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
-            Choose a color mode.
-          </p>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            {([
-              { mode: 'light' as ColorMode, label: 'Light', icon: '\u2600' },
-              { mode: 'dark' as ColorMode, label: 'Dark', icon: '\u263E' },
-              { mode: 'auto' as ColorMode, label: 'Auto', icon: '\u25D0' },
-            ]).map(({ mode, label, icon }) => (
-              <button
-                key={mode}
-                onClick={() => handleColorModeChange(mode)}
-                style={{
-                  flex: 1,
-                  padding: '1rem',
-                  background: colorMode === mode ? 'var(--btn-primary-bg, #000)' : 'var(--bg-input, #fff)',
-                  color: colorMode === mode ? 'var(--btn-primary-text, #fff)' : 'var(--text-primary, #000)',
-                  border: `2px solid ${colorMode === mode ? 'var(--btn-primary-bg, #000)' : 'var(--border-input, #ddd)'}`,
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '0.95rem',
-                  fontWeight: '500',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <span style={{ fontSize: '1.5rem' }}>{icon}</span>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Features Grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-          gap: '1.5rem'
-        }}>
-          {[
-            { title: 'Passwordless Auth', desc: 'Secure magic link authentication without passwords' },
-            { title: 'AI-Native', desc: 'Built for humans AND AI agents' },
-            { title: '$0/month', desc: 'Free tier for demo and early adoption' },
-          ].map((feature) => (
-            <div key={feature.title} style={{
-              background: 'var(--bg-card, #fff)',
-              padding: '1.5rem',
-              borderRadius: '12px',
-              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.1))'
-            }}>
-              <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>
-                {feature.title}
-              </h3>
-              <p style={{ color: 'var(--text-secondary, #666)', fontSize: '0.9rem' }}>
-                {feature.desc}
+            <div>
+              <h1 style={{
+                fontSize: '1.75rem',
+                fontWeight: '700',
+                margin: '0 0 0.25rem',
+                background: 'linear-gradient(135deg, #e6edf3, #a5b4fc)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}>
+                Hi there! 👋
+              </h1>
+              <p style={{ color: 'var(--text-secondary, #7d8590)', margin: 0, fontSize: '0.95rem' }}>
+                Welcome back to your dashboard
               </p>
             </div>
-          ))}
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              {/* Color Mode Switcher */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: '8px',
+                padding: '0.25rem',
+                display: 'flex',
+                gap: '0.25rem'
+              }}>
+                {([
+                  { mode: 'light' as ColorMode, icon: '☀️' },
+                  { mode: 'dark' as ColorMode, icon: '🌙' },
+                  { mode: 'auto' as ColorMode, icon: '◐' },
+                ]).map(({ mode, icon }) => (
+                  <button
+                    key={mode}
+                    onClick={() => handleColorModeChange(mode)}
+                    style={{
+                      background: colorMode === mode ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '0.5rem 0.75rem',
+                      cursor: 'pointer',
+                      fontSize: '1.1rem',
+                      transition: 'background 0.2s'
+                    }}
+                    title={mode}
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div style={{ padding: '2rem' }}>
+          {/* Stats Grid */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '1.25rem',
+            marginBottom: '2rem'
+          }}>
+            {stats.map((stat) => (
+              <div key={stat.label} style={{
+                background: 'var(--bg-card, #161b22)',
+                border: '1px solid var(--border-color, #30363d)',
+                borderRadius: '12px',
+                padding: '1.5rem',
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#6366f1';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.15)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-color, #30363d)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                  <span style={{ fontSize: '2rem' }}>{stat.icon}</span>
+                  <span style={{
+                    fontSize: '0.8rem',
+                    fontWeight: '600',
+                    color: stat.trend === 'up' ? '#10b981' : stat.trend === 'down' ? '#ef4444' : 'var(--text-secondary, #7d8590)',
+                    background: stat.trend === 'up' ? 'rgba(16, 185, 129, 0.15)' : stat.trend === 'down' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(125, 133, 144, 0.15)',
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '6px'
+                  }}>
+                    {stat.change}
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', marginBottom: '0.25rem' }}>
+                  {stat.label}
+                </div>
+                <div style={{ fontSize: '2rem', fontWeight: '700', letterSpacing: '-0.02em' }}>
+                  {stat.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Quick Actions */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h2 style={{
+              fontSize: '1.25rem',
+              fontWeight: '700',
+              marginBottom: '1rem',
+              color: 'var(--text-primary, #e6edf3)'
+            }}>
+              Quick Actions
+            </h2>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: '1.25rem'
+            }}>
+              {quickActions.map((action) => (
+                <a
+                  key={action.href}
+                  href={action.href}
+                  style={{
+                    background: 'var(--bg-card, #161b22)',
+                    border: '1px solid var(--border-color, #30363d)',
+                    borderRadius: '12px',
+                    padding: '1.5rem',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    transition: 'all 0.2s',
+                    cursor: 'pointer'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = action.color;
+                    e.currentTarget.style.boxShadow = `0 4px 12px ${action.color}25`;
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-color, #30363d)';
+                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>
+                    {action.icon}
+                  </div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+                    {action.title}
+                  </h3>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary, #7d8590)', margin: 0 }}>
+                    {action.description}
+                  </p>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div>
+            <h2 style={{
+              fontSize: '1.25rem',
+              fontWeight: '700',
+              marginBottom: '1rem',
+              color: 'var(--text-primary, #e6edf3)'
+            }}>
+              Recent Activity
+            </h2>
+            <div style={{
+              background: 'var(--bg-card, #161b22)',
+              border: '1px solid var(--border-color, #30363d)',
+              borderRadius: '12px',
+              overflow: 'hidden'
+            }}>
+              {recentActivity.map((activity, index) => (
+                <div
+                  key={activity.id}
+                  style={{
+                    padding: '1.25rem 1.5rem',
+                    borderBottom: index < recentActivity.length - 1 ? '1px solid var(--border-color, #30363d)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '10px',
+                    background: 'rgba(99, 102, 241, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.25rem',
+                    flexShrink: 0
+                  }}>
+                    {activity.icon}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.95rem', marginBottom: '0.25rem' }}>
+                      {activity.message}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary, #6e7681)' }}>
+                      {activity.time}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </main>
     </div>
