@@ -6,7 +6,7 @@ cmds = ["npm install -g pnpm@8.15.1"]
 cmds = ["pnpm install --frozen-lockfile || pnpm install"]
 
 [phases.build]
-cmds = ["pnpm prisma generate", "pnpm build"]
+cmds = ["npx prisma generate", "pnpm build"]
 
 [start]
-cmd = "pnpm prisma migrate deploy && node dist/main"
+cmd = "npx prisma migrate deploy && node dist/main"
