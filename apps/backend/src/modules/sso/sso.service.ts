@@ -1,0 +1,362 @@
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { OrganizationService } from '../organization/organization.service';
+import { CreateSsoProviderDto } from './dto/create-sso-provider.dto';
+import { UpdateSsoProviderDto } from './dto/update-sso-provider.dto';
+import { OrgRole, SsoProtocol } from '@prisma/client';
+import * as crypto from 'crypto';
+
+@Injectable()
+export class SsoService {
+  constructor(
+    private prisma: PrismaService,
+    private organizationService: OrganizationService,
+  ) {}
+
+  /**
+   * Encrypt sensitive data (certificates, secrets)
+   */
+  private encrypt(text: string): string {
+    const algorithm = 'aes-256-gcm';
+    const key = Buffer.from(process.env.ENCRYPTION_KEY || '', 'hex');
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(algorithm, key, iv);
+
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+
+    const authTag = cipher.getAuthTag();
+
+    // Return iv:authTag:encrypted
+    return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
+  }
+
+  /**
+   * Decrypt sensitive data
+   */
+  private decrypt(encryptedText: string): string {
+    const algorithm = 'aes-256-gcm';
+    const key = Buffer.from(process.env.ENCRYPTION_KEY || '', 'hex');
+
+    const parts = encryptedText.split(':');
+    const iv = Buffer.from(parts[0], 'hex');
+    const authTag = Buffer.from(parts[1], 'hex');
+    const encrypted = parts[2];
+
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    decipher.setAuthTag(authTag);
+
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+
+    return decrypted;
+  }
+
+  /**
+   * Create a new SSO provider
+   */
+  async create(
+    organizationId: string,
+    userId: string,
+    dto: CreateSsoProviderDto,
+  ) {
+    // Check permission (OWNER or ADMIN only)
+    await this.organizationService.checkPermission(organizationId, userId, [
+      OrgRole.OWNER,
+      OrgRole.ADMIN,
+    ]);
+
+    // Validate configuration based on protocol
+    if (dto.protocol === SsoProtocol.SAML2) {
+      if (!dto.samlEntityId || !dto.samlSsoUrl || !dto.samlCertificate) {
+        throw new BadRequestException(
+          'SAML protocol requires entityId, ssoUrl, and certificate',
+        );
+      }
+    } else if (dto.protocol === SsoProtocol.OIDC) {
+      if (!dto.oidcIssuer || !dto.oidcClientId || !dto.oidcClientSecret) {
+        throw new BadRequestException(
+          'OIDC protocol requires issuer, clientId, and clientSecret',
+        );
+      }
+    }
+
+    // Encrypt sensitive fields
+    const data: any = {
+      organizationId,
+      name: dto.name,
+      type: dto.type,
+      protocol: dto.protocol,
+      enabled: dto.enabled ?? true,
+      autoProvision: dto.autoProvision ?? true,
+      allowedDomains: dto.allowedDomains || [],
+      attributeMapping: dto.attributeMapping || {},
+    };
+
+    // Add SAML fields (encrypted)
+    if (dto.protocol === SsoProtocol.SAML2) {
+      data.samlEntityId = dto.samlEntityId;
+      data.samlSsoUrl = dto.samlSsoUrl;
+      data.samlCertificate = this.encrypt(dto.samlCertificate!);
+      data.samlMetadataUrl = dto.samlMetadataUrl;
+    }
+
+    // Add OIDC fields (encrypted secret)
+    if (dto.protocol === SsoProtocol.OIDC) {
+      data.oidcIssuer = dto.oidcIssuer;
+      data.oidcClientId = dto.oidcClientId;
+      data.oidcClientSecret = this.encrypt(dto.oidcClientSecret!);
+      data.oidcAuthUrl = dto.oidcAuthUrl;
+      data.oidcTokenUrl = dto.oidcTokenUrl;
+      data.oidcUserinfoUrl = dto.oidcUserinfoUrl;
+      data.oidcScopes = dto.oidcScopes || ['openid', 'profile', 'email'];
+    }
+
+    return this.prisma.ssoProvider.create({
+      data,
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        protocol: true,
+        samlEntityId: true,
+        samlSsoUrl: true,
+        samlMetadataUrl: true,
+        // Do NOT return encrypted certificate
+        oidcIssuer: true,
+        oidcClientId: true,
+        oidcAuthUrl: true,
+        oidcTokenUrl: true,
+        oidcUserinfoUrl: true,
+        oidcScopes: true,
+        // Do NOT return encrypted client secret
+        attributeMapping: true,
+        enabled: true,
+        autoProvision: true,
+        allowedDomains: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  /**
+   * Get all SSO providers for an organization
+   */
+  async findAll(organizationId: string, userId: string) {
+    // Check if user has access to organization
+    await this.organizationService.checkPermission(organizationId, userId, [
+      OrgRole.OWNER,
+      OrgRole.ADMIN,
+      OrgRole.DEVELOPER,
+      OrgRole.MEMBER,
+    ]);
+
+    return this.prisma.ssoProvider.findMany({
+      where: { organizationId },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        protocol: true,
+        enabled: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  /**
+   * Get single SSO provider details
+   */
+  async findOne(providerId: string, userId: string) {
+    const provider = await this.prisma.ssoProvider.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('SSO provider not found');
+    }
+
+    // Check if user has access
+    await this.organizationService.checkPermission(
+      provider.organizationId,
+      userId,
+      [OrgRole.OWNER, OrgRole.ADMIN, OrgRole.DEVELOPER, OrgRole.MEMBER],
+    );
+
+    // Return without sensitive fields
+    return {
+      id: provider.id,
+      organizationId: provider.organizationId,
+      name: provider.name,
+      type: provider.type,
+      protocol: provider.protocol,
+      samlEntityId: provider.samlEntityId,
+      samlSsoUrl: provider.samlSsoUrl,
+      samlMetadataUrl: provider.samlMetadataUrl,
+      oidcIssuer: provider.oidcIssuer,
+      oidcClientId: provider.oidcClientId,
+      oidcAuthUrl: provider.oidcAuthUrl,
+      oidcTokenUrl: provider.oidcTokenUrl,
+      oidcUserinfoUrl: provider.oidcUserinfoUrl,
+      oidcScopes: provider.oidcScopes,
+      attributeMapping: provider.attributeMapping,
+      enabled: provider.enabled,
+      autoProvision: provider.autoProvision,
+      allowedDomains: provider.allowedDomains,
+      createdAt: provider.createdAt,
+      updatedAt: provider.updatedAt,
+    };
+  }
+
+  /**
+   * Update SSO provider
+   */
+  async update(
+    providerId: string,
+    userId: string,
+    dto: UpdateSsoProviderDto,
+  ) {
+    const provider = await this.prisma.ssoProvider.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('SSO provider not found');
+    }
+
+    // Check if user has permission (OWNER or ADMIN)
+    await this.organizationService.checkPermission(
+      provider.organizationId,
+      userId,
+      [OrgRole.OWNER, OrgRole.ADMIN],
+    );
+
+    const data: any = {
+      name: dto.name,
+      enabled: dto.enabled,
+      autoProvision: dto.autoProvision,
+      allowedDomains: dto.allowedDomains,
+      attributeMapping: dto.attributeMapping,
+    };
+
+    // Update SAML fields
+    if (dto.samlEntityId) data.samlEntityId = dto.samlEntityId;
+    if (dto.samlSsoUrl) data.samlSsoUrl = dto.samlSsoUrl;
+    if (dto.samlCertificate)
+      data.samlCertificate = this.encrypt(dto.samlCertificate);
+    if (dto.samlMetadataUrl) data.samlMetadataUrl = dto.samlMetadataUrl;
+
+    // Update OIDC fields
+    if (dto.oidcIssuer) data.oidcIssuer = dto.oidcIssuer;
+    if (dto.oidcClientId) data.oidcClientId = dto.oidcClientId;
+    if (dto.oidcClientSecret)
+      data.oidcClientSecret = this.encrypt(dto.oidcClientSecret);
+    if (dto.oidcAuthUrl) data.oidcAuthUrl = dto.oidcAuthUrl;
+    if (dto.oidcTokenUrl) data.oidcTokenUrl = dto.oidcTokenUrl;
+    if (dto.oidcUserinfoUrl) data.oidcUserinfoUrl = dto.oidcUserinfoUrl;
+    if (dto.oidcScopes) data.oidcScopes = dto.oidcScopes;
+
+    return this.prisma.ssoProvider.update({
+      where: { id: providerId },
+      data,
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        protocol: true,
+        samlEntityId: true,
+        samlSsoUrl: true,
+        samlMetadataUrl: true,
+        oidcIssuer: true,
+        oidcClientId: true,
+        oidcAuthUrl: true,
+        oidcTokenUrl: true,
+        oidcUserinfoUrl: true,
+        oidcScopes: true,
+        attributeMapping: true,
+        enabled: true,
+        autoProvision: true,
+        allowedDomains: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  /**
+   * Delete SSO provider
+   */
+  async remove(providerId: string, userId: string) {
+    const provider = await this.prisma.ssoProvider.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('SSO provider not found');
+    }
+
+    // Only OWNER or ADMIN can delete
+    await this.organizationService.checkPermission(
+      provider.organizationId,
+      userId,
+      [OrgRole.OWNER, OrgRole.ADMIN],
+    );
+
+    // Delete provider (this will cascade delete identities)
+    return this.prisma.ssoProvider.delete({
+      where: { id: providerId },
+    });
+  }
+
+  /**
+   * Get provider with decrypted secrets (for internal use only)
+   */
+  async getProviderWithSecrets(providerId: string) {
+    const provider = await this.prisma.ssoProvider.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('SSO provider not found');
+    }
+
+    // Decrypt sensitive fields
+    if (provider.samlCertificate) {
+      provider.samlCertificate = this.decrypt(provider.samlCertificate);
+    }
+
+    if (provider.oidcClientSecret) {
+      provider.oidcClientSecret = this.decrypt(provider.oidcClientSecret);
+    }
+
+    return provider;
+  }
+
+  /**
+   * Find enabled SSO providers for an organization (for login page)
+   */
+  async findEnabledProviders(organizationId: string) {
+    return this.prisma.ssoProvider.findMany({
+      where: {
+        organizationId,
+        enabled: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        protocol: true,
+      },
+    });
+  }
+}
