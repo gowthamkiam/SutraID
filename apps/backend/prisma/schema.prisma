@@ -151,6 +151,10 @@ model Organization {
   maxMembers        Int      @default(10)
   maxApplications   Int      @default(3)
 
+  // SAML Identity Provider (Phase 3)
+  samlIdpCertificate String?  // X.509 certificate for signing SAML assertions
+  samlIdpPrivateKey  String?  // Private key (encrypted with AES-256-GCM)
+
   // Timestamps
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -240,6 +244,13 @@ model Application {
 
   // Status
   status            AppStatus @default(ACTIVE)
+
+  // SAML Identity Provider Configuration (Phase 3)
+  samlIdpEnabled     Boolean  @default(false)  // Enable this app to use us as SAML IDP
+  samlSpEntityId     String?  // External SP's Entity ID
+  samlSpAcsUrl       String?  // External SP's Assertion Consumer Service URL
+  samlNameIdFormat   String?  // NameID format (default: emailAddress)
+  samlAttributeMapping Json?  // Map our attributes to SP's expected attributes
 
   // Timestamps
   createdAt         DateTime @default(now())
