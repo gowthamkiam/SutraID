@@ -51,4 +51,12 @@ export class SsoController {
   async remove(@Request() req: any, @Param('providerId') providerId: string) {
     return this.ssoService.remove(providerId, req.user.id);
   }
+
+  @Post(':providerId/test')
+  async testConnection(
+    @Request() req: any,
+    @Param('providerId') providerId: string,
+  ) {
+    return this.ssoService.testConnection(providerId, req.user.id);
+  }
 }

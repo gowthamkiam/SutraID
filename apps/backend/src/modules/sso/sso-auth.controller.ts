@@ -13,6 +13,7 @@ import {
 import { Response, Request } from 'express';
 import { SamlSpService } from './services/saml-sp.service';
 import { OidcClientService } from './services/oidc-client.service';
+import { SsoService } from './sso.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('sso')
@@ -20,8 +21,22 @@ export class SsoAuthController {
   constructor(
     private readonly samlSpService: SamlSpService,
     private readonly oidcClientService: OidcClientService,
+    private readonly ssoService: SsoService,
     private readonly prisma: PrismaService,
   ) {}
+
+  /**
+   * Discover SSO providers by email domain (public endpoint for login page)
+   */
+  @Get('discover')
+  async discover(@Query('domain') domain: string) {
+    if (!domain) {
+      throw new BadRequestException('domain query parameter is required');
+    }
+
+    const providers = await this.ssoService.discoverByDomain(domain);
+    return { providers };
+  }
 
   // ============================================================================
   // SAML Service Provider Endpoints

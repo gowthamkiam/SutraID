@@ -9,6 +9,8 @@ export default function SsoProvidersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [testing, setTesting] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ providerId: string; success: boolean; checks: Array<{ name: string; passed: boolean; message: string }> } | null>(null);
   const router = useRouter();
 
   // For demo purposes, using a hardcoded orgId
@@ -45,6 +47,23 @@ export default function SsoProvidersPage() {
       alert('Failed to delete provider: ' + err.message);
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const handleTest = async (providerId: string) => {
+    try {
+      setTesting(providerId);
+      setTestResult(null);
+      const result = await ssoApi.testConnection(orgId, providerId);
+      setTestResult({ providerId, ...result });
+    } catch (err: any) {
+      setTestResult({
+        providerId,
+        success: false,
+        checks: [{ name: 'Connection', passed: false, message: err.message || 'Test failed' }],
+      });
+    } finally {
+      setTesting(null);
     }
   };
 
@@ -309,6 +328,42 @@ export default function SsoProvidersPage() {
                       </code>
                     </div>
                   )}
+
+                  {/* Test Results */}
+                  {testResult && testResult.providerId === provider.id && (
+                    <div style={{
+                      marginTop: '1rem',
+                      padding: '1rem',
+                      background: testResult.success ? '#f0fdf4' : '#fef2f2',
+                      border: `1px solid ${testResult.success ? '#bbf7d0' : '#fecaca'}`,
+                      borderRadius: '6px'
+                    }}>
+                      <div style={{
+                        fontWeight: '600',
+                        fontSize: '0.9rem',
+                        marginBottom: '0.5rem',
+                        color: testResult.success ? '#166534' : '#991b1b'
+                      }}>
+                        {testResult.success ? 'All checks passed' : 'Some checks failed'}
+                      </div>
+                      {testResult.checks.map((check, i) => (
+                        <div key={i} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          fontSize: '0.85rem',
+                          color: '#374151',
+                          marginTop: '0.25rem'
+                        }}>
+                          <span style={{ color: check.passed ? '#16a34a' : '#dc2626' }}>
+                            {check.passed ? '\u2713' : '\u2717'}
+                          </span>
+                          <span style={{ fontWeight: '500' }}>{check.name}:</span>
+                          <span>{check.message}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-end' }}>
@@ -341,6 +396,23 @@ export default function SsoProvidersPage() {
                     }}
                   >
                     Edit
+                  </button>
+                  <button
+                    onClick={() => handleTest(provider.id)}
+                    disabled={testing === provider.id}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: '#fff',
+                      color: '#2563eb',
+                      border: '1px solid #2563eb',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      minWidth: '100px',
+                      opacity: testing === provider.id ? 0.5 : 1
+                    }}
+                  >
+                    {testing === provider.id ? 'Testing...' : 'Test'}
                   </button>
                   <button
                     onClick={() => handleDelete(provider.id)}

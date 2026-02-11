@@ -145,4 +145,29 @@ export const ssoApi = {
   getOidcLoginUrl(providerId: string): string {
     return `${API_URL}/sso/oidc/${providerId}/login`;
   },
+
+  // Discover SSO providers by email domain (public, no auth needed)
+  async discoverProviders(domain: string): Promise<{ providers: Array<{ id: string; name: string; type: string; protocol: string; organizationId: string }> }> {
+    const response = await fetch(`${API_URL}/sso/discover?domain=${encodeURIComponent(domain)}`);
+
+    if (!response.ok) {
+      throw new Error('Failed to discover SSO providers');
+    }
+
+    return response.json();
+  },
+
+  // Test SSO provider connection
+  async testConnection(orgId: string, providerId: string): Promise<{ success: boolean; checks: Array<{ name: string; passed: boolean; message: string }> }> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/sso/providers/${providerId}/test`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to test connection');
+    }
+
+    return response.json();
+  },
 };

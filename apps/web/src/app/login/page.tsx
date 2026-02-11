@@ -1,14 +1,92 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
+import { ssoApi } from '@/lib/api';
+
+interface SsoProviderInfo {
+  id: string;
+  name: string;
+  type: string;
+  protocol: string;
+  organizationId: string;
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const router = useRouter();
+  const [ssoProviders, setSsoProviders] = useState<SsoProviderInfo[]>([]);
+  const [ssoLoading, setSsoLoading] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const getProviderIcon = (type: string) => {
+    const icons: Record<string, string> = {
+      OKTA: 'O',
+      AZURE_AD: 'M',
+      GOOGLE_WORKSPACE: 'G',
+      GENERIC_SAML: 'S',
+      GENERIC_OIDC: 'C',
+    };
+    return icons[type] || 'S';
+  };
+
+  const getProviderLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      OKTA: 'Okta',
+      AZURE_AD: 'Microsoft',
+      GOOGLE_WORKSPACE: 'Google',
+      GENERIC_SAML: 'SAML SSO',
+      GENERIC_OIDC: 'OIDC SSO',
+    };
+    return labels[type] || 'SSO';
+  };
+
+  // Debounced SSO discovery when email domain changes
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    const atIndex = email.indexOf('@');
+    if (atIndex === -1 || atIndex === email.length - 1) {
+      setSsoProviders([]);
+      return;
+    }
+
+    const domain = email.substring(atIndex + 1);
+    if (!domain.includes('.')) {
+      setSsoProviders([]);
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      setSsoLoading(true);
+      try {
+        const result = await ssoApi.discoverProviders(domain);
+        setSsoProviders(result.providers || []);
+      } catch {
+        setSsoProviders([]);
+      } finally {
+        setSsoLoading(false);
+      }
+    }, 500);
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [email]);
+
+  const handleSsoLogin = (provider: SsoProviderInfo) => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+    if (provider.protocol === 'SAML2') {
+      window.location.href = `${apiUrl}/sso/saml/${provider.organizationId}/login?providerId=${provider.id}`;
+    } else {
+      window.location.href = `${apiUrl}/sso/oidc/${provider.id}/login`;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +139,7 @@ export default function LoginPage() {
       }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
-            🔐 SutraID
+            SutraID
           </h1>
           <p style={{ color: '#666', fontSize: '0.9rem' }}>
             Sign in with your email
@@ -92,12 +170,104 @@ export default function LoginPage() {
                 borderRadius: '6px',
                 fontSize: '1rem',
                 outline: 'none',
-                transition: 'border-color 0.2s'
+                transition: 'border-color 0.2s',
+                boxSizing: 'border-box'
               }}
               onFocus={(e) => e.target.style.borderColor = '#000'}
               onBlur={(e) => e.target.style.borderColor = '#ddd'}
             />
           </div>
+
+          {/* SSO Provider Buttons */}
+          {ssoLoading && (
+            <div style={{
+              textAlign: 'center',
+              padding: '0.75rem',
+              color: '#666',
+              fontSize: '0.85rem',
+              marginBottom: '1rem'
+            }}>
+              Checking for SSO providers...
+            </div>
+          )}
+
+          {ssoProviders.length > 0 && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                marginBottom: '0.75rem'
+              }}>
+                <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+                <span style={{ color: '#666', fontSize: '0.8rem', fontWeight: '500' }}>
+                  SSO available for your domain
+                </span>
+                <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+              </div>
+
+              <div style={{ display: 'grid', gap: '0.5rem' }}>
+                {ssoProviders.map((provider) => (
+                  <button
+                    key={provider.id}
+                    type="button"
+                    onClick={() => handleSsoLogin(provider)}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      background: '#fff',
+                      color: '#000',
+                      border: '1px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '0.95rem',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#f9fafb';
+                      e.currentTarget.style.borderColor = '#000';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#fff';
+                      e.currentTarget.style.borderColor = '#ddd';
+                    }}
+                  >
+                    <span style={{
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '4px',
+                      background: '#f3f4f6',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.8rem',
+                      fontWeight: '700',
+                      color: '#374151'
+                    }}>
+                      {getProviderIcon(provider.type)}
+                    </span>
+                    Sign in with {provider.name || getProviderLabel(provider.type)}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                margin: '1rem 0'
+              }}>
+                <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+                <span style={{ color: '#999', fontSize: '0.8rem' }}>or use magic link</span>
+                <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"
@@ -129,7 +299,7 @@ export default function LoginPage() {
             color: '#155724',
             fontSize: '0.9rem'
           }}>
-            ✓ {message}
+            {message}
           </div>
         )}
 
@@ -143,7 +313,7 @@ export default function LoginPage() {
             color: '#721c24',
             fontSize: '0.9rem'
           }}>
-            ✕ {error}
+            {error}
           </div>
         )}
 
@@ -171,7 +341,7 @@ export default function LoginPage() {
             textDecoration: 'none'
           }}
         >
-          ← Back to home
+          Back to home
         </a>
       </div>
     </div>

@@ -359,4 +359,160 @@ export class SsoService {
       },
     });
   }
+
+  /**
+   * Discover SSO providers by email domain (public, for login page)
+   */
+  async discoverByDomain(domain: string) {
+    return this.prisma.ssoProvider.findMany({
+      where: {
+        enabled: true,
+        allowedDomains: {
+          has: domain,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        protocol: true,
+        organizationId: true,
+      },
+    });
+  }
+
+  /**
+   * Test SSO provider connectivity
+   */
+  async testConnection(providerId: string, userId: string) {
+    const provider = await this.prisma.ssoProvider.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('SSO provider not found');
+    }
+
+    await this.organizationService.checkPermission(
+      provider.organizationId,
+      userId,
+      [OrgRole.OWNER, OrgRole.ADMIN],
+    );
+
+    const checks: { name: string; passed: boolean; message: string }[] = [];
+
+    if (provider.protocol === 'SAML2') {
+      // Check certificate format
+      if (provider.samlCertificate) {
+        try {
+          const cert = this.decrypt(provider.samlCertificate);
+          const hasPemHeader = cert.includes('-----BEGIN CERTIFICATE-----');
+          checks.push({
+            name: 'Certificate Format',
+            passed: hasPemHeader,
+            message: hasPemHeader
+              ? 'Valid PEM certificate format'
+              : 'Certificate is missing PEM headers',
+          });
+        } catch {
+          checks.push({
+            name: 'Certificate Format',
+            passed: false,
+            message: 'Failed to decrypt certificate',
+          });
+        }
+      } else {
+        checks.push({
+          name: 'Certificate Format',
+          passed: false,
+          message: 'No certificate configured',
+        });
+      }
+
+      // Check SSO URL reachability
+      if (provider.samlSsoUrl) {
+        try {
+          const response = await fetch(provider.samlSsoUrl, {
+            method: 'HEAD',
+            signal: AbortSignal.timeout(5000),
+          });
+          checks.push({
+            name: 'SSO URL Reachability',
+            passed: response.ok || response.status === 405 || response.status === 302,
+            message: `SSO URL responded with status ${response.status}`,
+          });
+        } catch {
+          checks.push({
+            name: 'SSO URL Reachability',
+            passed: false,
+            message: 'SSO URL is unreachable',
+          });
+        }
+      } else {
+        checks.push({
+          name: 'SSO URL Reachability',
+          passed: false,
+          message: 'No SSO URL configured',
+        });
+      }
+    }
+
+    if (provider.protocol === 'OIDC') {
+      // Check OIDC discovery endpoint
+      if (provider.oidcIssuer) {
+        try {
+          const discoveryUrl = `${provider.oidcIssuer.replace(/\/$/, '')}/.well-known/openid-configuration`;
+          const response = await fetch(discoveryUrl, {
+            signal: AbortSignal.timeout(5000),
+          });
+          const isValid = response.ok;
+          let message = `Discovery endpoint responded with status ${response.status}`;
+          if (isValid) {
+            const config = await response.json();
+            message = `Discovery OK - Authorization endpoint: ${config.authorization_endpoint || 'not found'}`;
+          }
+          checks.push({
+            name: 'OIDC Discovery',
+            passed: isValid,
+            message,
+          });
+        } catch {
+          checks.push({
+            name: 'OIDC Discovery',
+            passed: false,
+            message: 'OIDC discovery endpoint is unreachable',
+          });
+        }
+      } else {
+        checks.push({
+          name: 'OIDC Discovery',
+          passed: false,
+          message: 'No issuer URL configured',
+        });
+      }
+
+      // Check client ID is set
+      checks.push({
+        name: 'Client ID',
+        passed: !!provider.oidcClientId,
+        message: provider.oidcClientId
+          ? 'Client ID is configured'
+          : 'No client ID configured',
+      });
+
+      // Check client secret is set
+      checks.push({
+        name: 'Client Secret',
+        passed: !!provider.oidcClientSecret,
+        message: provider.oidcClientSecret
+          ? 'Client secret is configured'
+          : 'No client secret configured',
+      });
+    }
+
+    return {
+      success: checks.every((c) => c.passed),
+      checks,
+    };
+  }
 }
