@@ -17,12 +17,14 @@ import { Request, Response } from 'express';
 import { OidcIdpService } from '../services/oidc-idp.service';
 import { AuthService } from '../../auth/services/auth.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Controller('sso/oidc-idp/:orgId')
 export class OidcIdpController {
   constructor(
     private oidcIdpService: OidcIdpService,
     private authService: AuthService,
+    private prisma: PrismaService,
   ) {}
 
   /**
@@ -299,5 +301,4 @@ export class OidcIdpController {
     }
   }
 
-  private prisma = new (require('../../prisma/prisma.service').PrismaService)();
 }

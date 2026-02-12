@@ -5,6 +5,7 @@ import * as saml from 'samlify';
 import { SamlAssertionBuilder } from '../utils/saml-assertion-builder';
 import { User } from '@prisma/client';
 import * as crypto from 'crypto';
+import * as forge from 'node-forge';
 
 @Injectable()
 export class SamlIdpService {
@@ -91,7 +92,7 @@ export class SamlIdpService {
     }
 
     // Generate new certificate and private key
-    const { certificate, privateKey } = await this.generateSelfSignedCertificate();
+    const { certificate, privateKey } = await this.generateSelfSignedCertificate(organizationId);
 
     // Encrypt and store in database
     const encryptedPrivateKey = this.encryptPrivateKey(privateKey);
@@ -108,29 +109,45 @@ export class SamlIdpService {
   }
 
   /**
-   * Generate self-signed certificate for SAML signing
+   * Generate self-signed X.509 certificate for SAML signing
    */
-  private async generateSelfSignedCertificate(): Promise<{
+  private async generateSelfSignedCertificate(organizationId?: string): Promise<{
     certificate: string;
     privateKey: string;
   }> {
-    // Generate RSA key pair
-    const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
-      modulusLength: 2048,
-      publicKeyEncoding: {
-        type: 'spki',
-        format: 'pem',
-      },
-      privateKeyEncoding: {
-        type: 'pkcs8',
-        format: 'pem',
-      },
-    });
+    const keys = forge.pki.rsa.generateKeyPair(2048);
 
-    // For now, return the public key as certificate
-    // In production, you should use proper X.509 certificate generation
-    // with libraries like `node-forge` or `pem`
-    const certificate = publicKey;
+    const cert = forge.pki.createCertificate();
+    cert.publicKey = keys.publicKey;
+    cert.serialNumber = '01' + forge.util.bytesToHex(forge.random.getBytesSync(8));
+
+    const now = new Date();
+    cert.validity.notBefore = now;
+    cert.validity.notAfter = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000); // 1 year
+
+    const cn = organizationId
+      ? `SutraID IdP - ${organizationId.substring(0, 8)}`
+      : 'SutraID IdP';
+
+    const attrs = [
+      { name: 'commonName', value: cn },
+      { name: 'organizationName', value: 'SutraID' },
+      { shortName: 'OU', value: 'Identity Provider' },
+    ];
+
+    cert.setSubject(attrs);
+    cert.setIssuer(attrs);
+
+    cert.setExtensions([
+      { name: 'basicConstraints', cA: false },
+      { name: 'keyUsage', digitalSignature: true, keyEncipherment: true },
+      { name: 'subjectKeyIdentifier' },
+    ]);
+
+    cert.sign(keys.privateKey, forge.md.sha256.create());
+
+    const certificate = forge.pki.certificateToPem(cert);
+    const privateKey = forge.pki.privateKeyToPem(keys.privateKey);
 
     return { certificate, privateKey };
   }

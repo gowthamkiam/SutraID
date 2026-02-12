@@ -3,6 +3,8 @@ import {
   IsOptional,
   IsArray,
   IsEnum,
+  IsBoolean,
+  IsObject,
   MaxLength,
 } from 'class-validator';
 import { AppType } from '@prisma/client';
@@ -32,4 +34,35 @@ export class CreateApplicationDto {
 
   @IsEnum(AppType)
   type: AppType;
+
+  // SAML Identity Provider Configuration (Phase 3)
+  @IsOptional()
+  @IsBoolean()
+  samlIdpEnabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  samlSpEntityId?: string;
+
+  @IsOptional()
+  @IsString()
+  samlSpAcsUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  samlNameIdFormat?: string;
+
+  @IsOptional()
+  @IsObject()
+  samlAttributeMapping?: Record<string, string>;
+
+  // OIDC Identity Provider Configuration (Phase 3)
+  @IsOptional()
+  @IsBoolean()
+  oidcIdpEnabled?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  oidcScopes?: string[];
 }

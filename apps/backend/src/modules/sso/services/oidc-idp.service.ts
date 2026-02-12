@@ -127,13 +127,15 @@ export class OidcIdpService {
    * Create database adapter for oidc-provider
    */
   private createAdapter(organizationId: string) {
+    const prisma = this.prisma;
+
     return class Adapter {
       constructor(public name: string) {}
 
       async upsert(id: string, payload: any, expiresIn: number) {
         const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
-        await this.prisma.oidcToken.upsert({
+        await prisma.oidcToken.upsert({
           where: {
             organizationId_type_tokenId: {
               organizationId,
@@ -156,7 +158,7 @@ export class OidcIdpService {
       }
 
       async find(id: string) {
-        const token = await this.prisma.oidcToken.findUnique({
+        const token = await prisma.oidcToken.findUnique({
           where: {
             organizationId_type_tokenId: {
               organizationId,
@@ -174,7 +176,7 @@ export class OidcIdpService {
       }
 
       async findByUserCode(userCode: string) {
-        const token = await this.prisma.oidcToken.findFirst({
+        const token = await prisma.oidcToken.findFirst({
           where: {
             organizationId,
             type: this.name,
@@ -192,7 +194,7 @@ export class OidcIdpService {
       }
 
       async findByUid(uid: string) {
-        const token = await this.prisma.oidcToken.findFirst({
+        const token = await prisma.oidcToken.findFirst({
           where: {
             organizationId,
             type: this.name,
@@ -210,7 +212,7 @@ export class OidcIdpService {
       }
 
       async consume(id: string) {
-        await this.prisma.oidcToken.update({
+        await prisma.oidcToken.update({
           where: {
             organizationId_type_tokenId: {
               organizationId,
@@ -226,7 +228,7 @@ export class OidcIdpService {
       }
 
       async destroy(id: string) {
-        await this.prisma.oidcToken.delete({
+        await prisma.oidcToken.delete({
           where: {
             organizationId_type_tokenId: {
               organizationId,
@@ -238,7 +240,7 @@ export class OidcIdpService {
       }
 
       async revokeByGrantId(grantId: string) {
-        await this.prisma.oidcToken.deleteMany({
+        await prisma.oidcToken.deleteMany({
           where: {
             organizationId,
             type: this.name,
@@ -248,8 +250,6 @@ export class OidcIdpService {
           },
         });
       }
-
-      private prisma = new PrismaService();
     };
   }
 

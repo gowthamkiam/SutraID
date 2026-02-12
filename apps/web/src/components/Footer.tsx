@@ -33,8 +33,8 @@ const footerSections = [
     links: [
       { label: 'About', href: '#company' },
       { label: 'Careers', href: '#company' },
-      { label: 'Contact', href: '#company' },
-      { label: 'Privacy Policy', href: '#company' },
+      { label: 'Contact', href: '/support' },
+      { label: 'Privacy Policy', href: '/privacy' },
     ],
   },
 ];
