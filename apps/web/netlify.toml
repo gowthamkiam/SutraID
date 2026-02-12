@@ -1,6 +1,10 @@
 [build]
-  command = "npm run build"
-  publish = ".next"
+  base = "apps/web"
+  command = "cd ../.. && pnpm install && pnpm turbo build --filter=@sutraid/web"
+  publish = "apps/web/.next"
+
+[build.environment]
+  NODE_VERSION = "20"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

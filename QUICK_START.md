@@ -91,12 +91,12 @@ railway up
 # Connect GitHub repo, auto-deploys
 ```
 
-### Frontend (Vercel)
+### Frontend (Netlify)
 ```bash
-# Vercel
-vercel --prod
+# Netlify
+netlify deploy --prod
 
-# Or connect GitHub repo for auto-deploy
+# Or connect GitHub/GitLab repo on netlify.com for auto-deploy
 ```
 
 ---

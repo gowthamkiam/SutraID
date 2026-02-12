@@ -29,7 +29,7 @@ SutraID is a next-generation Customer Identity and Access Management (CIAM) plat
 
 - **Backend**: NestJS + TypeScript + Prisma + PostgreSQL
 - **Frontend**: Next.js 15 + React + TypeScript + Tailwind CSS
-- **Infrastructure**: 100% FREE tier (Neon.tech, Upstash, Resend, Vercel, Railway)
+- **Infrastructure**: 100% FREE tier (Neon.tech, Upstash, Resend, Netlify, Railway)
 
 ---
 
@@ -90,7 +90,7 @@ This demo runs entirely on FREE tiers:
 - **Database**: Neon.tech (0.5GB)
 - **Cache**: Upstash Redis (10K commands/day)
 - **Email**: Resend (3K emails/month)
-- **Hosting**: Vercel (frontend) + Railway (backend)
+- **Hosting**: Netlify (frontend) + Railway (backend)
 
 **Capacity**: 100-500 concurrent users, 10K auth requests/day
 
