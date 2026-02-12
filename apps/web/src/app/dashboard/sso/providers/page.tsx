@@ -70,13 +70,36 @@ export default function SsoProvidersPage() {
   const [showTemplates, setShowTemplates] = useState(false);
   const router = useRouter();
 
-  const orgId = 'org_demo_123';
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadProviders();
+    const stored = localStorage.getItem('currentOrgId');
+    if (stored) {
+      setOrgId(stored);
+    } else {
+      // Fetch user's first org
+      const accessToken = localStorage.getItem('accessToken');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+      fetch(`${apiUrl}/organizations`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+        .then((res) => res.json())
+        .then((orgs) => {
+          if (orgs.length > 0) {
+            setOrgId(orgs[0].id);
+            localStorage.setItem('currentOrgId', orgs[0].id);
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
 
+  useEffect(() => {
+    if (orgId) loadProviders();
+  }, [orgId]);
+
   const loadProviders = async () => {
+    if (!orgId) return;
     try {
       setLoading(true);
       const data = await ssoApi.listProviders(orgId);
@@ -94,6 +117,7 @@ export default function SsoProvidersPage() {
       return;
     }
 
+    if (!orgId) return;
     try {
       setDeleting(providerId);
       await ssoApi.deleteProvider(orgId, providerId);
@@ -106,6 +130,7 @@ export default function SsoProvidersPage() {
   };
 
   const handleTest = async (providerId: string) => {
+    if (!orgId) return;
     try {
       setTesting(providerId);
       setTestResult(null);
@@ -123,6 +148,7 @@ export default function SsoProvidersPage() {
   };
 
   const handleToggle = async (provider: SsoProvider) => {
+    if (!orgId) return;
     try {
       await ssoApi.updateProvider(orgId, provider.id, {
         enabled: !provider.enabled,

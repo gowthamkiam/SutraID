@@ -63,34 +63,51 @@ function VerifyContent() {
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: '100vh',
-      fontFamily: 'system-ui, sans-serif',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       padding: '2rem',
-      background: '#f9fafb'
+      background: 'linear-gradient(160deg, #0a1628 0%, #0f2035 25%, #0d2847 50%, #0a2a3c 75%, #0e1f2f 100%)',
     }}>
       <div style={{
-        background: '#fff',
-        padding: '3rem',
-        borderRadius: '12px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        maxWidth: '400px',
+        background: '#ffffff',
+        padding: '3rem 2.5rem',
+        borderRadius: '20px',
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+        maxWidth: '440px',
         width: '100%',
-        textAlign: 'center'
+        textAlign: 'center',
       }}>
+        {/* Logo */}
+        <div style={{
+          fontSize: '2.25rem',
+          fontWeight: 700,
+          letterSpacing: '-0.5px',
+          color: '#111827',
+          marginBottom: '2rem',
+        }}>
+          <span style={{ color: '#4f46e5' }}>S</span>utra
+          <span style={{ color: '#4f46e5' }}>ID</span>
+        </div>
+
         {status === 'verifying' && (
           <>
             <div style={{
-              width: '60px',
-              height: '60px',
-              border: '4px solid #f3f3f3',
-              borderTop: '4px solid #000',
+              width: '56px',
+              height: '56px',
+              border: '3px solid #e5e7eb',
+              borderTop: '3px solid #4f46e5',
               borderRadius: '50%',
               margin: '0 auto 1.5rem',
-              animation: 'spin 1s linear infinite'
+              animation: 'spin 0.8s linear infinite',
             }} />
-            <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+            <h2 style={{
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              marginBottom: '0.5rem',
+              color: '#111827',
+            }}>
               Verifying...
-            </h1>
-            <p style={{ color: '#666' }}>
+            </h2>
+            <p style={{ color: '#6b7280', fontSize: '0.95rem', margin: 0 }}>
               Please wait while we verify your magic link
             </p>
           </>
@@ -99,22 +116,29 @@ function VerifyContent() {
         {status === 'success' && (
           <>
             <div style={{
-              width: '60px',
-              height: '60px',
-              background: '#d4edda',
+              width: '56px',
+              height: '56px',
+              background: '#ecfdf5',
               borderRadius: '50%',
               margin: '0 auto 1.5rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '2rem'
+              fontSize: '1.5rem',
+              color: '#065f46',
+              border: '2px solid #a7f3d0',
             }}>
               ✓
             </div>
-            <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: '#155724' }}>
+            <h2 style={{
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              marginBottom: '0.5rem',
+              color: '#065f46',
+            }}>
               Success!
-            </h1>
-            <p style={{ color: '#666' }}>
+            </h2>
+            <p style={{ color: '#6b7280', fontSize: '0.95rem', margin: 0 }}>
               {message}
             </p>
           </>
@@ -123,35 +147,50 @@ function VerifyContent() {
         {status === 'error' && (
           <>
             <div style={{
-              width: '60px',
-              height: '60px',
-              background: '#f8d7da',
+              width: '56px',
+              height: '56px',
+              background: '#fef2f2',
               borderRadius: '50%',
               margin: '0 auto 1.5rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '2rem'
+              fontSize: '1.5rem',
+              color: '#991b1b',
+              border: '2px solid #fecaca',
             }}>
               ✕
             </div>
-            <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: '#721c24' }}>
+            <h2 style={{
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              marginBottom: '0.5rem',
+              color: '#991b1b',
+            }}>
               Verification Failed
-            </h1>
-            <p style={{ color: '#666', marginBottom: '1.5rem' }}>
+            </h2>
+            <p style={{
+              color: '#6b7280',
+              fontSize: '0.95rem',
+              marginBottom: '1.5rem',
+            }}>
               {message}
             </p>
             <a
               href="/login"
               style={{
                 display: 'inline-block',
-                padding: '0.75rem 1.5rem',
-                background: '#000',
+                padding: '0.8rem 2rem',
+                background: '#4f46e5',
                 color: '#fff',
                 textDecoration: 'none',
-                borderRadius: '6px',
-                fontSize: '0.9rem'
+                borderRadius: '50px',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                transition: 'background 0.2s',
               }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#4338ca'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#4f46e5'}
             >
               Try Again
             </a>
@@ -171,7 +210,40 @@ function VerifyContent() {
 
 export default function VerifyPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        padding: '2rem',
+        background: 'linear-gradient(160deg, #0a1628 0%, #0f2035 25%, #0d2847 50%, #0a2a3c 75%, #0e1f2f 100%)',
+      }}>
+        <div style={{
+          background: '#ffffff',
+          padding: '3rem 2.5rem',
+          borderRadius: '20px',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+          maxWidth: '440px',
+          width: '100%',
+          textAlign: 'center',
+        }}>
+          <div style={{
+            fontSize: '2.25rem',
+            fontWeight: 700,
+            letterSpacing: '-0.5px',
+            color: '#111827',
+            marginBottom: '2rem',
+          }}>
+            <span style={{ color: '#4f46e5' }}>S</span>utra
+            <span style={{ color: '#4f46e5' }}>ID</span>
+          </div>
+          <p style={{ color: '#6b7280', fontSize: '0.95rem' }}>Loading...</p>
+        </div>
+      </div>
+    }>
       <VerifyContent />
     </Suspense>
   );

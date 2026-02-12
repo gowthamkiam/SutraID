@@ -32,13 +32,19 @@ export default function EditSsoProviderPage() {
   const [certModified, setCertModified] = useState(false);
   const [secretModified, setSecretModified] = useState(false);
 
-  const orgId = 'org_demo_123';
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadProvider();
-  }, [providerId]);
+    const stored = localStorage.getItem('currentOrgId');
+    if (stored) setOrgId(stored);
+  }, []);
+
+  useEffect(() => {
+    if (orgId) loadProvider();
+  }, [providerId, orgId]);
 
   const loadProvider = async () => {
+    if (!orgId) return;
     try {
       setLoading(true);
       const provider = await ssoApi.getProvider(orgId, providerId);
@@ -98,6 +104,7 @@ export default function EditSsoProviderPage() {
         }
       }
 
+      if (!orgId) { setError('No organization found.'); return; }
       await ssoApi.updateProvider(orgId, providerId, updateData);
       router.push('/dashboard/sso/providers');
     } catch (err: any) {

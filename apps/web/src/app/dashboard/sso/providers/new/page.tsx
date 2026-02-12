@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ssoApi, CreateSsoProviderDto } from '@/lib/api';
 
@@ -24,10 +24,16 @@ export default function NewSsoProviderPage() {
     attributeMapping: {},
   });
 
-  const orgId = 'org_demo_123'; // Demo purposes
+  const [orgId, setOrgId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('currentOrgId');
+    if (stored) setOrgId(stored);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!orgId) { setError('No organization found. Please complete onboarding first.'); return; }
     setError(null);
     setSubmitting(true);
 

@@ -81,6 +81,7 @@ export default function OnboardPage() {
 
       const org = await response.json();
       setCreatedOrgId(org.id);
+      localStorage.setItem('currentOrgId', org.id);
       setCurrentStep('application');
     } catch (err: any) {
       setError(err.message);
