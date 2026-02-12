@@ -85,12 +85,18 @@ export default function SsoProvidersPage() {
       })
         .then((res) => res.json())
         .then((orgs) => {
-          if (orgs.length > 0) {
+          if (orgs && orgs.length > 0) {
             setOrgId(orgs[0].id);
             localStorage.setItem('currentOrgId', orgs[0].id);
+          } else {
+            setLoading(false);
+            setError('No organization found. Please complete onboarding first.');
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          setLoading(false);
+          setError('Failed to load organization. Please log in again.');
+        });
     }
   }, []);
 
