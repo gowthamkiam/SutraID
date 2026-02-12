@@ -11,10 +11,13 @@ async function bootstrap() {
   // Enable CORS
   const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3001')
     .split(',')
-    .map((url) => url.trim());
+    .map((url) => url.trim().replace(/\/+$/, ''));
+  console.log('🔒 CORS allowed origins:', allowedOrigins);
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
   // Global validation pipe
