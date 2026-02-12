@@ -137,6 +137,24 @@ export default function DashboardPage() {
 
         const data = await response.json();
         setUser(data.user);
+
+        // Check if user has an organization — redirect to onboard if not
+        if (!localStorage.getItem('currentOrgId')) {
+          try {
+            const orgsResponse = await fetch(`${apiUrl}/organizations`, {
+              headers: { 'Authorization': `Bearer ${accessToken}` },
+            });
+            const orgs = await orgsResponse.json();
+            if (orgs && orgs.length > 0) {
+              localStorage.setItem('currentOrgId', orgs[0].id);
+            } else {
+              router.push('/onboard');
+              return;
+            }
+          } catch {
+            // If org check fails, continue to dashboard
+          }
+        }
       } catch (error) {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');

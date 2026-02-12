@@ -25,9 +25,9 @@ export class AuthService {
     const resendApiKey = this.config.get<string>('RESEND_API_KEY');
     if (resendApiKey) {
       this.resend = new Resend(resendApiKey);
-      console.log('✅ Resend initialized successfully');
+      console.log('✅ Resend initialized with API key');
     } else {
-      console.log('⚠️  Resend NOT initialized - magic links will be logged to console');
+      console.warn('⚠️  RESEND_API_KEY not set - magic links will only be logged to console');
     }
 
     // JWT secret
@@ -39,9 +39,12 @@ export class AuthService {
 
     // Frontend URL for magic link
     this.frontendUrl =
-      this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
-    console.log(`📧 Email FROM: ${this.config.get<string>('EMAIL_FROM') || 'noreply@sutraid.com'}`);
-    console.log(`🌐 Frontend URL: ${this.frontendUrl}`);
+      this.config.get<string>('MAGIC_LINK_BASE_URL') ||
+      this.config.get<string>('FRONTEND_URL') ||
+      'http://localhost:3001';
+    const fromEmail = this.config.get<string>('EMAIL_FROM') || 'SutraID <onboarding@resend.dev>';
+    console.log(`📧 Email FROM: ${fromEmail}`);
+    console.log(`🌐 Magic link base URL: ${this.frontendUrl}`);
   }
 
   /**
@@ -214,20 +217,22 @@ export class AuthService {
     console.log(`🔗 Magic link URL: ${magicLink}`);
 
     if (!this.resend) {
-      // In development without Resend configured, just log the link
-      console.log(`⚠️  Resend NOT configured - logging link instead of sending email\n`);
+      console.warn(`⚠️  Resend NOT configured - logging magic link to console`);
       console.log(`\n🔗 Magic link for ${email}:\n${magicLink}\n`);
       return;
     }
 
-    const fromEmail = this.config.get<string>('EMAIL_FROM') || 'noreply@sutraid.com';
-    console.log(`📤 Sending email via Resend from: ${fromEmail}`);
+    // Default to Resend's test sender if no verified domain is configured
+    // To use your own domain: set EMAIL_FROM="SutraID <noreply@yourdomain.com>"
+    // and verify the domain in Resend dashboard first
+    const fromEmail = this.config.get<string>('EMAIL_FROM') || 'SutraID <onboarding@resend.dev>';
+    console.log(`📤 Sending email via Resend from: ${fromEmail} to: ${email}`);
 
     try {
       const result = await this.resend.emails.send({
         from: fromEmail,
         to: email,
-        subject: '🔐 Sign in to SutraID',
+        subject: 'Sign in to SutraID',
         html: `
           <!DOCTYPE html>
           <html>
@@ -241,7 +246,7 @@ export class AuthService {
             </head>
             <body>
               <div class="container">
-                <h1>🔐 Sign in to SutraID</h1>
+                <h1>Sign in to SutraID</h1>
                 <p>Click the button below to securely sign in to your account:</p>
                 <a href="${magicLink}" class="button">Sign In</a>
                 <p>Or copy and paste this link into your browser:</p>
@@ -257,13 +262,18 @@ export class AuthService {
         `,
       });
 
-      console.log(`✅ Email sent successfully via Resend!`);
-      console.log(`📬 Email ID: ${result.data?.id || 'N/A'}\n`);
-    } catch (error) {
-      console.error('❌ Failed to send magic link email:', error);
-      // Also log the magic link so user can still login
-      console.log(`\n🔗 Fallback - Magic link for ${email}:\n${magicLink}\n`);
-      throw new Error('Failed to send magic link email');
+      if (result.error) {
+        console.error('❌ Resend API returned error:', JSON.stringify(result.error));
+        console.log(`🔗 Fallback - Magic link for ${email}:\n${magicLink}\n`);
+        // Don't throw - the magic link was created in DB, user just won't get the email
+        return;
+      }
+
+      console.log(`✅ Email sent successfully! Resend ID: ${result.data?.id}`);
+    } catch (error: any) {
+      console.error('❌ Failed to send magic link email:', error?.message || error);
+      console.log(`🔗 Fallback - Magic link for ${email}:\n${magicLink}\n`);
+      // Don't throw - the magic link was created in DB, log the link as fallback
     }
   }
 

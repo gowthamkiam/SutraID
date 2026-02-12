@@ -19,11 +19,24 @@ export class SsoService {
   ) {}
 
   /**
+   * Derive a 32-byte key from ENCRYPTION_KEY (handles any length input)
+   */
+  private getEncryptionKey(): Buffer {
+    const raw = process.env.ENCRYPTION_KEY || '';
+    // If it's already a valid 64-char hex string (32 bytes), use directly
+    if (/^[0-9a-fA-F]{64}$/.test(raw)) {
+      return Buffer.from(raw, 'hex');
+    }
+    // Otherwise, hash it to get a consistent 32-byte key
+    return crypto.createHash('sha256').update(raw).digest();
+  }
+
+  /**
    * Encrypt sensitive data (certificates, secrets)
    */
   private encrypt(text: string): string {
     const algorithm = 'aes-256-gcm';
-    const key = Buffer.from(process.env.ENCRYPTION_KEY || '', 'hex');
+    const key = this.getEncryptionKey();
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(algorithm, key, iv);
 
@@ -41,7 +54,7 @@ export class SsoService {
    */
   private decrypt(encryptedText: string): string {
     const algorithm = 'aes-256-gcm';
-    const key = Buffer.from(process.env.ENCRYPTION_KEY || '', 'hex');
+    const key = this.getEncryptionKey();
 
     const parts = encryptedText.split(':');
     const iv = Buffer.from(parts[0], 'hex');
