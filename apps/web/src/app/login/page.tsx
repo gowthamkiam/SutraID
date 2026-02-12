@@ -125,34 +125,57 @@ export default function LoginPage() {
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: '100vh',
-      fontFamily: 'system-ui, sans-serif',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       padding: '2rem',
-      background: '#f9fafb'
+      background: 'linear-gradient(160deg, #0a1628 0%, #0f2035 25%, #0d2847 50%, #0a2a3c 75%, #0e1f2f 100%)',
+      position: 'relative',
+      overflow: 'hidden',
     }}>
+      {/* Card */}
       <div style={{
-        background: '#fff',
-        padding: '3rem',
-        borderRadius: '12px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        maxWidth: '400px',
-        width: '100%'
+        background: '#ffffff',
+        padding: '3rem 2.5rem',
+        borderRadius: '20px',
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+        maxWidth: '440px',
+        width: '100%',
+        position: 'relative',
+        zIndex: 1,
       }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
-            SutraID
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
+          <h1 style={{
+            fontSize: '2.25rem',
+            fontWeight: 700,
+            margin: 0,
+            letterSpacing: '-0.5px',
+            color: '#111827',
+          }}>
+            <span style={{ color: '#4f46e5' }}>S</span>utra
+            <span style={{ color: '#4f46e5' }}>ID</span>
           </h1>
-          <p style={{ color: '#666', fontSize: '0.9rem' }}>
-            Sign in with your email
+        </div>
+
+        {/* Welcome text */}
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <p style={{
+            color: '#374151',
+            fontSize: '1.1rem',
+            fontWeight: 500,
+            margin: 0,
+          }}>
+            Welcome back !
           </p>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ marginBottom: '1.25rem' }}>
             <label htmlFor="email" style={{
               display: 'block',
               marginBottom: '0.5rem',
-              fontWeight: '500',
-              fontSize: '0.9rem'
+              fontWeight: 500,
+              fontSize: '0.875rem',
+              color: '#374151',
             }}>
               Email Address
             </label>
@@ -165,16 +188,24 @@ export default function LoginPage() {
               placeholder="you@example.com"
               style={{
                 width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #ddd',
-                borderRadius: '6px',
-                fontSize: '1rem',
+                padding: '0.875rem 1rem',
+                border: '1.5px solid #d1d5db',
+                borderRadius: '10px',
+                fontSize: '0.95rem',
                 outline: 'none',
-                transition: 'border-color 0.2s',
-                boxSizing: 'border-box'
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+                boxSizing: 'border-box',
+                color: '#111827',
+                background: '#fff',
               }}
-              onFocus={(e) => e.target.style.borderColor = '#000'}
-              onBlur={(e) => e.target.style.borderColor = '#ddd'}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#4f46e5';
+                e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#d1d5db';
+                e.target.style.boxShadow = 'none';
+              }}
             />
           </div>
 
@@ -183,24 +214,24 @@ export default function LoginPage() {
             <div style={{
               textAlign: 'center',
               padding: '0.75rem',
-              color: '#666',
+              color: '#6b7280',
               fontSize: '0.85rem',
-              marginBottom: '1rem'
+              marginBottom: '1rem',
             }}>
               Checking for SSO providers...
             </div>
           )}
 
           {ssoProviders.length > 0 && (
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ marginBottom: '1.25rem' }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.75rem',
-                marginBottom: '0.75rem'
+                marginBottom: '0.75rem',
               }}>
                 <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
-                <span style={{ color: '#666', fontSize: '0.8rem', fontWeight: '500' }}>
+                <span style={{ color: '#6b7280', fontSize: '0.8rem', fontWeight: 500 }}>
                   SSO available for your domain
                 </span>
                 <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
@@ -214,40 +245,40 @@ export default function LoginPage() {
                     onClick={() => handleSsoLogin(provider)}
                     style={{
                       width: '100%',
-                      padding: '0.75rem',
+                      padding: '0.8rem',
                       background: '#fff',
-                      color: '#000',
-                      border: '1px solid #ddd',
-                      borderRadius: '6px',
+                      color: '#374151',
+                      border: '1.5px solid #d1d5db',
+                      borderRadius: '50px',
                       fontSize: '0.95rem',
-                      fontWeight: '500',
+                      fontWeight: 500,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '0.5rem',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = '#f9fafb';
-                      e.currentTarget.style.borderColor = '#000';
+                      e.currentTarget.style.borderColor = '#4f46e5';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.background = '#fff';
-                      e.currentTarget.style.borderColor = '#ddd';
+                      e.currentTarget.style.borderColor = '#d1d5db';
                     }}
                   >
                     <span style={{
                       width: '24px',
                       height: '24px',
-                      borderRadius: '4px',
-                      background: '#f3f4f6',
+                      borderRadius: '6px',
+                      background: '#eef2ff',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '0.8rem',
-                      fontWeight: '700',
-                      color: '#374151'
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      color: '#4f46e5',
                     }}>
                       {getProviderIcon(provider.type)}
                     </span>
@@ -260,10 +291,10 @@ export default function LoginPage() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.75rem',
-                margin: '1rem 0'
+                margin: '1rem 0',
               }}>
                 <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
-                <span style={{ color: '#999', fontSize: '0.8rem' }}>or use magic link</span>
+                <span style={{ color: '#9ca3af', fontSize: '0.8rem' }}>or use magic link</span>
                 <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
               </div>
             </div>
@@ -274,30 +305,38 @@ export default function LoginPage() {
             disabled={loading}
             style={{
               width: '100%',
-              padding: '0.75rem',
-              background: loading ? '#999' : '#000',
+              padding: '0.9rem',
+              background: loading ? '#9ca3af' : '#4f46e5',
               color: '#fff',
               border: 'none',
-              borderRadius: '6px',
+              borderRadius: '50px',
               fontSize: '1rem',
-              fontWeight: '500',
+              fontWeight: 600,
               cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background 0.2s'
+              transition: 'background 0.2s, transform 0.1s',
+              letterSpacing: '0.01em',
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) e.currentTarget.style.background = '#4338ca';
+            }}
+            onMouseLeave={(e) => {
+              if (!loading) e.currentTarget.style.background = '#4f46e5';
             }}
           >
-            {loading ? 'Sending...' : 'Send Magic Link'}
+            {loading ? 'Sending...' : 'Sign In'}
           </button>
         </form>
 
         {message && (
           <div style={{
-            marginTop: '1.5rem',
+            marginTop: '1.25rem',
             padding: '1rem',
-            background: '#d4edda',
-            border: '1px solid #c3e6cb',
-            borderRadius: '6px',
-            color: '#155724',
-            fontSize: '0.9rem'
+            background: '#ecfdf5',
+            border: '1px solid #a7f3d0',
+            borderRadius: '10px',
+            color: '#065f46',
+            fontSize: '0.9rem',
+            textAlign: 'center',
           }}>
             {message}
           </div>
@@ -305,44 +344,79 @@ export default function LoginPage() {
 
         {error && (
           <div style={{
-            marginTop: '1.5rem',
+            marginTop: '1.25rem',
             padding: '1rem',
-            background: '#f8d7da',
-            border: '1px solid #f5c6cb',
-            borderRadius: '6px',
-            color: '#721c24',
-            fontSize: '0.9rem'
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '10px',
+            color: '#991b1b',
+            fontSize: '0.9rem',
+            textAlign: 'center',
           }}>
             {error}
           </div>
         )}
 
+        {/* Secondary link */}
         <div style={{
-          marginTop: '2rem',
-          paddingTop: '1.5rem',
-          borderTop: '1px solid #eee',
-          textAlign: 'center'
+          marginTop: '1.5rem',
+          textAlign: 'center',
         }}>
-          <p style={{ color: '#666', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
-            We'll send you a secure link to sign in
-          </p>
-          <p style={{ color: '#999', fontSize: '0.8rem' }}>
-            No password needed. Link expires in 15 minutes.
-          </p>
+          <a
+            href="/"
+            style={{
+              color: '#4f46e5',
+              fontSize: '0.9rem',
+              textDecoration: 'none',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+            onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+          >
+            Sign in with a different authentication method
+          </a>
         </div>
       </div>
 
-      <div style={{ marginTop: '2rem', textAlign: 'center' }}>
-        <a
-          href="/"
-          style={{
-            color: '#666',
-            fontSize: '0.9rem',
-            textDecoration: 'none'
-          }}
-        >
-          Back to home
-        </a>
+      {/* Bottom-right helper tooltip */}
+      <div style={{
+        position: 'fixed',
+        bottom: '2rem',
+        right: '2rem',
+        display: 'flex',
+        alignItems: 'flex-end',
+        gap: '0.75rem',
+        zIndex: 10,
+      }}>
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(8px)',
+          borderRadius: '16px 16px 4px 16px',
+          padding: '0.875rem 1.25rem',
+          maxWidth: '280px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+          fontSize: '0.875rem',
+          color: '#374151',
+          fontWeight: 500,
+          lineHeight: 1.4,
+        }}>
+          Forgot your password? Good. You do not need it
+        </div>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '1.25rem',
+          flexShrink: 0,
+          boxShadow: '0 4px 12px rgba(79, 70, 229, 0.4)',
+        }}>
+          🔐
+        </div>
       </div>
     </div>
   );

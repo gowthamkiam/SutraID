@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 interface Application {
@@ -26,7 +26,7 @@ const scopeDescriptions: Record<string, string> = {
   offline_access: 'Maintain access when you are offline',
 };
 
-export default function ConsentPage() {
+function ConsentPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const uid = searchParams.get('uid');
@@ -319,7 +319,6 @@ export default function ConsentPage() {
                     borderRadius: '50%',
                     marginRight: '12px',
                     flexShrink: 0,
-                    display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
@@ -427,5 +426,17 @@ export default function ConsentPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function ConsentPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+      </div>
+    }>
+      <ConsentPageContent />
+    </Suspense>
   );
 }
