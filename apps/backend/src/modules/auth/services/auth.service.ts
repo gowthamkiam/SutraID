@@ -235,30 +235,62 @@ export class AuthService {
         subject: 'Sign in to SutraID',
         html: `
           <!DOCTYPE html>
-          <html>
+            <html lang="en">
             <head>
-              <style>
-                body { font-family: system-ui, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .button { display: inline-block; padding: 12px 24px; background: #000; color: #fff; text-decoration: none; border-radius: 4px; margin: 20px 0; }
-                .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666; }
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Sign in to SutraID</title>
+              <style type="text/css">
+                body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacOSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f9; color: #333333; line-height: 1.6; }
+                .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+                .header { background: #ffffff; padding: 32px 40px 20px; text-align: center; border-bottom: 1px solid #e5e7eb; }
+                .header img { max-width: 160px; height: auto; }
+                .content { padding: 32px 40px; }
+                h1 { font-size: 24px; font-weight: 600; margin: 0 0 16px; color: #111111; }
+                p { font-size: 16px; margin: 0 0 20px; }
+                .button { display: inline-block; padding: 14px 32px; background-color: #000000; color: #ffffff !important; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 6px; margin: 24px 0; }
+                .button:hover { background-color: #333333; }
+                .fallback { font-size: 14px; color: #555555; word-break: break-all; background: #f9fafb; padding: 12px 16px; border-radius: 6px; border: 1px solid #e5e7eb; }
+                .expiry { font-size: 14px; color: #d32f2f; font-weight: 500; margin: 20px 0; }
+                .footer { padding: 24px 40px; background: #f9fafb; text-align: center; font-size: 13px; color: #666666; border-top: 1px solid #e5e7eb; }
+                .footer a { color: #0066ff; text-decoration: none; }
+                @media only screen and (max-width: 600px) {
+                  .content, .header, .footer { padding: 24px 20px; }
+                  h1 { font-size: 22px; }
+                  .button { width: 100%; box-sizing: border-box; text-align: center; }
+                }
               </style>
             </head>
             <body>
-              <div class="container">
-                <h1>Sign in to SutraID</h1>
-                <p>Click the button below to securely sign in to your account:</p>
-                <a href="${magicLink}" class="button">Sign In</a>
-                <p>Or copy and paste this link into your browser:</p>
-                <p style="word-break: break-all; color: #666;">${magicLink}</p>
-                <p><strong>This link expires in 15 minutes.</strong></p>
-                <div class="footer">
-                  <p>If you didn't request this email, you can safely ignore it.</p>
-                  <p>SutraID - AI-Native Authentication</p>
-                </div>
-              </div>
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f4f4f9; padding: 20px 0;">
+                <tr>
+                  <td align="center">
+                    <div class="container">
+                      <div class="content">
+                        <h1>Sign in to SutraID</h1>
+                        <p>Hello,</p>
+                        <p>Click the button below to securely sign in to your SutraID account. No password required.</p>
+                        
+                        <a href="${magicLink}" class="button">Sign In Now</a>
+                        
+                        <p style="margin: 32px 0 16px;">Or copy and paste this link into your browser:</p>
+                        <div class="fallback">${magicLink}</div>
+                        
+                        <p class="expiry"><strong>This link expires in 15 minutes for your security.</strong></p>
+                        
+                        <p>If you didn't request this sign-in link, please ignore this email — your account remains safe.</p>
+                      </div>
+                      <div class="footer">
+                        <p>SutraID – AI-Native Authentication</p>
+                        <p>© ${new Date().getFullYear()} SutraID. All rights reserved.</p>
+                        <p><a href="https://sutraid.com">Need help?</a> | <a href="https://sutraid.com">Privacy Policy</a></p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </table>
             </body>
-          </html>
+            </html>
         `,
       });
 
