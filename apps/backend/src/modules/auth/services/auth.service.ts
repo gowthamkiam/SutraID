@@ -243,10 +243,17 @@ export class AuthService {
               <style type="text/css">
                 body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacOSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f9; color: #333333; line-height: 1.6; }
                 .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-                .header { background: #ffffff; padding: 32px 40px 20px; text-align: center; border-bottom: 1px solid #e5e7eb; }
-                .header img { max-width: 160px; height: auto; }
+                .header { background: #ffffff; padding: 40px 40px 24px; text-align: center; border-bottom: 1px solid #e5e7eb; }
                 .content { padding: 32px 40px; }
-                h1 { font-size: 24px; font-weight: 600; margin: 0 0 16px; color: #111111; }
+                h1 { 
+                  font-size: 2.25rem; 
+                  font-weight: 700; 
+                  margin: 0 0 24px; 
+                  letter-spacing: -0.5px; 
+                  color: #111827; 
+                  text-align: center;
+                }
+                .highlight { color: #4f46e5; }
                 p { font-size: 16px; margin: 0 0 20px; }
                 .button { display: inline-block; padding: 14px 32px; background-color: #000000; color: #ffffff !important; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 6px; margin: 24px 0; }
                 .button:hover { background-color: #333333; }
@@ -256,7 +263,7 @@ export class AuthService {
                 .footer a { color: #0066ff; text-decoration: none; }
                 @media only screen and (max-width: 600px) {
                   .content, .header, .footer { padding: 24px 20px; }
-                  h1 { font-size: 22px; }
+                  h1 { font-size: 2rem; }
                   .button { width: 100%; box-sizing: border-box; text-align: center; }
                 }
               </style>
@@ -266,8 +273,11 @@ export class AuthService {
                 <tr>
                   <td align="center">
                     <div class="container">
+                      <div class="header">
+                        <!-- Integrated logo into heading -->
+                      </div>
                       <div class="content">
-                        <h1>Sign in to SutraID</h1>
+                        <h1>Sign in to <span class="highlight">S</span>utra<span class="highlight">ID</span></h1>
                         <p>Hello,</p>
                         <p>Click the button below to securely sign in to your SutraID account. No password required.</p>
                         
@@ -283,7 +293,7 @@ export class AuthService {
                       <div class="footer">
                         <p>SutraID – AI-Native Authentication</p>
                         <p>© ${new Date().getFullYear()} SutraID. All rights reserved.</p>
-                        <p><a href="https://sutraid.com">Need help?</a> | <a href="https://sutraid.com">Privacy Policy</a></p>
+                        <p><a href="https://sutraid.com/support">Need help?</a> | <a href="https://sutraid.com/privacy">Privacy Policy</a></p>
                       </div>
                     </div>
                   </td>
