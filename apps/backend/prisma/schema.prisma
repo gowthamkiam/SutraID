@@ -525,6 +525,10 @@ model Policy {
   type            PolicyType   @default(ACCESS)
   effect          PolicyEffect @default(ALLOW)
   
+  // Resources and Actions (ABAC)
+  resource        String       @default("*")
+  actions         String[]     @default([])
+  
   // Rules for Sign-on/Auth policies (JSON array of rules)
   // Example: [{ "priority": 1, "conditions": { "group": "Admins" }, "requirement": "MFA_REQUIRED" }]
   rules           Json         @default("[]")
