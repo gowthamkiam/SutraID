@@ -23,7 +23,6 @@ interface QuickAction {
 
 interface Activity {
   id: string;
-  type: string;
   message: string;
   time: string;
   icon: string;
@@ -36,7 +35,6 @@ export default function DashboardPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const router = useRouter();
 
-  // Mock data - replace with API calls
   const stats: StatCard[] = [
     { label: 'Total Users', value: '2,543', change: '+12.5%', trend: 'up', icon: '👥' },
     { label: 'Active Sessions', value: '1,234', change: '+8.2%', trend: 'up', icon: '🟢' },
@@ -97,10 +95,10 @@ export default function DashboardPage() {
   ];
 
   const recentActivity: Activity[] = [
-    { id: '1', type: 'login', message: 'User john@example.com logged in via SSO', time: '2 min ago', icon: '🔓' },
-    { id: '2', type: 'sso', message: 'SSO Provider "Okta" was updated', time: '1 hour ago', icon: '🔐' },
-    { id: '3', type: 'user', message: 'New user sarah@example.com was created', time: '3 hours ago', icon: '👤' },
-    { id: '4', type: 'auth', message: 'Magic link sent to admin@example.com', time: '5 hours ago', icon: '✉️' },
+    { id: '1', message: 'User john@example.com logged in via SSO', time: '2 min ago', icon: '🔓' },
+    { id: '2', message: 'SSO Provider "Okta" was updated', time: '1 hour ago', icon: '🔐' },
+    { id: '3', message: 'New user sarah@example.com was created', time: '3 hours ago', icon: '👤' },
+    { id: '4', message: 'Magic link sent to admin@example.com', time: '5 hours ago', icon: '✉️' },
   ];
 
   // Load saved color mode
