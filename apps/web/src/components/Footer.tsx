@@ -47,10 +47,10 @@ export default function Footer() {
       role="contentinfo"
       aria-label="Site footer"
       style={{
-      background: 'var(--bg-card)',
-      borderTop: '1px solid var(--border-color)',
-      padding: '4rem 2rem 2rem',
-    }}>
+        background: 'transparent',
+        borderTop: '1px solid rgba(255,255,255,0.05)',
+        padding: '4rem 2rem 2rem',
+      }}>
       <div style={{
         maxWidth: '1200px',
         margin: '0 auto',
@@ -65,16 +65,19 @@ export default function Footer() {
           {/* Brand Column */}
           <div>
             <div style={{
-              fontSize: '1.35rem',
-              fontWeight: 700,
-              color: 'var(--accent-primary)',
+              fontSize: '1.4rem',
+              fontWeight: 900,
+              letterSpacing: '-0.03em',
+              display: 'flex',
+              alignItems: 'center',
               marginBottom: '1rem',
-              letterSpacing: '-0.02em',
             }}>
-              SutraID
+              <span style={{ color: '#6366f1' }}>S</span>
+              <span style={{ color: '#ffffff' }}>utra</span>
+              <span style={{ color: '#6366f1' }}>ID</span>
             </div>
             <p style={{
-              color: 'var(--text-secondary)',
+              color: '#9ca3af',
               fontSize: '0.875rem',
               lineHeight: 1.6,
               margin: 0,
@@ -91,7 +94,7 @@ export default function Footer() {
                 style={{
                   fontSize: '0.8rem',
                   fontWeight: 600,
-                  color: 'var(--text-tertiary)',
+                  color: '#fff',
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
                   marginBottom: '1rem',
@@ -107,12 +110,12 @@ export default function Footer() {
                       href={link.href}
                       style={{
                         textDecoration: 'none',
-                        color: 'var(--text-secondary)',
+                        color: '#9ca3af',
                         fontSize: '0.875rem',
                         transition: 'color 0.15s',
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = '#9ca3af')}
                     >
                       {link.label}
                     </a>
@@ -126,22 +129,21 @@ export default function Footer() {
 
         {/* Bottom Bar */}
         <div style={{
-          borderTop: '1px solid var(--border-color)',
+          borderTop: '1px solid rgba(255,255,255,0.05)',
           paddingTop: '1.5rem',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '1rem',
+          color: '#6b7280',
         }}>
           <span style={{
-            color: 'var(--text-tertiary)',
             fontSize: '0.8rem',
           }}>
             &copy; {new Date().getFullYear()} SutraID. All rights reserved.
           </span>
           <div style={{ display: 'flex', gap: '1.5rem' }}>
-            <a href="/terms" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Terms</a>
             <a href="/privacy" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Privacy</a>
             <a href="/security" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Security</a>
           </div>

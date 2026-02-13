@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const navLinks = [
   { label: 'Product', href: '#product' },
@@ -13,46 +13,60 @@ const navLinks = [
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const navTheme = isScrolled ? 'light' : 'dark';
 
   return (
-    // accessibility-fix: issue-26 - Added proper ARIA attributes for navigation
     <nav
       role="navigation"
       aria-label="Main navigation"
       style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      zIndex: 1000,
-      background: 'var(--nav-bg)',
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
-      borderBottom: '1px solid var(--nav-border)',
-      padding: '0 2rem',
-      height: '64px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    }}>
-      {/* Logo */}
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1000,
+        background: isScrolled ? 'rgba(255, 255, 255, 0.8)' : 'transparent',
+        backdropFilter: isScrolled ? 'blur(12px)' : 'none',
+        WebkitBackdropFilter: isScrolled ? 'blur(12px)' : 'none',
+        borderBottom: isScrolled ? '1px solid rgba(0,0,0,0.1)' : '1px solid transparent',
+        padding: '0 2rem',
+        height: '72px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        transition: 'all 0.3s ease',
+      }}
+    >
       <a href="/" style={{
         textDecoration: 'none',
         display: 'flex',
         alignItems: 'center',
-        gap: '0.5rem',
+        gap: '0.4rem',
       }}>
-        <span style={{
-          fontSize: '1.35rem',
-          fontWeight: 700,
-          color: 'var(--accent-primary)',
-          letterSpacing: '-0.02em',
+        <div style={{
+          fontSize: '1.4rem',
+          fontWeight: 900,
+          letterSpacing: '-0.03em',
+          display: 'flex',
+          alignItems: 'center',
+          transition: 'color 0.3s ease',
         }}>
-          SutraID
-        </span>
+          <span style={{ color: '#6366f1' }}>S</span>
+          <span style={{ color: navTheme === 'dark' ? '#ffffff' : '#111827' }}>utra</span>
+          <span style={{ color: '#6366f1' }}>ID</span>
+        </div>
       </a>
 
-      {/* Desktop Nav Links */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -60,7 +74,7 @@ export default function Navbar() {
       }}>
         <div className="nav-links-desktop" style={{
           display: 'flex',
-          gap: '1.75rem',
+          gap: '2rem',
           alignItems: 'center',
         }}>
           {navLinks.map((link) => (
@@ -69,45 +83,53 @@ export default function Navbar() {
               href={link.href}
               style={{
                 textDecoration: 'none',
-                color: 'var(--text-secondary)',
+                color: navTheme === 'dark' ? 'rgba(255, 255, 255, 0.7)' : '#4b5563',
                 fontSize: '0.9rem',
-                fontWeight: 500,
-                transition: 'color 0.15s',
+                fontWeight: 600,
+                transition: 'all 0.2s ease',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+              onMouseEnter={(e) => (e.currentTarget.style.color = navTheme === 'dark' ? '#ffffff' : '#111827')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = navTheme === 'dark' ? 'rgba(255, 255, 255, 0.7)' : '#4b5563')}
             >
               {link.label}
             </a>
           ))}
         </div>
 
-        {/* CTA Buttons */}
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <a href="/login" style={{
             textDecoration: 'none',
-            color: 'var(--text-primary)',
+            color: navTheme === 'dark' ? '#ffffff' : '#111827',
             fontSize: '0.9rem',
-            fontWeight: 500,
+            fontWeight: 600,
             padding: '0.5rem 1rem',
           }}>
             Log in
           </a>
           <a href="/login" style={{
             textDecoration: 'none',
-            background: 'var(--btn-primary-bg)',
-            color: 'var(--btn-primary-text)',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            padding: '0.5rem 1.25rem',
-            borderRadius: '8px',
-            transition: 'background 0.15s',
-          }}>
+            background: '#6366f1',
+            color: '#fff',
+            fontSize: '0.9rem',
+            fontWeight: 700,
+            padding: '0.65rem 1.5rem',
+            borderRadius: '10px',
+            transition: 'all 0.2s ease',
+            boxShadow: navTheme === 'dark' ? '0 4px 15px rgba(99, 102, 241, 0.3)' : 'none',
+          }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = '#4f46e5';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = '#6366f1';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
             Get Started
           </a>
         </div>
 
-        {/* accessibility-fix: issue-26 - Mobile Hamburger with improved ARIA */}
         <button
           className="nav-mobile-toggle"
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -120,16 +142,14 @@ export default function Navbar() {
             border: 'none',
             cursor: 'pointer',
             padding: '0.5rem',
-            color: 'var(--text-primary)',
+            color: navTheme === 'dark' ? '#ffffff' : '#111827',
             fontSize: '1.5rem',
           }}
         >
           <span aria-hidden="true">{mobileOpen ? '\u2715' : '\u2630'}</span>
         </button>
-        {/* /accessibility-fix */}
       </div>
 
-      {/* accessibility-fix: issue-26 - Mobile Dropdown with improved accessibility */}
       {mobileOpen && (
         <div
           id="mobile-nav-menu"
@@ -137,17 +157,19 @@ export default function Navbar() {
           role="menu"
           aria-label="Mobile navigation"
           style={{
-          position: 'absolute',
-          top: '64px',
-          left: 0,
-          right: 0,
-          background: 'var(--bg-card)',
-          borderBottom: '1px solid var(--border-color)',
-          padding: '1rem 2rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1rem',
-        }}>
+            position: 'absolute',
+            top: '72px',
+            left: 0,
+            right: 0,
+            background: '#ffffff',
+            borderBottom: '1px solid #e5e7eb',
+            padding: '1.5rem 2rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
+          }}
+        >
           {navLinks.map((link) => (
             <a
               key={link.href}
@@ -155,33 +177,35 @@ export default function Navbar() {
               onClick={() => setMobileOpen(false)}
               style={{
                 textDecoration: 'none',
-                color: 'var(--text-secondary)',
+                color: '#4b5563',
                 fontSize: '1rem',
-                fontWeight: 500,
+                fontWeight: 600,
                 padding: '0.5rem 0',
               }}
             >
               {link.label}
             </a>
           ))}
-          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', display: 'flex', gap: '0.75rem' }}>
+          <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '1rem', display: 'flex', gap: '1rem' }}>
             <a href="/login" style={{
               textDecoration: 'none',
-              color: 'var(--text-primary)',
-              fontSize: '0.95rem',
-              fontWeight: 500,
+              color: '#111827',
+              fontSize: '1rem',
+              fontWeight: 600,
               padding: '0.5rem 1rem',
             }}>
               Log in
             </a>
             <a href="/login" style={{
               textDecoration: 'none',
-              background: 'var(--btn-primary-bg)',
-              color: 'var(--btn-primary-text)',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              padding: '0.5rem 1.25rem',
-              borderRadius: '8px',
+              background: '#6366f1',
+              color: '#fff',
+              fontSize: '1rem',
+              fontWeight: 700,
+              padding: '0.75rem 1.5rem',
+              borderRadius: '10px',
+              textAlign: 'center',
+              flex: 1,
             }}>
               Get Started
             </a>
@@ -189,8 +213,8 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* Responsive CSS */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @media (max-width: 768px) {
           .nav-links-desktop { display: none !important; }
           .nav-mobile-toggle { display: block !important; }
