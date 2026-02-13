@@ -50,16 +50,16 @@ describe('PrismaService', () => {
     it('should clean database in non-production environment', async () => {
       process.env.NODE_ENV = 'test';
       
-      // Mock deleteMany methods using jest.spyOn
-      const sessionDeleteSpy = jest.spyOn(service.session, 'deleteMany').mockResolvedValue([] as any);
-      const authChallengeDeleteSpy = jest.spyOn(service.authChallenge, 'deleteMany').mockResolvedValue([] as any);
-      const userDeleteSpy = jest.spyOn(service.user, 'deleteMany').mockResolvedValue([] as any);
+      // Mock deleteMany methods
+      service.session = { deleteMany: jest.fn() } as any;
+      service.authChallenge = { deleteMany: jest.fn() } as any;
+      service.user = { deleteMany: jest.fn() } as any;
 
       await service.cleanDatabase();
 
-      expect(sessionDeleteSpy).toHaveBeenCalled();
-      expect(authChallengeDeleteSpy).toHaveBeenCalled();
-      expect(userDeleteSpy).toHaveBeenCalled();
+      expect(service.session.deleteMany).toHaveBeenCalled();
+      expect(service.authChallenge.deleteMany).toHaveBeenCalled();
+      expect(service.user.deleteMany).toHaveBeenCalled();
     });
   });
 });

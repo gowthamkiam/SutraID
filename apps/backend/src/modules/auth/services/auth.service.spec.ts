@@ -3,7 +3,6 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { AuditService } from '../../audit/audit.service';
-import { MfaService } from './mfa.service';
 import {
   BadRequestException,
   UnauthorizedException,
@@ -20,7 +19,6 @@ describe('AuthService', () => {
   let prismaService: jest.Mocked<PrismaService>;
   let configService: jest.Mocked<ConfigService>;
   let auditService: jest.Mocked<AuditService>;
-  let mfaService: jest.Mocked<MfaService>;
 
   const mockPrismaService = {
     user: {
@@ -41,14 +39,6 @@ describe('AuthService', () => {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
-    organizationMember: {
-      findFirst: jest.fn(),
-      upsert: jest.fn(),
-    },
-    organization: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
   };
 
   const mockConfigService = {
@@ -67,11 +57,6 @@ describe('AuthService', () => {
     log: jest.fn(),
   };
 
-  const mockMfaService = {
-    createMfaToken: jest.fn(),
-    verifyMfaToken: jest.fn(),
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -88,10 +73,6 @@ describe('AuthService', () => {
           provide: AuditService,
           useValue: mockAuditService,
         },
-        {
-          provide: MfaService,
-          useValue: mockMfaService,
-        },
       ],
     }).compile();
 
@@ -99,7 +80,6 @@ describe('AuthService', () => {
     prismaService = module.get(PrismaService);
     configService = module.get(ConfigService);
     auditService = module.get(AuditService);
-    mfaService = module.get(MfaService);
   });
 
   afterEach(() => {
@@ -163,11 +143,6 @@ describe('AuthService', () => {
         id: 'session-1',
         jti: 'jti-1',
       } as any);
-      // @ts-ignore
-      mockPrismaService.organizationMember.findFirst.mockResolvedValue({
-        organization: { id: 'org-1', name: 'Test Org', slug: 'test-org' },
-        role: 'SUPER_ADMIN',
-      });
 
       const result = await service.registerWithPassword(
         'test@example.com',
@@ -179,11 +154,10 @@ describe('AuthService', () => {
       expect(bcrypt.hash).toHaveBeenCalledWith('Password123!', 12);
     });
 
-    it('should throw BadRequestException if user exists with password', async () => {
+    it('should throw BadRequestException if user exists', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-1',
         email: 'test@example.com',
-        passwordHash: 'already-has-password',
       } as any);
 
       await expect(
@@ -207,11 +181,6 @@ describe('AuthService', () => {
         id: 'session-1',
         jti: 'jti-1',
       } as any);
-      // @ts-ignore
-      mockPrismaService.organizationMember.findFirst.mockResolvedValue({
-        organization: { id: 'org-1', name: 'Test Org', slug: 'test-org' },
-        role: 'SUPER_ADMIN',
-      });
 
       const result = await service.loginWithPassword(
         'test@example.com',
@@ -222,7 +191,7 @@ describe('AuthService', () => {
       expect(result.accessToken).toBeDefined();
       expect(auditService.log).toHaveBeenCalledWith(
         expect.objectContaining({
-          action: 'user.login',
+          action: 'user.login.password',
         }),
       );
     });
@@ -242,7 +211,7 @@ describe('AuthService', () => {
       await expect(
         service.loginWithPassword('test@example.com', 'WrongPassword'),
       ).rejects.toThrow(UnauthorizedException);
-
+      
       expect(auditService.log).toHaveBeenCalled();
     });
 
@@ -253,11 +222,11 @@ describe('AuthService', () => {
       await expect(
         service.loginWithPassword('test@example.com', 'Password123!'),
       ).rejects.toThrow(UnauthorizedException);
-
+      
       expect(auditService.log).toHaveBeenCalled();
     });
 
-    it('should throw UnauthorizedException if password not set', async () => {
+    it('should throw BadRequestException if password not set', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-1',
         email: 'test@example.com',
@@ -267,7 +236,7 @@ describe('AuthService', () => {
 
       await expect(
         service.loginWithPassword('test@example.com', 'Password123!'),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if user suspended', async () => {
