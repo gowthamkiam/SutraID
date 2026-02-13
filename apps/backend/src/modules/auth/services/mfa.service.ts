@@ -11,7 +11,7 @@ import { SignJWT } from 'jose';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import * as QRCode from 'qrcode';
-import { generateSecret, verify as otplibVerify, generateURI } from 'otplib';
+import * as OTPAuth from 'otpauth';
 
 @Injectable()
 export class MfaService {
@@ -60,7 +60,8 @@ export class MfaService {
     });
 
     // Generate TOTP secret
-    const totpSecret = generateSecret();
+    const secret = new OTPAuth.Secret({ size: 20 });
+    const totpSecret = secret.base32;
 
     // Encrypt the secret
     const { encrypted, iv, authTag } = this.encryptSecret(totpSecret);
@@ -86,11 +87,14 @@ export class MfaService {
     });
 
     // Generate QR code
-    const otpauthUrl = generateURI({
+    const totp = new OTPAuth.TOTP({
       issuer: 'SutraID',
       label: user.email,
-      secret: totpSecret,
+      secret: OTPAuth.Secret.fromBase32(totpSecret),
+      digits: 6,
+      period: 30,
     });
+    const otpauthUrl = totp.toString();
     const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
 
     return {
@@ -120,8 +124,13 @@ export class MfaService {
       method.totpAuthTag!,
     );
 
-    const result = await otplibVerify({ token: code, secret });
-    if (!result.valid) {
+    const totp = new OTPAuth.TOTP({
+      secret: OTPAuth.Secret.fromBase32(secret),
+      digits: 6,
+      period: 30,
+    });
+    const delta = totp.validate({ token: code, window: 1 });
+    if (delta === null) {
       throw new BadRequestException('Invalid verification code. Please try again.');
     }
 
@@ -168,8 +177,13 @@ export class MfaService {
       method.totpAuthTag!,
     );
 
-    const result = await otplibVerify({ token: code, secret });
-    const isValid = result.valid;
+    const totp = new OTPAuth.TOTP({
+      secret: OTPAuth.Secret.fromBase32(secret),
+      digits: 6,
+      period: 30,
+    });
+    const delta = totp.validate({ token: code, window: 1 });
+    const isValid = delta !== null;
 
     if (isValid) {
       await this.prisma.mfaMethod.update({

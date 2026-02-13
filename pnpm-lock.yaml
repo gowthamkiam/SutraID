@@ -71,9 +71,9 @@ importers:
       openid-client:
         specifier: ^5.7.1
         version: 5.7.1
-      otplib:
-        specifier: ^13.3.0
-        version: 13.3.0
+      otpauth:
+        specifier: ^9.5.0
+        version: 9.5.0
       passport:
         specifier: ^0.7.0
         version: 0.7.0
@@ -1756,45 +1756,6 @@ packages:
     engines: {node: '>=20.0'}
     dev: false
 
-  /@otplib/core@13.3.0:
-    resolution: {integrity: sha512-pnQDOuCmFVeF/XnboJq9TOJgLoo2idNPJKMymOF8vGqJJ+ReKRYM9bUGjNPRWC0tHjMwu1TXbnzyBp494JgRag==}
-    dev: false
-
-  /@otplib/hotp@13.3.0:
-    resolution: {integrity: sha512-XJMZGz2bg4QJwK7ulvl1GUI2VMn/flaIk/E/BTKAejHsX2kUtPF1bRhlZ2+elq8uU5Fs9Z9FHcQK2CPZNQbbUQ==}
-    dependencies:
-      '@otplib/core': 13.3.0
-      '@otplib/uri': 13.3.0
-    dev: false
-
-  /@otplib/plugin-base32-scure@13.3.0:
-    resolution: {integrity: sha512-/jYbL5S6GB0Ie3XGEWtLIr9s5ZICl/BfmNL7+8/W7usZaUU4GiyLd2S+JGsNCslPyqNekSudD864nDAvRI0s8w==}
-    dependencies:
-      '@otplib/core': 13.3.0
-      '@scure/base': 2.0.0
-    dev: false
-
-  /@otplib/plugin-crypto-noble@13.3.0:
-    resolution: {integrity: sha512-wmV+jBVncepgwv99G7Plrdzd0tHfbpXk2U+OD7MO7DzpDqOYEgOPi+IIneksJSTL8QvWdfi+uQEuhnER4fKouA==}
-    dependencies:
-      '@noble/hashes': 2.0.1
-      '@otplib/core': 13.3.0
-    dev: false
-
-  /@otplib/totp@13.3.0:
-    resolution: {integrity: sha512-XfjGNoN8d9S3Ove2j7AwkVV7+QDFsV7Lm7YwSiezNaHffkWtJ60aJYpmf+01dARdPST71U2ptueMsRJso4sq4A==}
-    dependencies:
-      '@otplib/core': 13.3.0
-      '@otplib/hotp': 13.3.0
-      '@otplib/uri': 13.3.0
-    dev: false
-
-  /@otplib/uri@13.3.0:
-    resolution: {integrity: sha512-3oh6nBXy+cm3UX9cxEAGZiDrfxHU2gfelYFV+XNCx+8dq39VaQVymwlU2yjPZiMAi/3agaUeEftf2RwM5F+Cyg==}
-    dependencies:
-      '@otplib/core': 13.3.0
-    dev: false
-
   /@paralleldrive/cuid2@2.3.1:
     resolution: {integrity: sha512-XO7cAxhnTZl0Yggq6jOgjiOHhbgcO4NqFqwSmQpjK3b6TEE6Uj/jfSk6wzYyemh3+I0sHirKSetjQwn5cZktFw==}
     dependencies:
@@ -1873,10 +1834,6 @@ packages:
   /@rushstack/eslint-patch@1.15.0:
     resolution: {integrity: sha512-ojSshQPKwVvSMR8yT2L/QtUkV5SXi/IfDiJ4/8d6UbTPjiHVmxZzUAzGD8Tzks1b9+qQkZa0isUOvYObedITaw==}
     dev: true
-
-  /@scure/base@2.0.0:
-    resolution: {integrity: sha512-3E1kpuZginKkek01ovG8krQ0Z44E3DHPjc5S2rjJw9lZn3KSQOs8S7wqikF/AH7iRanHypj85uGyxk0XAyC37w==}
-    dev: false
 
   /@selderee/plugin-htmlparser2@0.11.0:
     resolution: {integrity: sha512-P33hHGdldxGabLFjPPpaTxVolMrzrcegejx+0GxjrIb9Zv48D8yAIA/QTDR2dFl7Uz7urX8aX6+5bCZslr+gWQ==}
@@ -6798,15 +6755,10 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: true
 
-  /otplib@13.3.0:
-    resolution: {integrity: sha512-VYMKyyDG8yt2q+z58sz54/EIyTh7+tyMrjeemR44iVh5+dkKtIs57irTqxjH+IkAL1uMmG1JIFhG5CxTpqdU5g==}
+  /otpauth@9.5.0:
+    resolution: {integrity: sha512-Ldhc6UYl4baR5toGr8nfKC+L/b8/RgHKoIixAebgoNGzUUCET02g04rMEZ2ZsPfeVQhMHcuaOgb28nwMr81zCA==}
     dependencies:
-      '@otplib/core': 13.3.0
-      '@otplib/hotp': 13.3.0
-      '@otplib/plugin-base32-scure': 13.3.0
-      '@otplib/plugin-crypto-noble': 13.3.0
-      '@otplib/totp': 13.3.0
-      '@otplib/uri': 13.3.0
+      '@noble/hashes': 2.0.1
     dev: false
 
   /own-keys@1.0.1:
