@@ -255,7 +255,7 @@ export default function HomePage() {
             >
               Get Started Free
             </a>
-            <a href="#developers" style={{
+            <a href="/integration-guide" style={{
               textDecoration: 'none',
               background: 'rgba(255, 255, 255, 0.05)',
               color: '#e5e7eb',
