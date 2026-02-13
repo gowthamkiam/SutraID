@@ -30,6 +30,29 @@ export class PolicyService {
   ) { }
 
   async ensureDefaults(organizationId: string) {
+    // 0. Ensure Organization exists (for demo purposes)
+    // In a real app, this would likely throw, but for the demo we auto-seed correctly.
+    const orgExists = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+    });
+
+    if (!orgExists) {
+      if (organizationId === 'org_sutraid_enterprise_demo') {
+        await this.prisma.organization.create({
+          data: {
+            id: organizationId,
+            name: 'SutraID Enterprise Demo',
+            slug: 'sutraid-demo',
+            domain: 'demo.sutraid.com',
+          }
+        });
+      } else {
+        // If it's a random ID that doesn't exist, we can't create policies for it.
+        // We'll let it fail or throw a clearer error, but the FK constraint is technically correct.
+        throw new NotFoundException(`Organization ${organizationId} not found`);
+      }
+    }
+
     // 1. Ensure Password Policy exists
     const passwordPolicy = await this.prisma.passwordPolicy.findUnique({
       where: { organizationId },
