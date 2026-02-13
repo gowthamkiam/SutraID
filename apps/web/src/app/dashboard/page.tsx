@@ -74,6 +74,13 @@ export default function DashboardPage() {
       color: '#f59e0b',
     },
     {
+      title: 'Policies',
+      description: 'Authorization rules & access control',
+      icon: '📋',
+      href: '/dashboard/policies',
+      color: '#0ea5e9',
+    },
+    {
       title: 'Audit Logs',
       description: 'View security events',
       icon: '📜',
@@ -292,6 +299,7 @@ export default function DashboardPage() {
               { icon: '📱', label: 'Applications', href: '/dashboard/applications' },
               { icon: '👥', label: 'Users', href: '/dashboard/users' },
               { icon: '🔑', label: 'Auth Methods', href: '/dashboard/authentication' },
+              { icon: '📋', label: 'Policies', href: '/dashboard/policies' },
               { icon: '📜', label: 'Audit Logs', href: '/dashboard/audit' },
               { icon: '⚙️', label: 'Settings', href: '/dashboard/settings' },
             ].map((item) => (
