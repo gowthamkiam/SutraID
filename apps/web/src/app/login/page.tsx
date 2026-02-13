@@ -56,6 +56,12 @@ export default function LoginPage() {
   const [ssoLoading, setSsoLoading] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // MFA state
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaToken, setMfaToken] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [isBackupCode, setIsBackupCode] = useState(false);
+
   const getProviderIcon = (type: string) => {
     const icons: Record<string, string> = {
       OKTA: 'O',
@@ -158,6 +164,16 @@ export default function LoginPage() {
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || 'Invalid email or password');
+
+        // Check if MFA is required
+        if (data.mfaRequired) {
+          setMfaRequired(true);
+          setMfaToken(data.mfaToken);
+          setMessage('Enter the 6-digit code from your authenticator app');
+          setLoading(false);
+          return;
+        }
+
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
         localStorage.setItem('user', JSON.stringify(data.user));
@@ -188,6 +204,46 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMfaVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+
+    try {
+      const response = await fetch(`${apiUrl}/auth/mfa/verify-challenge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mfaToken,
+          code: mfaCode,
+          isBackupCode,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Invalid authentication code');
+
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      window.location.href = '/dashboard';
+    } catch (err: any) {
+      setError(err.message || 'Invalid code. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelMfa = () => {
+    setMfaRequired(false);
+    setMfaToken('');
+    setMfaCode('');
+    setIsBackupCode(false);
+    setMessage('');
+    setError('');
   };
 
   const getHeading = () => {
@@ -252,10 +308,101 @@ export default function LoginPage() {
             fontWeight: 500,
             margin: 0,
           }}>
-            {getHeading()}
+            {mfaRequired ? 'Two-Factor Authentication' : getHeading()}
           </p>
         </div>
 
+        {/* MFA Challenge Form */}
+        {mfaRequired ? (
+          <form onSubmit={handleMfaVerify}>
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label htmlFor="mfaCode" style={labelStyle}>
+                {isBackupCode ? 'Backup Code' : 'Authentication Code'}
+              </label>
+              <input
+                id="mfaCode"
+                type="text"
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value.replace(/\s/g, ''))}
+                required
+                placeholder={isBackupCode ? '8-character backup code' : '6-digit code'}
+                maxLength={isBackupCode ? 8 : 6}
+                style={{
+                  ...inputStyle,
+                  textAlign: 'center',
+                  letterSpacing: '0.3em',
+                  fontSize: '1.25rem',
+                  fontWeight: 600,
+                }}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
+                autoFocus
+              />
+            </div>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.85rem',
+                color: '#6b7280',
+                cursor: 'pointer',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={isBackupCode}
+                  onChange={(e) => {
+                    setIsBackupCode(e.target.checked);
+                    setMfaCode('');
+                  }}
+                  style={{ cursor: 'pointer' }}
+                />
+                Use a backup code instead
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '0.9rem',
+                background: loading ? '#9ca3af' : '#4f46e5',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '50px',
+                fontSize: '1rem',
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                transition: 'background 0.2s',
+              }}
+              onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = '#4338ca'; }}
+              onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = '#4f46e5'; }}
+            >
+              {loading ? 'Verifying...' : 'Verify'}
+            </button>
+
+            <div style={{ marginTop: '1.25rem', textAlign: 'center' }}>
+              <button
+                type="button"
+                onClick={cancelMfa}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#6b7280',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#4f46e5'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#6b7280'}
+              >
+                Back to login
+              </button>
+            </div>
+          </form>
+        ) : (
         <form onSubmit={handleSubmit}>
           {/* Email */}
           <div style={{ marginBottom: '1.25rem' }}>
@@ -445,6 +592,7 @@ export default function LoginPage() {
             {getButtonLabel()}
           </button>
         </form>
+        )}
 
         {/* Status messages */}
         {message && (
@@ -478,7 +626,7 @@ export default function LoginPage() {
         )}
 
         {/* Mode toggle links */}
-        <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+        {!mfaRequired && <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
           {mode === 'magic-link' && (
             <>
               <button
@@ -587,7 +735,7 @@ export default function LoginPage() {
               </button>
             </>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* Bottom-right helper tooltip */}

@@ -39,11 +39,15 @@ model User {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  // MFA (Phase 6)
+  mfaEnabled        Boolean  @default(false)
+
   // Relations
   authChallenges    AuthChallenge[]
   sessions          Session[]
   organizationMembers OrganizationMember[]
   ssoIdentities     SsoIdentity[]
+  mfaMethods        MfaMethod[]
 
   @@index([email])
   @@index([status])
@@ -514,10 +518,49 @@ enum AuditResult {
 }
 
 // ============================================================================
-// FUTURE TABLES (Phase 6+)
+// MFA (Phase 6)
 // ============================================================================
 
-// Phase 6: MfaMethod model
+// MfaMethod - Multi-factor authentication methods per user
+model MfaMethod {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Method details
+  type              MfaType  @default(TOTP)
+  name              String   @default("Authenticator App")
+
+  // TOTP configuration (encrypted with AES-256-GCM)
+  totpSecret        String?  // Encrypted Base32 secret
+  totpEncryptionIv  String?  // AES-GCM initialization vector
+  totpAuthTag       String?  // AES-GCM authentication tag
+
+  // Backup codes (bcrypt hashed)
+  backupCodes       String[]
+
+  // Status
+  verified          Boolean  @default(false)
+  enabled           Boolean  @default(true)
+
+  // Metadata
+  lastUsedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, enabled])
+  @@map("mfa_methods")
+}
+
+enum MfaType {
+  TOTP
+}
+
+// ============================================================================
+// FUTURE TABLES (Phase 7+)
+// ============================================================================
+
 // Phase 7: Agent, AgentToken models
 // Phase 8: McpServer model
 // Future: Identity (social OAuth), ApiKey

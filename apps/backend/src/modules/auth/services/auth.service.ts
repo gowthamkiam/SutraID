@@ -12,6 +12,8 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { AuthResponseDto } from '../dto';
 import { AuditService } from '../../audit/audit.service';
+import { MfaService } from './mfa.service';
+import { Inject, forwardRef } from '@nestjs/common';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +25,8 @@ export class AuthService {
     private prisma: PrismaService,
     private config: ConfigService,
     private auditService: AuditService,
+    @Inject(forwardRef(() => MfaService))
+    private mfaService: MfaService,
   ) {
     // Initialize Resend client
     const resendApiKey = this.config.get<string>('RESEND_API_KEY');
@@ -305,6 +309,31 @@ export class AuthService {
         metadata: { method: 'password', email, reason: 'wrong_password' },
       });
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    // Check if MFA is enabled
+    if (user.mfaEnabled) {
+      const mfaToken = await this.mfaService.createMfaToken(user.id);
+
+      await this.auditService.log({
+        userId: user.id,
+        action: 'user.login',
+        resource: 'auth:password',
+        result: 'SUCCESS',
+        metadata: { method: 'password', email, mfa_required: true },
+      });
+
+      return {
+        tokenType: 'Bearer',
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        },
+        mfaRequired: true,
+        mfaToken,
+      } as AuthResponseDto;
     }
 
     await this.prisma.user.update({
@@ -717,6 +746,28 @@ export class AuthService {
     } catch (error) {
       throw new UnauthorizedException('Invalid access token');
     }
+  }
+
+  /**
+   * Public wrapper for createSession (used by MFA controller after verification)
+   */
+  async createSessionForUser(user: any): Promise<AuthResponseDto> {
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    const session = await this.createSession(user);
+
+    await this.auditService.log({
+      userId: user.id,
+      action: 'user.login',
+      resource: 'auth:mfa',
+      result: 'SUCCESS',
+      metadata: { method: 'password+mfa', email: user.email },
+    });
+
+    return session;
   }
 
   /**

@@ -484,3 +484,80 @@ export const policyApi = {
     return response.json();
   },
 };
+
+// ============================================================================
+// MFA API (Phase 6)
+// ============================================================================
+
+export interface MfaStatus {
+  enabled: boolean;
+  methods: Array<{
+    id: string;
+    type: string;
+    name: string;
+    verified: boolean;
+    lastUsedAt: string | null;
+    backupCodesRemaining: number;
+  }>;
+}
+
+export interface EnrollTotpResponse {
+  methodId: string;
+  secret: string;
+  qrCodeDataUrl: string;
+  backupCodes: string[];
+}
+
+export const mfaApi = {
+  async getStatus(): Promise<MfaStatus> {
+    const response = await fetch(`${API_URL}/auth/mfa/status`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch MFA status');
+    return response.json();
+  },
+
+  async enrollTotp(): Promise<EnrollTotpResponse> {
+    const response = await fetch(`${API_URL}/auth/mfa/enroll/totp`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to start MFA enrollment');
+    return response.json();
+  },
+
+  async verifyEnrollment(methodId: string, code: string): Promise<{ success: boolean }> {
+    const response = await fetch(`${API_URL}/auth/mfa/enroll/verify`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ methodId, code }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Invalid verification code');
+    }
+    return response.json();
+  },
+
+  async regenerateBackupCodes(): Promise<{ backupCodes: string[] }> {
+    const response = await fetch(`${API_URL}/auth/mfa/backup-codes/regenerate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to regenerate backup codes');
+    return response.json();
+  },
+
+  async disable(password: string): Promise<{ success: boolean }> {
+    const response = await fetch(`${API_URL}/auth/mfa/disable`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ password }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to disable MFA');
+    }
+    return response.json();
+  },
+};

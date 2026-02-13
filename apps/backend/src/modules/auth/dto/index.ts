@@ -6,3 +6,6 @@ export * from './login-password.dto';
 export * from './forgot-password.dto';
 export * from './reset-password.dto';
 export * from './change-password.dto';
+export * from './verify-totp-enrollment.dto';
+export * from './verify-mfa-challenge.dto';
+export * from './disable-mfa.dto';
