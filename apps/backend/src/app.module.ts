@@ -9,6 +9,7 @@ import { ApplicationModule } from './modules/application/application.module';
 import { SsoModule } from './modules/sso/sso.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { PolicyModule } from './modules/policy/policy.module';
+import { DirectoryModule } from './modules/directory/directory.module';
 
 @Module({
   imports: [
@@ -31,8 +32,10 @@ import { PolicyModule } from './modules/policy/policy.module';
     SsoModule,
     // Policy engine module (authorization)
     PolicyModule,
+    // Directory integration module (SCIM & LDAP)
+    DirectoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

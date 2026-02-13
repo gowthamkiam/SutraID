@@ -30,6 +30,7 @@ const navItems = [
     { icon: ShieldCheck, label: 'SSO Providers', href: '/dashboard/sso/providers' },
     { icon: AppWindow, label: 'Applications', href: '/dashboard/applications' },
     { icon: Users, label: 'Users', href: '/dashboard/users' },
+    { icon: Layers, label: 'Directory', href: '/dashboard/directory' },
     { icon: Key, label: 'Auth Methods', href: '/dashboard/authentication' },
     { icon: FileText, label: 'Policies', href: '/dashboard/policies' },
     { icon: History, label: 'Audit Logs', href: '/dashboard/audit' },

@@ -42,16 +42,103 @@ model User {
   // MFA (Phase 6)
   mfaEnabled        Boolean  @default(false)
 
+  // Directory / External Identity (SCIM/LDAP)
+  externalId        String?  // ID from external directory
+  agentMetadata     Json?    // Metadata for AI agents
+
   // Relations
   authChallenges    AuthChallenge[]
   sessions          Session[]
   organizationMembers OrganizationMember[]
   ssoIdentities     SsoIdentity[]
   mfaMethods        MfaMethod[]
+  groups            GroupMember[]
 
   @@index([email])
   @@index([status])
+  @@index([externalId])
   @@map("users")
+}
+
+// ... (UserStatus, AuthChallenge, ChallengeType, Session, OrgPlan, OrgStatus enums and models)
+
+// ============================================================================
+// DIRECTORY INTEGRATION (SCIM & LDAP)
+// ============================================================================
+
+// DirectoryConfig - Multi-tenant directory configuration
+model DirectoryConfig {
+  id                String   @id @default(uuid())
+  organizationId    String   @unique
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Directory type
+  type              DirectoryType @default(SCIM)
+  enabled           Boolean  @default(true)
+
+  // SCIM Configuration
+  scimToken         String?  // Hashed bearer token
+  
+  // LDAP Configuration
+  ldapUrl           String?  // ldaps://hostname:636
+  ldapBaseDn        String?
+  ldapBindDn        String?
+  ldapBindPassword  String?  // Encrypted
+  ldapUserFilter    String?  @default("(objectClass=user)")
+  ldapGroupFilter   String?  @default("(objectClass=group)")
+
+  // Sync Settings
+  syncInterval      Int      @default(60) // Minutes
+  lastSyncAt        DateTime?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([organizationId])
+  @@map("directory_configs")
+}
+
+enum DirectoryType {
+  SCIM
+  LDAP
+}
+
+// Group - User groups (synced from directory or local)
+model Group {
+  id                String   @id @default(uuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name              String
+  description       String?
+  externalId        String?  // ID from external directory (SCIM/LDAP)
+
+  // Relations
+  members           GroupMember[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([externalId])
+  @@map("groups")
+}
+
+// GroupMember - Junction table for Groups and Users
+model GroupMember {
+  id                String   @id @default(uuid())
+  groupId           String
+  group             Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt         DateTime @default(now())
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+  @@map("group_members")
 }
 
 enum UserStatus {
