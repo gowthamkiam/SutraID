@@ -169,6 +169,8 @@ model Organization {
   members           OrganizationMember[]
   applications      Application[]
   ssoProviders      SsoProvider[]
+  policies          Policy[]
+  networkZones      NetworkZone[]
 
   @@index([slug])
   @@index([domain])
@@ -414,9 +416,108 @@ model OidcToken {
 }
 
 // ============================================================================
-// FUTURE TABLES (Will add in Phase 4-5)
+// POLICY ENGINE (Phase 4)
 // ============================================================================
 
-// Phase 4: Policy & NetworkZone models
-// Phase 5: AuditLog model
-// Future: Identity (social OAuth), MfaMethod, Agent, AgentToken, McpServer, ApiKey
+// Policy - Fine-grained authorization rules
+model Policy {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Policy details
+  name            String
+  description     String?
+  effect          PolicyEffect @default(ALLOW)
+  resource        String       // Resource pattern (e.g., "api:orders:*")
+  actions         String[]     // ["read", "write", "delete"]
+
+  // Context conditions (JSON)
+  // Example: { "ipRange": "10.0.0.0/8", "timeWindow": "09:00-17:00", "maxBudget": 1000 }
+  conditions      Json         @default("{}")
+
+  // Evaluation order (higher priority = evaluated first)
+  priority        Int          @default(0)
+  enabled         Boolean      @default(true)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, enabled])
+  @@index([resource])
+  @@map("policies")
+}
+
+enum PolicyEffect {
+  ALLOW
+  DENY
+}
+
+// NetworkZone - IP/geo-based access zones
+model NetworkZone {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name            String
+  description     String?
+  ipRanges        String[]     // CIDR blocks (e.g., ["10.0.0.0/8", "192.168.1.0/24"])
+  geoLocations    String[]     // ISO country codes (e.g., ["US", "CA", "GB"])
+  trusted         Boolean      @default(false)
+  enabled         Boolean      @default(true)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@map("network_zones")
+}
+
+// ============================================================================
+// AUDIT LOGGING (Phase 5)
+// ============================================================================
+
+// AuditLog - Immutable audit trail for compliance
+model AuditLog {
+  id              String       @id @default(uuid())
+  organizationId  String?
+  userId          String?
+  agentId         String?      // For AI agent actions (Phase 7)
+
+  // Event details
+  action          String       // "user.login", "user.register", "token.issued", "policy.evaluated", "sso.login"
+  resource        String?      // What was accessed/modified
+  result          AuditResult  @default(SUCCESS)
+
+  // Context metadata (JSON)
+  // { "ipAddress": "...", "userAgent": "...", "method": "password", "provider": "okta" }
+  metadata        Json         @default("{}")
+
+  // Risk scoring (anomaly detection placeholder)
+  riskScore       Float?
+
+  // Immutable timestamp
+  createdAt       DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action])
+  @@index([result])
+  @@map("audit_logs")
+}
+
+enum AuditResult {
+  SUCCESS
+  FAILURE
+  DENIED
+}
+
+// ============================================================================
+// FUTURE TABLES (Phase 6+)
+// ============================================================================
+
+// Phase 6: MfaMethod model
+// Phase 7: Agent, AgentToken models
+// Phase 8: McpServer model
+// Future: Identity (social OAuth), ApiKey

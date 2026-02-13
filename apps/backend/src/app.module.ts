@@ -7,6 +7,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { ApplicationModule } from './modules/application/application.module';
 import { SsoModule } from './modules/sso/sso.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { PolicyModule } from './modules/policy/policy.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { SsoModule } from './modules/sso/sso.module';
     }),
     // Database module (Prisma ORM)
     PrismaModule,
+    // Audit logging module (global — available to all modules)
+    AuditModule,
     // Authentication module
     AuthModule,
     // Organization module (multi-tenancy)
@@ -25,7 +29,8 @@ import { SsoModule } from './modules/sso/sso.module';
     ApplicationModule,
     // SSO module (SAML/OIDC Service Provider)
     SsoModule,
-    // Add other modules here as we build them
+    // Policy engine module (authorization)
+    PolicyModule,
   ],
   controllers: [AppController],
   providers: [AppService],

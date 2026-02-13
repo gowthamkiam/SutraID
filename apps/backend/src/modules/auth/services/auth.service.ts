@@ -11,6 +11,7 @@ import { SignJWT } from 'jose';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { AuthResponseDto } from '../dto';
+import { AuditService } from '../../audit/audit.service';
 
 @Injectable()
 export class AuthService {
@@ -21,6 +22,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private auditService: AuditService,
   ) {
     // Initialize Resend client
     const resendApiKey = this.config.get<string>('RESEND_API_KEY');
@@ -152,7 +154,17 @@ export class AuthService {
     });
 
     // Create session and tokens
-    return await this.createSession(challenge.user);
+    const session = await this.createSession(challenge.user);
+
+    await this.auditService.log({
+      userId: challenge.userId,
+      action: 'user.login',
+      resource: 'auth:magic-link',
+      result: 'SUCCESS',
+      metadata: { method: 'magic_link', email: challenge.identifier },
+    });
+
+    return session;
   }
 
   /**
@@ -243,7 +255,17 @@ export class AuthService {
       });
     }
 
-    return await this.createSession(user);
+    const session = await this.createSession(user);
+
+    await this.auditService.log({
+      userId: user.id,
+      action: 'user.register',
+      resource: 'auth:password',
+      result: 'SUCCESS',
+      metadata: { method: 'password', email },
+    });
+
+    return session;
   }
 
   /**
@@ -253,15 +275,35 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email } });
 
     if (!user || !user.passwordHash) {
+      await this.auditService.log({
+        action: 'user.login',
+        resource: 'auth:password',
+        result: 'FAILURE',
+        metadata: { method: 'password', email, reason: 'invalid_credentials' },
+      });
       throw new UnauthorizedException('Invalid email or password');
     }
 
     if (user.status !== 'ACTIVE') {
+      await this.auditService.log({
+        userId: user.id,
+        action: 'user.login',
+        resource: 'auth:password',
+        result: 'FAILURE',
+        metadata: { method: 'password', email, reason: 'account_inactive' },
+      });
       throw new BadRequestException('Account is not active. Please contact support.');
     }
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
+      await this.auditService.log({
+        userId: user.id,
+        action: 'user.login',
+        resource: 'auth:password',
+        result: 'FAILURE',
+        metadata: { method: 'password', email, reason: 'wrong_password' },
+      });
       throw new UnauthorizedException('Invalid email or password');
     }
 
@@ -270,7 +312,17 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
-    return await this.createSession(user);
+    const session = await this.createSession(user);
+
+    await this.auditService.log({
+      userId: user.id,
+      action: 'user.login',
+      resource: 'auth:password',
+      result: 'SUCCESS',
+      metadata: { method: 'password', email },
+    });
+
+    return session;
   }
 
   /**
@@ -300,6 +352,14 @@ export class AuthService {
 
     const resetLink = `${this.frontendUrl}/auth/reset-password?token=${token}`;
     await this.sendPasswordResetEmail(email, resetLink);
+
+    await this.auditService.log({
+      userId: user.id,
+      action: 'user.password_reset_requested',
+      resource: 'auth:password-reset',
+      result: 'SUCCESS',
+      metadata: { email },
+    });
 
     return { message: 'If an account exists with that email, a reset link has been sent.' };
   }
@@ -343,6 +403,14 @@ export class AuthService {
       },
     });
 
+    await this.auditService.log({
+      userId: challenge.userId,
+      action: 'user.password_reset',
+      resource: 'auth:password-reset',
+      result: 'SUCCESS',
+      metadata: { email: challenge.identifier },
+    });
+
     return { message: 'Password has been reset successfully. You can now sign in.' };
   }
 
@@ -373,6 +441,13 @@ export class AuthService {
         passwordHash,
         passwordChangedAt: new Date(),
       },
+    });
+
+    await this.auditService.log({
+      userId,
+      action: 'user.password_changed',
+      resource: 'auth:password',
+      result: 'SUCCESS',
     });
 
     return { message: 'Password changed successfully.' };
@@ -608,6 +683,10 @@ export class AuthService {
    * Revoke a session (logout)
    */
   async revokeSession(jti: string): Promise<void> {
+    const session = await this.prisma.session.findUnique({
+      where: { accessToken: jti },
+    });
+
     await this.prisma.session.updateMany({
       where: { accessToken: jti },
       data: {
@@ -616,6 +695,15 @@ export class AuthService {
         revokedReason: 'User logout',
       },
     });
+
+    if (session) {
+      await this.auditService.log({
+        userId: session.userId,
+        action: 'user.logout',
+        resource: 'auth:session',
+        result: 'SUCCESS',
+      });
+    }
   }
 
   /**

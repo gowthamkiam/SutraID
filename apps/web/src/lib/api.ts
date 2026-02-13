@@ -317,3 +317,170 @@ export const applicationApi = {
     return `${API_URL}/sso/oidc-idp/${orgId}/jwks`;
   },
 };
+
+// ============================================================================
+// Audit API
+// ============================================================================
+
+export interface AuditLogEntry {
+  id: string;
+  organizationId: string | null;
+  userId: string | null;
+  agentId: string | null;
+  action: string;
+  resource: string | null;
+  result: 'SUCCESS' | 'FAILURE' | 'DENIED';
+  metadata: Record<string, any>;
+  riskScore: number | null;
+  createdAt: string;
+}
+
+export interface AuditQueryResult {
+  logs: AuditLogEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const auditApi = {
+  async getLogs(orgId: string, params?: {
+    userId?: string;
+    action?: string;
+    result?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<AuditQueryResult> {
+    const searchParams = new URLSearchParams();
+    if (params?.userId) searchParams.set('userId', params.userId);
+    if (params?.action) searchParams.set('action', params.action);
+    if (params?.result) searchParams.set('result', params.result);
+    if (params?.startDate) searchParams.set('startDate', params.startDate);
+    if (params?.endDate) searchParams.set('endDate', params.endDate);
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+
+    const response = await fetch(
+      `${API_URL}/organizations/${orgId}/audit/logs?${searchParams.toString()}`,
+      { headers: getAuthHeaders() },
+    );
+    if (!response.ok) throw new Error('Failed to fetch audit logs');
+    return response.json();
+  },
+
+  async getStats(orgId: string, days?: number): Promise<any> {
+    const params = days ? `?days=${days}` : '';
+    const response = await fetch(
+      `${API_URL}/organizations/${orgId}/audit/stats${params}`,
+      { headers: getAuthHeaders() },
+    );
+    if (!response.ok) throw new Error('Failed to fetch audit stats');
+    return response.json();
+  },
+};
+
+// ============================================================================
+// Policy API
+// ============================================================================
+
+export interface Policy {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string | null;
+  effect: 'ALLOW' | 'DENY';
+  resource: string;
+  actions: string[];
+  conditions: Record<string, any>;
+  priority: number;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePolicyDto {
+  name: string;
+  description?: string;
+  effect?: 'ALLOW' | 'DENY';
+  resource: string;
+  actions: string[];
+  conditions?: Record<string, any>;
+  priority?: number;
+  enabled?: boolean;
+}
+
+export interface EvaluationResult {
+  decision: 'ALLOW' | 'DENY';
+  matchedPolicy?: { id: string; name: string; effect: string; priority: number };
+  reason: string;
+}
+
+export const policyApi = {
+  async list(orgId: string): Promise<Policy[]> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/policies`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch policies');
+    return response.json();
+  },
+
+  async get(orgId: string, policyId: string): Promise<Policy> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/policies/${policyId}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch policy');
+    return response.json();
+  },
+
+  async create(orgId: string, data: CreatePolicyDto): Promise<Policy> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/policies`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to create policy');
+    }
+    return response.json();
+  },
+
+  async update(orgId: string, policyId: string, data: Partial<CreatePolicyDto>): Promise<Policy> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/policies/${policyId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to update policy');
+    }
+    return response.json();
+  },
+
+  async delete(orgId: string, policyId: string): Promise<void> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/policies/${policyId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to delete policy');
+  },
+
+  async evaluate(orgId: string, data: {
+    userId?: string;
+    agentId?: string;
+    resource: string;
+    action: string;
+    context?: Record<string, any>;
+  }): Promise<EvaluationResult> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/policies/evaluate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to evaluate policy');
+    return response.json();
+  },
+};
