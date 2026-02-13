@@ -474,6 +474,12 @@ export const policyApi = {
     resource: string;
     action: string;
     context?: Record<string, any>;
+    riskContext?: {
+      ipAddress?: string;
+      userAgent?: string;
+      deviceId?: string;
+      location?: string;
+    };
   }): Promise<EvaluationResult> {
     const response = await fetch(`${API_URL}/organizations/${orgId}/policies/evaluate`, {
       method: 'POST',
@@ -489,16 +495,19 @@ export const policyApi = {
 // MFA API (Phase 6)
 // ============================================================================
 
+export interface MfaMethod {
+  id: string;
+  type: 'TOTP' | 'PASSKEY' | 'MAGIC_LINK' | 'OTP_EMAIL' | 'OTP_SMS' | 'FIDO2';
+  name: string;
+  verified: boolean;
+  lastUsedAt: string | null;
+  isPhishingResistant: boolean;
+}
+
 export interface MfaStatus {
   enabled: boolean;
-  methods: Array<{
-    id: string;
-    type: string;
-    name: string;
-    verified: boolean;
-    lastUsedAt: string | null;
-    backupCodesRemaining: number;
-  }>;
+  methods: MfaMethod[];
+  adaptiveAuthEnabled: boolean;
 }
 
 export interface EnrollTotpResponse {
@@ -539,12 +548,50 @@ export const mfaApi = {
     return response.json();
   },
 
-  async regenerateBackupCodes(): Promise<{ backupCodes: string[] }> {
-    const response = await fetch(`${API_URL}/auth/mfa/backup-codes/regenerate`, {
-      method: 'POST',
+  // Passkey / WebAuthn Methods
+  async getPasskeyOptions(): Promise<PublicKeyCredentialCreationOptionsJSON> {
+    const response = await fetch(`${API_URL}/auth/passkey/options`, {
       headers: getAuthHeaders(),
     });
-    if (!response.ok) throw new Error('Failed to regenerate backup codes');
+    if (!response.ok) throw new Error('Failed to fetch Passkey options');
+    return response.json();
+  },
+
+  async enrollPasskey(credential: any): Promise<{ success: boolean }> {
+    const response = await fetch(`${API_URL}/auth/passkey/enroll`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ credential }),
+    });
+    if (!response.ok) throw new Error('Failed to enroll Passkey');
+    return response.json();
+  },
+
+  // Magic Link / OTP
+  async sendMagicLink(email: string): Promise<void> {
+    const response = await fetch(`${API_URL}/auth/magic-link/send`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) throw new Error('Failed to send magic link');
+  },
+
+  async sendOtp(email: string): Promise<void> {
+    const response = await fetch(`${API_URL}/auth/otp/send`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) throw new Error('Failed to send OTP');
+  },
+
+  // Adaptive Auth
+  async checkRisk(context: any): Promise<{ riskScore: number; recommendation: 'ALLOW' | 'CHALLENGE' | 'DENY' }> {
+    const response = await fetch(`${API_URL}/auth/adaptive/check`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(context),
+    });
+    if (!response.ok) throw new Error('Failed to check risk');
     return response.json();
   },
 
@@ -561,3 +608,21 @@ export const mfaApi = {
     return response.json();
   },
 };
+
+// Simplified WebAuthn types for client-side use
+export interface PublicKeyCredentialCreationOptionsJSON {
+  challenge: string;
+  user: {
+    id: string;
+    name: string;
+    displayName: string;
+  };
+  rp: {
+    name: string;
+    id?: string;
+  };
+  pubKeyCredParams: Array<{ alg: number; type: "public-key" }>;
+  authenticatorSelection?: AuthenticatorSelectionCriteria;
+  timeout?: number;
+  attestation?: AttestationConveyancePreference;
+}
