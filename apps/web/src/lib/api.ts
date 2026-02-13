@@ -468,6 +468,14 @@ export const policyApi = {
     if (!response.ok) throw new Error('Failed to delete policy');
   },
 
+  async listByType(orgId: string, type: string): Promise<Policy[]> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/policies?type=${type}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch policies');
+    return response.json();
+  },
+
   async evaluate(orgId: string, data: {
     userId?: string;
     agentId?: string;
@@ -487,6 +495,26 @@ export const policyApi = {
       body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to evaluate policy');
+    return response.json();
+  },
+};
+
+export const passwordPolicyApi = {
+  async get(orgId: string): Promise<any> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/policies/password`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch password policy');
+    return response.json();
+  },
+
+  async update(orgId: string, data: any): Promise<any> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/policies/password`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to update password policy');
     return response.json();
   },
 };
@@ -605,6 +633,59 @@ export const mfaApi = {
       const error = await response.json();
       throw new Error(error.message || 'Failed to disable MFA');
     }
+    return response.json();
+  },
+
+  async updateAdaptiveAuth(enabled: boolean): Promise<{ success: boolean }> {
+    const response = await fetch(`${API_URL}/auth/mfa/adaptive/toggle`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ enabled }),
+    });
+    if (!response.ok) throw new Error('Failed to update adaptive auth');
+    return response.json();
+  },
+};
+
+// ============================================================================
+// Directory API
+// ============================================================================
+
+export const directoryApi = {
+  async getConfig(orgId: string): Promise<any> {
+    const response = await fetch(`${API_URL}/directory/ldap/${orgId}/config`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) return null;
+    return response.json();
+  },
+
+  async updateConfig(orgId: string, data: any): Promise<any> {
+    const response = await fetch(`${API_URL}/directory/ldap/${orgId}/config`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to update directory configuration');
+    return response.json();
+  },
+
+  async sync(orgId: string): Promise<{ status: string }> {
+    const response = await fetch(`${API_URL}/directory/ldap/${orgId}/sync`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to initiate sync');
+    return response.json();
+  },
+
+  async generateScimToken(orgId: string): Promise<{ token: string }> {
+    // Shared with existing SCIM logic
+    const response = await fetch(`${API_URL}/directory/scim/${orgId}/token`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to generate SCIM token');
     return response.json();
   },
 };

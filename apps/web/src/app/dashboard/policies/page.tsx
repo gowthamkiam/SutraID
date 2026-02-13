@@ -1,436 +1,400 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { policyApi, Policy, CreatePolicyDto } from '@/lib/api';
+import { useState, useEffect } from 'react';
+import {
+  Shield,
+  Lock,
+  Plus,
+  CheckCircle,
+  UserCheck,
+  ChevronRight,
+  RefreshCcw
+} from 'lucide-react';
+import { policyApi, passwordPolicyApi, Policy } from '@/lib/api';
 
-const effectColors: Record<string, { bg: string; text: string; border: string }> = {
-  ALLOW: { bg: '#ecfdf5', text: '#065f46', border: '#a7f3d0' },
-  DENY: { bg: '#fef2f2', text: '#991b1b', border: '#fecaca' },
-};
+type PolicyTab = 'SIGN_ON' | 'PASSWORD';
 
-export default function PoliciesPage() {
-  const [orgId, setOrgId] = useState<string | null>(null);
-  const [policies, setPolicies] = useState<Policy[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+export default function SecurityPoliciesPage() {
+  const [activeTab, setActiveTab] = useState<PolicyTab>('SIGN_ON');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
 
-  // Form state
-  const [formName, setFormName] = useState('');
-  const [formDescription, setFormDescription] = useState('');
-  const [formEffect, setFormEffect] = useState<'ALLOW' | 'DENY'>('ALLOW');
-  const [formResource, setFormResource] = useState('');
-  const [formActions, setFormActions] = useState('');
-  const [formPriority, setFormPriority] = useState('0');
-  const [formConditions, setFormConditions] = useState('{}');
+  // State for data
+  const [signOnPolicies, setSignOnPolicies] = useState<Policy[]>([]);
+  const [passwordPolicy, setPasswordPolicy] = useState({
+    minLength: 12,
+    requireUppercase: true,
+    requireLowercase: true,
+    requireNumbers: true,
+    requireSymbols: true,
+    lockoutThreshold: 5,
+    lockoutDuration: 30,
+  });
 
-  // Test evaluation
-  const [showEval, setShowEval] = useState(false);
-  const [evalResource, setEvalResource] = useState('');
-  const [evalAction, setEvalAction] = useState('');
-  const [evalResult, setEvalResult] = useState<any>(null);
+  // Mock org ID for demonstration
+  const orgId = "org_sutraid_enterprise_demo";
 
-  useEffect(() => {
-    const stored = localStorage.getItem('currentOrgId');
-    if (stored) {
-      setOrgId(stored);
-    } else {
-      const accessToken = localStorage.getItem('accessToken');
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
-      fetch(`${apiUrl}/organizations`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
-        .then((res) => res.json())
-        .then((orgs) => {
-          if (orgs?.length > 0) {
-            setOrgId(orgs[0].id);
-            localStorage.setItem('currentOrgId', orgs[0].id);
-          }
-        })
-        .catch(() => setError('Failed to load organization'));
-    }
-  }, []);
-
-  useEffect(() => {
-    if (orgId) loadPolicies();
-  }, [orgId]);
-
-  const loadPolicies = async () => {
-    if (!orgId) return;
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await policyApi.list(orgId);
-      setPolicies(data);
-    } catch (err: any) {
-      setError(err.message);
+      const [policies, pwPolicy] = await Promise.all([
+        policyApi.listByType(orgId, 'SIGN_ON'),
+        passwordPolicyApi.get(orgId)
+      ]);
+      setSignOnPolicies(policies);
+      if (pwPolicy) {
+        setPasswordPolicy({
+          minLength: pwPolicy.minLength,
+          requireUppercase: pwPolicy.requireUppercase,
+          requireLowercase: pwPolicy.requireLowercase,
+          requireNumbers: pwPolicy.requireNumbers,
+          requireSymbols: pwPolicy.requireSymbols,
+          lockoutThreshold: pwPolicy.lockoutThreshold,
+          lockoutDuration: pwPolicy.lockoutDuration,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch policies', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const resetForm = () => {
-    setFormName('');
-    setFormDescription('');
-    setFormEffect('ALLOW');
-    setFormResource('');
-    setFormActions('');
-    setFormPriority('0');
-    setFormConditions('{}');
-    setEditingId(null);
-    setShowCreate(false);
-  };
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const openEdit = (policy: Policy) => {
-    setFormName(policy.name);
-    setFormDescription(policy.description || '');
-    setFormEffect(policy.effect);
-    setFormResource(policy.resource);
-    setFormActions(policy.actions.join(', '));
-    setFormPriority(String(policy.priority));
-    setFormConditions(JSON.stringify(policy.conditions, null, 2));
-    setEditingId(policy.id);
-    setShowCreate(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orgId) return;
-
-    let conditions = {};
+  const handleCreatePolicy = async () => {
+    setLoading(true);
     try {
-      conditions = JSON.parse(formConditions);
-    } catch {
-      setError('Invalid JSON in conditions');
-      return;
-    }
-
-    const data: CreatePolicyDto = {
-      name: formName,
-      description: formDescription || undefined,
-      effect: formEffect,
-      resource: formResource,
-      actions: formActions.split(',').map((a) => a.trim()).filter(Boolean),
-      priority: parseInt(formPriority, 10) || 0,
-      conditions,
-    };
-
-    try {
-      if (editingId) {
-        await policyApi.update(orgId, editingId, data);
-      } else {
-        await policyApi.create(orgId, data);
-      }
-      resetForm();
-      await loadPolicies();
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  const handleDelete = async (policyId: string) => {
-    if (!orgId || !confirm('Delete this policy?')) return;
-    try {
-      await policyApi.delete(orgId, policyId);
-      await loadPolicies();
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  const handleToggle = async (policy: Policy) => {
-    if (!orgId) return;
-    try {
-      await policyApi.update(orgId, policy.id, { enabled: !policy.enabled });
-      await loadPolicies();
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  const handleEvaluate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orgId) return;
-    try {
-      const result = await policyApi.evaluate(orgId, {
-        resource: evalResource,
-        action: evalAction,
+      await policyApi.create(orgId, {
+        name: 'New Custom Policy ' + (signOnPolicies.length + 1),
+        description: 'Custom sign-on rules',
+        effect: 'ALLOW',
+        resource: 'auth:login',
+        actions: ['login'],
+        // @ts-ignore
+        type: 'SIGN_ON',
+        priority: 5,
+        enabled: true,
+        rules: [
+          {
+            id: 'rule_new',
+            name: 'MFA for Remote',
+            conditions: { group: 'Remote Employees' },
+            requirement: 'MFA_REQUIRED',
+            priority: 1
+          }
+        ]
       });
-      setEvalResult(result);
+      await fetchData();
+      setMessage('New policy created successfully.');
+      setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
-      setError(err.message);
+      setMessage('Error creating policy: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '0.6rem 0.8rem', borderRadius: '8px',
-    border: '1.5px solid #d1d5db', fontSize: '0.9rem', outline: 'none',
-    boxSizing: 'border-box', color: '#111827', background: '#fff',
+  const handleSavePasswordPolicy = async () => {
+    setLoading(true);
+    try {
+      await passwordPolicyApi.update(orgId, passwordPolicy);
+      setMessage('Password policy updated successfully.');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err: any) {
+      setMessage('Error saving policy: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const labelStyle: React.CSSProperties = {
-    display: 'block', marginBottom: '0.3rem', fontWeight: 500,
-    fontSize: '0.8rem', color: '#374151',
+  const cardStyle: React.CSSProperties = {
+    background: '#ffffff',
+    borderRadius: '20px',
+    border: '1px solid #e5e7eb',
+    padding: '2rem',
+    marginBottom: '2rem',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
   };
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'var(--bg-primary, #f9fafb)',
-      padding: '2rem',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      background: '#f8fafc',
+      padding: '4rem 2rem',
+      fontFamily: 'Inter, system-ui, sans-serif',
     }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <div>
-            <a href="/dashboard" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.85rem' }}>
-              ← Back to Dashboard
-            </a>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary, #111827)', margin: '0.5rem 0 0' }}>
-              Policies
+      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+        <header style={{ marginBottom: '3rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '10px',
+              background: 'rgba(99, 102, 241, 0.1)',
+              color: '#6366f1',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <Shield size={24} />
+            </div>
+            <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+              Security Policies
             </h1>
-            <p style={{ color: 'var(--text-secondary, #6b7280)', fontSize: '0.9rem', margin: '0.25rem 0 0' }}>
-              Fine-grained authorization rules for resources and actions
-            </p>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <button
-              onClick={() => setShowEval(!showEval)}
-              style={{
-                padding: '0.6rem 1.2rem', borderRadius: '8px', border: '1px solid #d1d5db',
-                background: '#fff', color: '#374151', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer',
-              }}
-            >
-              Test Policy
-            </button>
-            <button
-              onClick={() => { resetForm(); setShowCreate(true); }}
-              style={{
-                padding: '0.6rem 1.2rem', borderRadius: '8px', border: 'none',
-                background: '#4f46e5', color: '#fff', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
-              }}
-            >
-              + Create Policy
-            </button>
-          </div>
-        </div>
+          <p style={{ color: '#64748b', fontSize: '1.1rem', maxWidth: '600px' }}>
+            Configure enterprise-grade authentication rules and password complexity requirements.
+          </p>
+        </header>
 
-        {error && (
-          <div style={{
-            padding: '1rem', background: '#fef2f2', border: '1px solid #fecaca',
-            borderRadius: '10px', color: '#991b1b', fontSize: '0.9rem', marginBottom: '1rem',
-          }}>
-            {error}
-            <button onClick={() => setError('')} style={{ marginLeft: '1rem', background: 'none', border: 'none', color: '#991b1b', cursor: 'pointer', fontWeight: 600 }}>×</button>
-          </div>
-        )}
-
-        {/* Test Evaluation Panel */}
-        {showEval && (
-          <div style={{
-            background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb',
-            padding: '1.5rem', marginBottom: '1.5rem',
-          }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: '#111827' }}>Test Policy Evaluation</h3>
-            <form onSubmit={handleEvaluate} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: '200px' }}>
-                <label style={labelStyle}>Resource</label>
-                <input value={evalResource} onChange={(e) => setEvalResource(e.target.value)} placeholder="api:orders:123" required style={inputStyle} />
-              </div>
-              <div style={{ flex: 1, minWidth: '200px' }}>
-                <label style={labelStyle}>Action</label>
-                <input value={evalAction} onChange={(e) => setEvalAction(e.target.value)} placeholder="read" required style={inputStyle} />
-              </div>
-              <button type="submit" style={{
-                padding: '0.6rem 1.2rem', borderRadius: '8px', border: 'none',
-                background: '#4f46e5', color: '#fff', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
-              }}>
-                Evaluate
-              </button>
-            </form>
-            {evalResult && (
-              <div style={{
-                marginTop: '1rem', padding: '1rem', borderRadius: '8px',
-                background: evalResult.decision === 'ALLOW' ? '#ecfdf5' : '#fef2f2',
-                border: `1px solid ${evalResult.decision === 'ALLOW' ? '#a7f3d0' : '#fecaca'}`,
-              }}>
-                <div style={{ fontWeight: 600, color: evalResult.decision === 'ALLOW' ? '#065f46' : '#991b1b' }}>
-                  {evalResult.decision}: {evalResult.reason}
-                </div>
-                {evalResult.matchedPolicy && (
-                  <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                    Matched: {evalResult.matchedPolicy.name} (priority {evalResult.matchedPolicy.priority})
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Create/Edit Form */}
-        {showCreate && (
-          <div style={{
-            background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb',
-            padding: '1.5rem', marginBottom: '1.5rem',
-          }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: '#111827' }}>
-              {editingId ? 'Edit Policy' : 'Create Policy'}
-            </h3>
-            <form onSubmit={handleSubmit}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label style={labelStyle}>Name *</label>
-                  <input value={formName} onChange={(e) => setFormName(e.target.value)} required placeholder="Allow API read access" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Effect *</label>
-                  <select value={formEffect} onChange={(e) => setFormEffect(e.target.value as any)} style={{ ...inputStyle, cursor: 'pointer' }}>
-                    <option value="ALLOW">ALLOW</option>
-                    <option value="DENY">DENY</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>Resource Pattern *</label>
-                  <input value={formResource} onChange={(e) => setFormResource(e.target.value)} required placeholder="api:orders:*" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Actions (comma-separated) *</label>
-                  <input value={formActions} onChange={(e) => setFormActions(e.target.value)} required placeholder="read, write, delete" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Priority</label>
-                  <input type="number" value={formPriority} onChange={(e) => setFormPriority(e.target.value)} placeholder="0" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Description</label>
-                  <input value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="Optional description" style={inputStyle} />
-                </div>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Conditions (JSON)</label>
-                  <textarea
-                    value={formConditions}
-                    onChange={(e) => setFormConditions(e.target.value)}
-                    placeholder='{"ipRange": "10.0.0.0/8", "timeWindow": "09:00-17:00"}'
-                    rows={3}
-                    style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.8rem' }}
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
-                <button type="submit" style={{
-                  padding: '0.6rem 1.5rem', borderRadius: '8px', border: 'none',
-                  background: '#4f46e5', color: '#fff', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
-                }}>
-                  {editingId ? 'Update Policy' : 'Create Policy'}
-                </button>
-                <button type="button" onClick={resetForm} style={{
-                  padding: '0.6rem 1.5rem', borderRadius: '8px', border: '1px solid #d1d5db',
-                  background: '#fff', color: '#374151', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer',
-                }}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Policies List */}
+        {/* Tabs - Pill Style */}
         <div style={{
-          background: 'var(--bg-card, #fff)', borderRadius: '12px',
-          border: '1px solid var(--border-color, #e5e7eb)', overflow: 'hidden',
+          display: 'flex',
+          background: '#fff',
+          padding: '4px',
+          borderRadius: '12px',
+          border: '1px solid #e5e7eb',
+          marginBottom: '2rem',
+          width: 'fit-content'
         }}>
-          {loading ? (
-            <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
-          ) : policies.length === 0 ? (
-            <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
-              <p>No policies yet. Create your first policy to control access to resources.</p>
-            </div>
-          ) : (
-            <div>
-              {policies.map((policy, i) => (
-                <div
-                  key={policy.id}
-                  style={{
-                    padding: '1.25rem 1.5rem',
-                    borderBottom: i < policies.length - 1 ? '1px solid #f3f4f6' : 'none',
-                    opacity: policy.enabled ? 1 : 0.5,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>{policy.name}</span>
-                        <span style={{
-                          padding: '0.15rem 0.5rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 700,
-                          background: effectColors[policy.effect]?.bg,
-                          color: effectColors[policy.effect]?.text,
-                          border: `1px solid ${effectColors[policy.effect]?.border}`,
-                        }}>
-                          {policy.effect}
-                        </span>
-                        <span style={{
-                          padding: '0.15rem 0.5rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 500,
-                          background: '#f3f4f6', color: '#6b7280',
-                        }}>
-                          Priority: {policy.priority}
-                        </span>
-                        {!policy.enabled && (
-                          <span style={{
-                            padding: '0.15rem 0.5rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 500,
-                            background: '#f3f4f6', color: '#9ca3af',
-                          }}>
-                            Disabled
-                          </span>
-                        )}
-                      </div>
-                      {policy.description && (
-                        <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '0.5rem' }}>{policy.description}</div>
-                      )}
-                      <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem', color: '#6b7280' }}>
-                        <span><strong>Resource:</strong> <code style={{ background: '#f3f4f6', padding: '0.1rem 0.3rem', borderRadius: '4px', fontSize: '0.75rem' }}>{policy.resource}</code></span>
-                        <span><strong>Actions:</strong> {policy.actions.map((a) => (
-                          <code key={a} style={{ background: '#f3f4f6', padding: '0.1rem 0.3rem', borderRadius: '4px', fontSize: '0.75rem', marginLeft: '0.25rem' }}>{a}</code>
-                        ))}</span>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '1rem' }}>
-                      <button
-                        onClick={() => handleToggle(policy)}
-                        style={{
-                          padding: '0.4rem 0.7rem', borderRadius: '6px', border: '1px solid #d1d5db',
-                          background: '#fff', color: '#374151', fontSize: '0.8rem', cursor: 'pointer',
-                        }}
-                      >
-                        {policy.enabled ? 'Disable' : 'Enable'}
-                      </button>
-                      <button
-                        onClick={() => openEdit(policy)}
-                        style={{
-                          padding: '0.4rem 0.7rem', borderRadius: '6px', border: '1px solid #d1d5db',
-                          background: '#fff', color: '#374151', fontSize: '0.8rem', cursor: 'pointer',
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(policy.id)}
-                        style={{
-                          padding: '0.4rem 0.7rem', borderRadius: '6px', border: '1px solid #fecaca',
-                          background: '#fff', color: '#991b1b', fontSize: '0.8rem', cursor: 'pointer',
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <button
+            onClick={() => setActiveTab('SIGN_ON')}
+            style={{
+              padding: '0.75rem 1.5rem',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeTab === 'SIGN_ON' ? '#6366f1' : 'transparent',
+              color: activeTab === 'SIGN_ON' ? '#fff' : '#64748b',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            <UserCheck size={18} /> Sign-on & MFA
+          </button>
+          <button
+            onClick={() => setActiveTab('PASSWORD')}
+            style={{
+              padding: '0.75rem 1.5rem',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeTab === 'PASSWORD' ? '#6366f1' : 'transparent',
+              color: activeTab === 'PASSWORD' ? '#fff' : '#64748b',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            <Lock size={18} /> Password Complexity
+          </button>
         </div>
+
+        {message && (
+          <div style={{
+            padding: '1rem 1.25rem',
+            background: '#f0fdf4',
+            border: '1px solid #dcfce7',
+            borderRadius: '12px',
+            color: '#166534',
+            marginBottom: '2rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            fontSize: '0.95rem',
+          }}>
+            <CheckCircle size={18} />
+            {message}
+          </div>
+        )}
+
+        {loading && !signOnPolicies.length && !passwordPolicy.minLength && (
+          <div style={{ textAlign: 'center', padding: '4rem', color: '#64748b' }}>
+            <RefreshCcw className="animate-spin" size={32} />
+            <p style={{ marginTop: '1rem' }}>Loading policies...</p>
+          </div>
+        )}
+
+        {!loading && activeTab === 'SIGN_ON' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>Sign-on Policies</h2>
+              <button
+                onClick={handleCreatePolicy}
+                disabled={loading}
+                style={{
+                  padding: '0.6rem 1.2rem',
+                  background: '#6366f1',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  opacity: loading ? 0.7 : 1
+                }}>
+                <Plus size={18} /> New Policy
+              </button>
+            </div>
+
+            {signOnPolicies.map((policy: any) => (
+              <div key={policy.id} style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>{policy.name}</h3>
+                      {policy.enabled && (
+                        <span style={{
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: '99px',
+                          background: '#dcfce7',
+                          color: '#166534',
+                          fontSize: '0.7rem',
+                          fontWeight: 700
+                        }}>Active</span>
+                      )}
+                    </div>
+                    <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '0.4rem' }}>
+                      Priority {policy.priority} • {policy.description}
+                    </p>
+                  </div>
+                  <button style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 600, cursor: 'pointer' }}>Edit</button>
+                </div>
+
+                <div style={{ background: '#f8fafc', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                  {(policy.rules || []).map((rule: any, idx: number) => (
+                    <div key={rule.id || idx} style={{
+                      padding: '1.25rem',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      borderBottom: idx < (policy.rules?.length || 0) - 1 ? '1px solid #e2e8f0' : 'none'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 700, width: '20px' }}>{idx + 1}</div>
+                        <div>
+                          <div style={{ fontWeight: 600, color: '#1e293b' }}>{rule.name}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                            If group is <strong>{rule.conditions?.group || 'Any'}</strong> then <strong>{rule.requirement}</strong>
+                          </div>
+                        </div>
+                      </div>
+                      <ChevronRight size={18} color="#94a3b8" />
+                    </div>
+                  ))}
+                  {(!policy.rules || policy.rules.length === 0) && (
+                    <div style={{ padding: '1.25rem', color: '#94a3b8', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                      No rules defined.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!loading && activeTab === 'PASSWORD' && (
+          <div style={cardStyle}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e293b', marginBottom: '1.5rem' }}>Standard Password Policy</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2.5rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.75rem' }}>Minimum Length</label>
+                <input
+                  type="number"
+                  value={passwordPolicy.minLength}
+                  onChange={(e) => setPasswordPolicy({ ...passwordPolicy, minLength: parseInt(e.target.value) })}
+                  style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569' }}>Complexity Requirements</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={passwordPolicy.requireUppercase} onChange={(e) => setPasswordPolicy({ ...passwordPolicy, requireUppercase: e.target.checked })} />
+                  <span style={{ fontSize: '0.9rem', color: '#334155' }}>Require uppercase (A-Z)</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={passwordPolicy.requireLowercase} onChange={(e) => setPasswordPolicy({ ...passwordPolicy, requireLowercase: e.target.checked })} />
+                  <span style={{ fontSize: '0.9rem', color: '#334155' }}>Require lowercase (a-z)</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={passwordPolicy.requireNumbers} onChange={(e) => setPasswordPolicy({ ...passwordPolicy, requireNumbers: e.target.checked })} />
+                  <span style={{ fontSize: '0.9rem', color: '#334155' }}>Require numbers (0-9)</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={passwordPolicy.requireSymbols} onChange={(e) => setPasswordPolicy({ ...passwordPolicy, requireSymbols: e.target.checked })} />
+                  <span style={{ fontSize: '0.9rem', color: '#334155' }}>Require symbols (!@#$%)</span>
+                </label>
+              </div>
+            </div>
+
+            <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '2rem 0' }} />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.75rem' }}>Lockout Threshold (Failures)</label>
+                <input
+                  type="number"
+                  value={passwordPolicy.lockoutThreshold}
+                  onChange={(e) => setPasswordPolicy({ ...passwordPolicy, lockoutThreshold: parseInt(e.target.value) })}
+                  style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.75rem' }}>Lockout Duration (Minutes)</label>
+                <input
+                  type="number"
+                  value={passwordPolicy.lockoutDuration}
+                  onChange={(e) => setPasswordPolicy({ ...passwordPolicy, lockoutDuration: parseInt(e.target.value) })}
+                  style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }}
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={handleSavePasswordPolicy}
+              disabled={loading}
+              style={{
+                marginTop: '2.5rem',
+                padding: '1rem 2rem',
+                background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '12px',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(79, 70, 229, 0.2)',
+                opacity: loading ? 0.7 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              {loading && <RefreshCcw className="animate-spin" size={18} />}
+              Save Password Policy
+            </button>
+          </div>
+        )}
       </div>
+      <style jsx>{`
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+            .animate-spin {
+                animation: spin 1.5s linear infinite;
+            }
+        `}</style>
     </div>
   );
 }

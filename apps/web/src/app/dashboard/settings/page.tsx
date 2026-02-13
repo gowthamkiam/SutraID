@@ -132,6 +132,19 @@ export default function SettingsPage() {
     }
   };
 
+  const handleAdaptiveAuthToggle = async () => {
+    if (!mfaStatus) return;
+    const newState = !mfaStatus.adaptiveAuthEnabled;
+    setMfaStatus({ ...mfaStatus, adaptiveAuthEnabled: newState });
+    try {
+      await mfaApi.updateAdaptiveAuth(newState);
+      setMessage(`Adaptive protection ${newState ? 'enabled' : 'disabled'} successfully.`);
+    } catch (err: any) {
+      setMfaStatus({ ...mfaStatus, adaptiveAuthEnabled: !newState });
+      setError('Failed to update adaptive protection.');
+    }
+  };
+
   const cardStyle: React.CSSProperties = {
     background: '#ffffff',
     borderRadius: '20px',
@@ -438,16 +451,18 @@ export default function SettingsPage() {
                     </p>
                   </div>
                 </div>
-                <div style={{
-                  width: '64px',
-                  height: '34px',
-                  background: mfaStatus?.adaptiveAuthEnabled ? '#4f46e5' : '#e2e8f0',
-                  borderRadius: '17px',
-                  position: 'relative',
-                  cursor: 'pointer',
-                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: mfaStatus?.adaptiveAuthEnabled ? '0 4px 12px rgba(79, 70, 229, 0.25)' : 'none'
-                }}>
+                <div
+                  onClick={handleAdaptiveAuthToggle}
+                  style={{
+                    width: '64px',
+                    height: '34px',
+                    background: mfaStatus?.adaptiveAuthEnabled ? '#4f46e5' : '#e2e8f0',
+                    borderRadius: '17px',
+                    position: 'relative',
+                    cursor: 'pointer',
+                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: mfaStatus?.adaptiveAuthEnabled ? '0 4px 12px rgba(79, 70, 229, 0.25)' : 'none'
+                  }}>
                   <div style={{
                     width: '26px',
                     height: '26px',

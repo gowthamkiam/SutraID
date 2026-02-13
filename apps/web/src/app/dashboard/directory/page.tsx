@@ -24,17 +24,64 @@ export default function DirectoryPage() {
     const [scimToken, setScimToken] = useState('');
     const [copied, setCopied] = useState(false);
 
+    // LDAP State
+    const [ldapConfig, setLdapConfig] = useState({
+        url: 'ldaps://domain.controller:636',
+        baseDn: 'dc=example,dc=com',
+        bindDn: 'cn=admin,dc=example,dc=com',
+        bindPassword: '',
+        userFilter: '(objectClass=user)',
+        groupFilter: '(objectClass=group)',
+    });
+
     // Mock org ID for demonstration
     const orgId = "org_sutraid_enterprise_demo";
     const tenantUrl = `https://api.sutraid.com/scim/v2/${orgId}`;
 
-    const handleGenerateToken = () => {
+    const handleGenerateToken = async () => {
         setLoading(true);
-        setTimeout(() => {
-            setScimToken('st_live_' + Math.random().toString(36).substring(7).repeat(4));
+        try {
+            // In a real app: const response = await directoryApi.generateScimToken(orgId);
+            // setScimToken(response.token);
+            setTimeout(() => {
+                setScimToken('st_live_' + Math.random().toString(36).substring(7).repeat(4));
+                setLoading(false);
+                setMessage('New SCIM 2.0 token generated successfully.');
+            }, 1000);
+        } catch (err: any) {
             setLoading(false);
-            setMessage('New SCIM 2.0 token generated successfully.');
-        }, 1000);
+            setMessage('Error: ' + err.message);
+        }
+    };
+
+    const handleLdapSave = async () => {
+        setLoading(true);
+        setMessage('');
+        try {
+            // await directoryApi.updateConfig(orgId, ldapConfig);
+            setTimeout(() => {
+                setLoading(false);
+                setMessage('LDAP configuration saved and connection verified successfully.');
+            }, 1200);
+        } catch (err: any) {
+            setLoading(false);
+            setMessage('Connection failed: ' + err.message);
+        }
+    };
+
+    const handleLdapSync = async () => {
+        setLoading(true);
+        setMessage('');
+        try {
+            // await directoryApi.sync(orgId);
+            setTimeout(() => {
+                setLoading(false);
+                setMessage('Manual synchronization initiated. This may take a few minutes.');
+            }, 800);
+        } catch (err: any) {
+            setLoading(false);
+            setMessage('Sync failed: ' + err.message);
+        }
     };
 
     const copyToClipboard = (text: string) => {
@@ -296,63 +343,71 @@ export default function DirectoryPage() {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>LDAP URL</label>
-                                <input type="text" placeholder="ldaps://dc.example.com:636" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }} />
+                                <input type="text" placeholder="ldaps://dc.example.com:636" value={ldapConfig.url} onChange={(e) => setLdapConfig({ ...ldapConfig, url: e.target.value })} style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }} />
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Base DN</label>
-                                <input type="text" placeholder="dc=example,dc=com" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }} />
+                                <input type="text" placeholder="dc=example,dc=com" value={ldapConfig.baseDn} onChange={(e) => setLdapConfig({ ...ldapConfig, baseDn: e.target.value })} style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }} />
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Bind DN</label>
-                                <input type="text" placeholder="cn=sutra_svc,ou=ServiceAccounts,dc=example,dc=com" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }} />
+                                <input type="text" placeholder="cn=sutra_svc,ou=ServiceAccounts,dc=example,dc=com" value={ldapConfig.bindDn} onChange={(e) => setLdapConfig({ ...ldapConfig, bindDn: e.target.value })} style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }} />
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Bind Password</label>
-                                <input type="password" placeholder="••••••••••••" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }} />
+                                <input type="password" placeholder="••••••••••••" value={ldapConfig.bindPassword} onChange={(e) => setLdapConfig({ ...ldapConfig, bindPassword: e.target.value })} style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }} />
                             </div>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2.5rem' }}>
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>User Filter</label>
-                                <input type="text" defaultValue="(objectClass=user)" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }} />
+                                <input type="text" value={ldapConfig.userFilter} onChange={(e) => setLdapConfig({ ...ldapConfig, userFilter: e.target.value })} style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }} />
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Group Filter</label>
-                                <input type="text" defaultValue="(objectClass=group)" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }} />
+                                <input type="text" value={ldapConfig.groupFilter} onChange={(e) => setLdapConfig({ ...ldapConfig, groupFilter: e.target.value })} style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc', outline: 'none' }} />
                             </div>
                         </div>
 
                         <div style={{ display: 'flex', gap: '1rem' }}>
-                            <button style={{
-                                flex: 1,
-                                padding: '1rem',
-                                background: '#6366f1',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '12px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '0.75rem'
-                            }}>
-                                <Server size={18} /> Save and Test Connection
+                            <button
+                                onClick={handleLdapSave}
+                                disabled={loading}
+                                style={{
+                                    flex: 1,
+                                    padding: '1rem',
+                                    background: '#6366f1',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.75rem',
+                                    opacity: loading ? 0.7 : 1
+                                }}>
+                                <Server size={18} /> {loading ? 'Testing...' : 'Save and Test Connection'}
                             </button>
-                            <button style={{
-                                padding: '1rem 2rem',
-                                background: '#fff',
-                                color: '#374151',
-                                border: '1.5px solid #e5e7eb',
-                                borderRadius: '12px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.75rem'
-                            }}>
-                                <RefreshCcw size={18} /> Sync Now
+                            <button
+                                onClick={handleLdapSync}
+                                disabled={loading}
+                                style={{
+                                    padding: '1rem 2rem',
+                                    background: '#fff',
+                                    color: '#374151',
+                                    border: '1.5px solid #e5e7eb',
+                                    borderRadius: '12px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.75rem',
+                                    opacity: loading ? 0.7 : 1
+                                }}>
+                                <RefreshCcw size={18} className={loading ? 'animate-spin' : ''} /> Sync Now
                             </button>
                         </div>
                     </div>

@@ -262,6 +262,9 @@ model Organization {
   ssoProviders      SsoProvider[]
   policies          Policy[]
   networkZones      NetworkZone[]
+  groups            Group[]
+  passwordPolicies  PasswordPolicy[]
+  directoryConfig   DirectoryConfig?
 
   @@index([slug])
   @@index([domain])
@@ -519,15 +522,17 @@ model Policy {
   // Policy details
   name            String
   description     String?
+  type            PolicyType   @default(ACCESS)
   effect          PolicyEffect @default(ALLOW)
-  resource        String       // Resource pattern (e.g., "api:orders:*")
-  actions         String[]     // ["read", "write", "delete"]
+  
+  // Rules for Sign-on/Auth policies (JSON array of rules)
+  // Example: [{ "priority": 1, "conditions": { "group": "Admins" }, "requirement": "MFA_REQUIRED" }]
+  rules           Json         @default("[]")
 
-  // Context conditions (JSON)
-  // Example: { "ipRange": "10.0.0.0/8", "timeWindow": "09:00-17:00", "maxBudget": 1000 }
+  // Context conditions (JSON) - Legacy/Generic
   conditions      Json         @default("{}")
 
-  // Evaluation order (higher priority = evaluated first)
+  // Evaluation order
   priority        Int          @default(0)
   enabled         Boolean      @default(true)
 
@@ -536,8 +541,38 @@ model Policy {
 
   @@index([organizationId])
   @@index([organizationId, enabled])
-  @@index([resource])
   @@map("policies")
+}
+
+enum PolicyType {
+  ACCESS
+  SIGN_ON
+  MFA
+  PASSWORD
+}
+
+// PasswordPolicy - Complexity and rotation rules
+model PasswordPolicy {
+  id              String       @id @default(uuid())
+  organizationId  String       @unique
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  minLength       Int          @default(8)
+  requireUppercase Boolean     @default(true)
+  requireLowercase Boolean     @default(true)
+  requireNumbers   Boolean     @default(true)
+  requireSymbols   Boolean     @default(true)
+  
+  maxAgeDays      Int          @default(0) // 0 = never expire
+  historyCount    Int          @default(5) // Don't allow reuse of last 5 passwords
+  
+  lockoutThreshold Int         @default(5) // Lock after 5 failed attempts
+  lockoutDuration  Int         @default(30) // Minutes
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("password_policies")
 }
 
 enum PolicyEffect {

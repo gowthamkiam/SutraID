@@ -27,7 +27,62 @@ export class PolicyService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-  ) {}
+  ) { }
+
+  async ensureDefaults(organizationId: string) {
+    // 1. Ensure Password Policy exists
+    const passwordPolicy = await this.prisma.passwordPolicy.findUnique({
+      where: { organizationId },
+    });
+
+    if (!passwordPolicy) {
+      await this.prisma.passwordPolicy.create({
+        data: {
+          organizationId,
+          // Default secure settings
+          minLength: 12,
+          requireUppercase: true,
+          requireLowercase: true,
+          requireNumbers: true,
+          requireSymbols: true,
+          lockoutThreshold: 5,
+          lockoutDuration: 30,
+        },
+      });
+    }
+
+    // 2. Ensure Default Sign-on Policy exists
+    const signOnPolicy = await this.prisma.policy.findFirst({
+      where: {
+        organizationId,
+        type: 'SIGN_ON',
+        name: 'Default Sign-on Policy',
+      },
+    });
+
+    if (!signOnPolicy) {
+      await this.create(organizationId, {
+        name: 'Default Sign-on Policy',
+        description: 'Default authentication rules for all users',
+        effect: 'ALLOW',
+        resource: 'auth:login',
+        actions: ['login'],
+        priority: 0,
+        enabled: true,
+        // @ts-ignore - Create DTO mismatch with internal helper
+        type: 'SIGN_ON',
+        rules: [
+          {
+            id: 'default_rule',
+            name: 'Catch-all',
+            conditions: { group: 'Everyone' },
+            requirement: 'MFA_OPTIONAL',
+            priority: 999
+          }
+        ]
+      });
+    }
+  }
 
   /**
    * Create a new policy
@@ -41,16 +96,21 @@ export class PolicyService {
     conditions?: Record<string, any>;
     priority?: number;
     enabled?: boolean;
+    type?: 'ACCESS' | 'SIGN_ON' | 'MFA' | 'PASSWORD';
+    rules?: any[];
   }) {
+    // @ts-ignore
     return this.prisma.policy.create({
       data: {
         organizationId,
         name: data.name,
         description: data.description,
         effect: data.effect || 'ALLOW',
+        type: data.type || 'ACCESS',
         resource: data.resource,
         actions: data.actions,
         conditions: data.conditions || {},
+        rules: data.rules || [],
         priority: data.priority || 0,
         enabled: data.enabled !== false,
       },
@@ -60,10 +120,43 @@ export class PolicyService {
   /**
    * List all policies for an organization
    */
-  async findAll(organizationId: string) {
+  async findAll(organizationId: string, type?: string) {
+    await this.ensureDefaults(organizationId);
     return this.prisma.policy.findMany({
-      where: { organizationId },
+      where: {
+        organizationId,
+        ...(type ? { type: type as any } : {}),
+      },
       orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  /**
+   * Get Password Policy
+   */
+  async getPasswordPolicy(organizationId: string) {
+    await this.ensureDefaults(organizationId);
+    return this.prisma.passwordPolicy.findUniqueOrThrow({
+      where: { organizationId },
+    });
+  }
+
+  /**
+   * Update Password Policy
+   */
+  async updatePasswordPolicy(organizationId: string, data: any) {
+    await this.ensureDefaults(organizationId);
+    return this.prisma.passwordPolicy.update({
+      where: { organizationId },
+      data: {
+        minLength: data.minLength,
+        requireUppercase: data.requireUppercase,
+        requireLowercase: data.requireLowercase,
+        requireNumbers: data.requireNumbers,
+        requireSymbols: data.requireSymbols,
+        lockoutThreshold: data.lockoutThreshold,
+        lockoutDuration: data.lockoutDuration,
+      },
     });
   }
 

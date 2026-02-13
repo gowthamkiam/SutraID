@@ -23,7 +23,7 @@ export class MfaController {
   constructor(
     private mfaService: MfaService,
     private authService: AuthService,
-  ) {}
+  ) { }
 
   /**
    * GET /api/v1/auth/mfa/status
@@ -106,5 +106,23 @@ export class MfaController {
   @HttpCode(HttpStatus.OK)
   async disable(@Request() req: any, @Body() dto: DisableMfaDto) {
     return this.mfaService.disableTotp(req.user.id, dto.password);
+  }
+
+  @Get('passkey/options')
+  @UseGuards(JwtAuthGuard)
+  async getPasskeyOptions(@Request() req: any) {
+    return this.mfaService.getPasskeyOptions(req.user.id);
+  }
+
+  @Post('passkey/enroll')
+  @UseGuards(JwtAuthGuard)
+  async enrollPasskey(@Request() req: any, @Body() body: any) {
+    return this.mfaService.enrollPasskey(req.user.id, body.credential);
+  }
+
+  @Post('adaptive/toggle')
+  @UseGuards(JwtAuthGuard)
+  async toggleAdaptiveAuth(@Request() req: any, @Body() body: { enabled: boolean }) {
+    return this.mfaService.toggleAdaptiveAuth(req.user.id, body.enabled);
   }
 }

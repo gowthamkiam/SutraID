@@ -6,6 +6,21 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class LDAPService {
     constructor(private prisma: PrismaService) { }
 
+    async updateConfig(organizationId: string, data: any) {
+        return this.prisma.directoryConfig.upsert({
+            where: { organizationId },
+            create: {
+                organizationId,
+                ...data,
+                type: 'LDAP',
+            },
+            update: {
+                ...data,
+                type: 'LDAP',
+            },
+        });
+    }
+
     async syncOrganization(organizationId: string) {
         const config = await this.prisma.directoryConfig.findUnique({
             where: { organizationId },

@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { PolicyService } from './policy.service';
 import { CreatePolicyDto, UpdatePolicyDto, EvaluatePolicyDto } from './dto';
@@ -17,7 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @Controller('organizations/:orgId/policies')
 @UseGuards(JwtAuthGuard)
 export class PolicyController {
-  constructor(private policyService: PolicyService) {}
+  constructor(private policyService: PolicyService) { }
 
   /**
    * POST /api/v1/organizations/:orgId/policies
@@ -44,8 +45,27 @@ export class PolicyController {
    * GET /api/v1/organizations/:orgId/policies
    */
   @Get()
-  async findAll(@Param('orgId') orgId: string) {
-    return this.policyService.findAll(orgId);
+  async findAll(@Param('orgId') orgId: string, @Query('type') type?: string) {
+    return this.policyService.findAll(orgId, type);
+  }
+
+  /**
+   * GET /api/v1/organizations/:orgId/policies/password
+   */
+  @Get('password')
+  async getPasswordPolicy(@Param('orgId') orgId: string) {
+    return this.policyService.getPasswordPolicy(orgId);
+  }
+
+  /**
+   * PUT /api/v1/organizations/:orgId/policies/password
+   */
+  @Put('password')
+  async updatePasswordPolicy(
+    @Param('orgId') orgId: string,
+    @Body() body: any,
+  ) {
+    return this.policyService.updatePasswordPolicy(orgId, body);
   }
 
   /**
