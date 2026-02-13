@@ -35,9 +35,9 @@ describe('OidcIdpService', () => {
     organizationId: 'org-1',
     name: 'Test App',
     clientId: 'client-123',
-    clientSecretHash: 'hashed-secret-456',
+    clientSecret: 'secret-456',
     redirectUris: ['https://example.com/callback'],
-    type: 'OIDC',
+    oidcIdpEnabled: true,
     status: 'ACTIVE',
   };
 
@@ -428,7 +428,7 @@ describe('OidcIdpService', () => {
 
       expect(clients).toHaveLength(1);
       expect(clients[0].client_id).toBe('client-123');
-      expect(clients[0].client_secret).toBe('hashed-secret-456');
+      expect(clients[0].client_secret).toBe('secret-456');
       expect(clients[0].redirect_uris).toEqual(['https://example.com/callback']);
     });
 
@@ -440,7 +440,7 @@ describe('OidcIdpService', () => {
       expect(mockPrismaService.application.findMany).toHaveBeenCalledWith({
         where: {
           organizationId: 'org-1',
-          type: 'OIDC',
+          oidcIdpEnabled: true,
           status: 'ACTIVE',
         },
       });
