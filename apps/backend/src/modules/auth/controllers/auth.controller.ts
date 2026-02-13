@@ -13,6 +13,11 @@ import {
   MagicLinkRequestDto,
   VerifyMagicLinkDto,
   AuthResponseDto,
+  RegisterPasswordDto,
+  LoginPasswordDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  ChangePasswordDto,
 } from '../dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
@@ -42,6 +47,68 @@ export class AuthController {
     @Body() dto: VerifyMagicLinkDto,
   ): Promise<AuthResponseDto> {
     return await this.authService.verifyMagicLink(dto.token);
+  }
+
+  /**
+   * POST /api/v1/auth/register
+   * Register with email and password
+   */
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  async register(
+    @Body() dto: RegisterPasswordDto,
+  ): Promise<AuthResponseDto> {
+    return await this.authService.registerWithPassword(dto.email, dto.password);
+  }
+
+  /**
+   * POST /api/v1/auth/login
+   * Login with email and password
+   */
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  async login(
+    @Body() dto: LoginPasswordDto,
+  ): Promise<AuthResponseDto> {
+    return await this.authService.loginWithPassword(dto.email, dto.password);
+  }
+
+  /**
+   * POST /api/v1/auth/forgot-password
+   * Request a password reset email
+   */
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<{ message: string }> {
+    return await this.authService.requestPasswordReset(dto.email);
+  }
+
+  /**
+   * POST /api/v1/auth/reset-password
+   * Reset password with token
+   */
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+  ): Promise<{ message: string }> {
+    return await this.authService.resetPassword(dto.token, dto.newPassword);
+  }
+
+  /**
+   * POST /api/v1/auth/change-password
+   * Change password (authenticated)
+   */
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @Request() req: any,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    return await this.authService.changePassword(req.user.id, dto.currentPassword, dto.newPassword);
   }
 
   /**

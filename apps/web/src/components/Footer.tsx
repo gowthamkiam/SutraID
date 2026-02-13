@@ -131,9 +131,9 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} SutraID. All rights reserved.
           </span>
           <div style={{ display: 'flex', gap: '1.5rem' }}>
-            <a href="#" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Terms</a>
-            <a href="#" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Privacy</a>
-            <a href="#" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Security</a>
+            <a href="/terms" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Terms</a>
+            <a href="/privacy" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Privacy</a>
+            <a href="/security" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Security</a>
           </div>
         </div>
       </div>

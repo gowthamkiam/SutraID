@@ -27,6 +27,10 @@ model User {
   lastName          String?
   avatarUrl         String?
 
+  // Password (nullable — passwordless users don't have one)
+  passwordHash      String?
+  passwordChangedAt DateTime?
+
   // Status
   status            UserStatus @default(ACTIVE)
   lastLoginAt       DateTime?
@@ -88,6 +92,7 @@ enum ChallengeType {
   MAGIC_LINK
   EMAIL_OTP
   SMS_OTP
+  PASSWORD_RESET
 }
 
 // Session - User session management

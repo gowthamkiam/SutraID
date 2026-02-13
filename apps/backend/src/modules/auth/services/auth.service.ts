@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { Resend } from 'resend';
 import { SignJWT } from 'jose';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { AuthResponseDto } from '../dto';
 
 @Injectable()
@@ -207,6 +208,177 @@ export class AuthService {
   }
 
   /**
+   * Register a new user with email and password
+   */
+  async registerWithPassword(email: string, password: string): Promise<AuthResponseDto> {
+    // Check if user already exists with a password
+    const existingUser = await this.prisma.user.findUnique({ where: { email } });
+    if (existingUser?.passwordHash) {
+      throw new BadRequestException('An account with this email already exists. Please sign in.');
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    let user;
+    if (existingUser) {
+      // User exists from magic link — set their password
+      user = await this.prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          passwordHash,
+          passwordChangedAt: new Date(),
+          emailVerified: true,
+          emailVerifiedAt: existingUser.emailVerifiedAt || new Date(),
+        },
+      });
+    } else {
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          passwordHash,
+          passwordChangedAt: new Date(),
+          emailVerified: false,
+          status: 'ACTIVE',
+        },
+      });
+    }
+
+    return await this.createSession(user);
+  }
+
+  /**
+   * Login with email and password
+   */
+  async loginWithPassword(email: string, password: string): Promise<AuthResponseDto> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    if (!user || !user.passwordHash) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw new BadRequestException('Account is not active. Please contact support.');
+    }
+
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    return await this.createSession(user);
+  }
+
+  /**
+   * Request a password reset email
+   */
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    // Always return success to prevent email enumeration
+    if (!user || user.status !== 'ACTIVE') {
+      return { message: 'If an account exists with that email, a reset link has been sent.' };
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    await this.prisma.authChallenge.create({
+      data: {
+        userId: user.id,
+        type: 'PASSWORD_RESET',
+        token: tokenHash,
+        identifier: email,
+        expiresAt,
+      },
+    });
+
+    const resetLink = `${this.frontendUrl}/auth/reset-password?token=${token}`;
+    await this.sendPasswordResetEmail(email, resetLink);
+
+    return { message: 'If an account exists with that email, a reset link has been sent.' };
+  }
+
+  /**
+   * Reset password using a valid token
+   */
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const challenge = await this.prisma.authChallenge.findUnique({
+      where: { token: tokenHash },
+      include: { user: true },
+    });
+
+    if (!challenge || challenge.type !== 'PASSWORD_RESET') {
+      throw new UnauthorizedException('Invalid or expired reset link');
+    }
+
+    if (challenge.expiresAt < new Date()) {
+      throw new UnauthorizedException('Reset link has expired');
+    }
+
+    if (challenge.verified) {
+      throw new BadRequestException('Reset link has already been used');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    // Mark challenge as used and update password
+    await this.prisma.authChallenge.update({
+      where: { id: challenge.id },
+      data: { verified: true, verifiedAt: new Date() },
+    });
+
+    await this.prisma.user.update({
+      where: { id: challenge.userId },
+      data: {
+        passwordHash,
+        passwordChangedAt: new Date(),
+      },
+    });
+
+    return { message: 'Password has been reset successfully. You can now sign in.' };
+  }
+
+  /**
+   * Change password for an authenticated user
+   */
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.passwordHash) {
+      throw new BadRequestException('No password set. Use forgot password to set one.');
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        passwordChangedAt: new Date(),
+      },
+    });
+
+    return { message: 'Password changed successfully.' };
+  }
+
+  /**
    * Send magic link email via Resend
    */
   private async sendMagicLinkEmail(
@@ -316,6 +488,99 @@ export class AuthService {
       console.error('❌ Failed to send magic link email:', error?.message || error);
       console.log(`🔗 Fallback - Magic link for ${email}:\n${magicLink}\n`);
       // Don't throw - the magic link was created in DB, log the link as fallback
+    }
+  }
+
+  /**
+   * Send password reset email via Resend
+   */
+  private async sendPasswordResetEmail(
+    email: string,
+    resetLink: string,
+  ): Promise<void> {
+    console.log(`\n📧 Attempting to send password reset to: ${email}`);
+    console.log(`🔗 Reset link URL: ${resetLink}`);
+
+    if (!this.resend) {
+      console.warn(`⚠️  Resend NOT configured - logging reset link to console`);
+      console.log(`\n🔗 Reset link for ${email}:\n${resetLink}\n`);
+      return;
+    }
+
+    const fromEmail = this.config.get<string>('EMAIL_FROM') || 'SutraID <onboarding@resend.dev>';
+
+    try {
+      const result = await this.resend.emails.send({
+        from: fromEmail,
+        to: email,
+        subject: 'Reset your SutraID password',
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Reset your SutraID password</title>
+            <style type="text/css">
+              body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f9; color: #333333; line-height: 1.6; }
+              .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+              .header { background: #ffffff; padding: 40px 40px 24px; text-align: center; border-bottom: 1px solid #e5e7eb; }
+              .content { padding: 32px 40px; }
+              h1 { font-size: 2.25rem; font-weight: 700; margin: 0 0 24px; letter-spacing: -0.5px; color: #111827; text-align: center; }
+              .highlight { color: #4f46e5; }
+              p { font-size: 16px; margin: 0 0 20px; }
+              .button { display: inline-block; padding: 14px 32px; background-color: #4f46e5; color: #ffffff !important; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 50px; margin: 24px 0; }
+              .fallback { font-size: 14px; color: #555555; word-break: break-all; background: #f9fafb; padding: 12px 16px; border-radius: 6px; border: 1px solid #e5e7eb; }
+              .expiry { font-size: 14px; color: #d32f2f; font-weight: 500; margin: 20px 0; }
+              .footer { padding: 24px 40px; background: #f9fafb; text-align: center; font-size: 13px; color: #666666; border-top: 1px solid #e5e7eb; }
+              .footer a { color: #4f46e5; text-decoration: none; }
+              @media only screen and (max-width: 600px) {
+                .content, .header, .footer { padding: 24px 20px; }
+                h1 { font-size: 2rem; }
+                .button { width: 100%; box-sizing: border-box; text-align: center; }
+              }
+            </style>
+          </head>
+          <body>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f4f4f9; padding: 20px 0;">
+              <tr>
+                <td align="center">
+                  <div class="container">
+                    <div class="header"></div>
+                    <div class="content">
+                      <h1>Reset your <span class="highlight">S</span>utra<span class="highlight">ID</span> password</h1>
+                      <p>Hello,</p>
+                      <p>We received a request to reset your password. Click the button below to choose a new password.</p>
+                      <a href="${resetLink}" class="button">Reset Password</a>
+                      <p style="margin: 32px 0 16px;">Or copy and paste this link into your browser:</p>
+                      <div class="fallback">${resetLink}</div>
+                      <p class="expiry"><strong>This link expires in 15 minutes for your security.</strong></p>
+                      <p>If you didn't request a password reset, please ignore this email — your password remains unchanged.</p>
+                    </div>
+                    <div class="footer">
+                      <p>SutraID - AI-Native Authentication</p>
+                      <p>&copy; ${new Date().getFullYear()} SutraID. All rights reserved.</p>
+                      <p><a href="https://sutraid.com/support">Need help?</a> | <a href="https://sutraid.com/privacy">Privacy Policy</a></p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `,
+      });
+
+      if (result.error) {
+        console.error('❌ Resend API returned error:', JSON.stringify(result.error));
+        console.log(`🔗 Fallback - Reset link for ${email}:\n${resetLink}\n`);
+        return;
+      }
+
+      console.log(`✅ Password reset email sent! Resend ID: ${result.data?.id}`);
+    } catch (error: any) {
+      console.error('❌ Failed to send password reset email:', error?.message || error);
+      console.log(`🔗 Fallback - Reset link for ${email}:\n${resetLink}\n`);
     }
   }
 
