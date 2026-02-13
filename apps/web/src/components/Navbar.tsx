@@ -15,7 +15,11 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <nav style={{
+    // accessibility-fix: issue-26 - Added proper ARIA attributes for navigation
+    <nav
+      role="navigation"
+      aria-label="Main navigation"
+      style={{
       position: 'fixed',
       top: 0,
       left: 0,
@@ -103,11 +107,13 @@ export default function Navbar() {
           </a>
         </div>
 
-        {/* Mobile Hamburger */}
+        {/* accessibility-fix: issue-26 - Mobile Hamburger with improved ARIA */}
         <button
           className="nav-mobile-toggle"
           onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle menu"
+          aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-nav-menu"
           style={{
             display: 'none',
             background: 'none',
@@ -118,13 +124,19 @@ export default function Navbar() {
             fontSize: '1.5rem',
           }}
         >
-          {mobileOpen ? '\u2715' : '\u2630'}
+          <span aria-hidden="true">{mobileOpen ? '\u2715' : '\u2630'}</span>
         </button>
+        {/* /accessibility-fix */}
       </div>
 
-      {/* Mobile Dropdown */}
+      {/* accessibility-fix: issue-26 - Mobile Dropdown with improved accessibility */}
       {mobileOpen && (
-        <div className="nav-mobile-menu" style={{
+        <div
+          id="mobile-nav-menu"
+          className="nav-mobile-menu"
+          role="menu"
+          aria-label="Mobile navigation"
+          style={{
           position: 'absolute',
           top: '64px',
           left: 0,

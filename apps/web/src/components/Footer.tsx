@@ -41,7 +41,12 @@ const footerSections = [
 
 export default function Footer() {
   return (
-    <footer id="company" style={{
+    // accessibility-fix: issue-24 - Added proper semantic structure and ARIA
+    <footer
+      id="company"
+      role="contentinfo"
+      aria-label="Site footer"
+      style={{
       background: 'var(--bg-card)',
       borderTop: '1px solid var(--border-color)',
       padding: '4rem 2rem 2rem',
@@ -78,40 +83,45 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Link Columns */}
+          {/* accessibility-fix: issue-24 - Link Columns with proper nav structure */}
           {footerSections.map((section) => (
-            <div key={section.title}>
-              <h4 style={{
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                color: 'var(--text-tertiary)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                marginBottom: '1rem',
-                marginTop: 0,
-              }}>
+            <nav key={section.title} aria-labelledby={`footer-nav-${section.title.toLowerCase()}`}>
+              <h4
+                id={`footer-nav-${section.title.toLowerCase()}`}
+                style={{
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  color: 'var(--text-tertiary)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '1rem',
+                  marginTop: 0,
+                }}
+              >
                 {section.title}
               </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', listStyle: 'none', padding: 0, margin: 0 }}>
                 {section.links.map((link) => (
-                  <a
-                    key={link.label}
-                    href={link.href}
-                    style={{
-                      textDecoration: 'none',
-                      color: 'var(--text-secondary)',
-                      fontSize: '0.875rem',
-                      transition: 'color 0.15s',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
-                  >
-                    {link.label}
-                  </a>
+                  <li key={link.label}>
+                    <a
+                      href={link.href}
+                      style={{
+                        textDecoration: 'none',
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.875rem',
+                        transition: 'color 0.15s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+                    >
+                      {link.label}
+                    </a>
+                  </li>
                 ))}
-              </div>
-            </div>
+              </ul>
+            </nav>
           ))}
+          {/* /accessibility-fix */}
         </div>
 
         {/* Bottom Bar */}

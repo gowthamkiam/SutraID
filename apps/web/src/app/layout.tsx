@@ -115,9 +115,34 @@ export default function RootLayout({
           html {
             scroll-behavior: smooth;
           }
+          /* accessibility-fix: issue-6 - Skip link styles */
+          .skip-link {
+            position: absolute;
+            top: -100%;
+            left: 0;
+            z-index: 9999;
+            padding: 1rem 2rem;
+            background: var(--btn-primary-bg);
+            color: var(--btn-primary-text);
+            text-decoration: none;
+            font-weight: 600;
+            border-radius: 0 0 8px 0;
+          }
+          .skip-link:focus {
+            top: 0;
+          }
+          /* accessibility-fix: issue-9 - Global focus styles */
+          :focus-visible {
+            outline: 2px solid var(--accent-primary);
+            outline-offset: 2px;
+          }
+          /* /accessibility-fix */
         `}} />
       </head>
       <body>
+        {/* accessibility-fix: issue-6 - Skip to main content link */}
+        <a href="#main-content" className="skip-link">Skip to main content</a>
+        {/* /accessibility-fix */}
         {children}
       </body>
     </html>
