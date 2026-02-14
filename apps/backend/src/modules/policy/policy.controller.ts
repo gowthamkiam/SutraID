@@ -38,6 +38,8 @@ export class PolicyController {
       conditions: dto.conditions,
       priority: dto.priority,
       enabled: dto.enabled,
+      type: dto.type,
+      rules: dto.rules,
     });
   }
 

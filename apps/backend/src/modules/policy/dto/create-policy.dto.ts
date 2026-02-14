@@ -35,6 +35,15 @@ export class CreatePolicyDto {
   @IsOptional()
   priority?: number;
 
+  @IsString()
+  @IsEnum(['ACCESS', 'SIGN_ON', 'MFA', 'PASSWORD'])
+  @IsOptional()
+  type?: 'ACCESS' | 'SIGN_ON' | 'MFA' | 'PASSWORD';
+
+  @IsArray()
+  @IsOptional()
+  rules?: any[];
+
   @IsBoolean()
   @IsOptional()
   enabled?: boolean;
