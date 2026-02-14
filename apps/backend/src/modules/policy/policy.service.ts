@@ -294,6 +294,9 @@ export class PolicyService {
         decision: result.decision,
         matchedPolicyId: result.matchedPolicy?.id,
         matchedPolicyName: result.matchedPolicy?.name,
+        ipAddress: params.context?.ipAddress,
+        userAgent: params.context?.userAgent,
+        geoLocation: params.context?.geoLocation,
       },
     });
 
