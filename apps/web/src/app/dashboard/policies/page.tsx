@@ -8,7 +8,11 @@ import {
   CheckCircle,
   UserCheck,
   ChevronRight,
-  RefreshCcw
+  ChevronDown,
+  RefreshCcw,
+  X,
+  Trash2,
+  Edit2
 } from 'lucide-react';
 import { policyApi, passwordPolicyApi, Policy } from '@/lib/api';
 
@@ -19,7 +23,7 @@ export default function SecurityPoliciesPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  // State for data
+  // Data State
   const [signOnPolicies, setSignOnPolicies] = useState<Policy[]>([]);
   const [passwordPolicy, setPasswordPolicy] = useState({
     minLength: 12,
@@ -29,6 +33,16 @@ export default function SecurityPoliciesPage() {
     requireSymbols: true,
     lockoutThreshold: 5,
     lockoutDuration: 30,
+  });
+
+  // UI State
+  const [expandedPolicies, setExpandedPolicies] = useState<Set<string>>(new Set());
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState<Policy | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    enabled: true,
   });
 
   // Mock org ID for demonstration
@@ -64,34 +78,88 @@ export default function SecurityPoliciesPage() {
     fetchData();
   }, []);
 
-  const handleCreatePolicy = async () => {
+  // --- Actions ---
+
+  const togglePolicy = (id: string) => {
+    const newExpanded = new Set(expandedPolicies);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedPolicies(newExpanded);
+  };
+
+  const openNewPolicyModal = () => {
+    setEditingPolicy(null);
+    setFormData({ name: '', description: '', enabled: true });
+    setIsModalOpen(true);
+  };
+
+  const openEditPolicyModal = (policy: Policy) => {
+    setEditingPolicy(policy);
+    setFormData({
+      name: policy.name,
+      description: policy.description || '',
+      enabled: policy.enabled !== false,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSavePolicy = async () => {
     setLoading(true);
     try {
-      await policyApi.create(orgId, {
-        name: 'New Custom Policy ' + (signOnPolicies.length + 1),
-        description: 'Custom sign-on rules',
-        effect: 'ALLOW',
-        resource: 'auth:login',
-        actions: ['login'],
-        // @ts-ignore
-        type: 'SIGN_ON',
-        priority: 5,
-        enabled: true,
-        rules: [
-          {
-            id: 'rule_new',
-            name: 'MFA for Remote',
-            conditions: { group: 'Remote Employees' },
-            requirement: 'MFA_REQUIRED',
-            priority: 1
-          }
-        ]
-      });
+      if (editingPolicy) {
+        // Update existing
+        await policyApi.update(orgId, editingPolicy.id, {
+          ...formData,
+        });
+        setMessage('Policy updated successfully.');
+      } else {
+        // Create new
+        await policyApi.create(orgId, {
+          name: formData.name,
+          description: formData.description,
+          effect: 'ALLOW',
+          resource: 'auth:login',
+          actions: ['login'],
+          // @ts-ignore
+          type: 'SIGN_ON',
+          priority: 5,
+          enabled: formData.enabled,
+          rules: [
+            {
+              id: 'rule_new_' + Date.now(),
+              name: 'MFA for Remote',
+              conditions: { group: 'Remote Employees' },
+              requirement: 'MFA_REQUIRED',
+              priority: 1
+            }
+          ]
+        });
+        setMessage('New policy created successfully.');
+      }
+      setIsModalOpen(false);
       await fetchData();
-      setMessage('New policy created successfully.');
       setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
-      setMessage('Error creating policy: ' + err.message);
+      setMessage('Error saving policy: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeletePolicy = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this policy?')) return;
+
+    setLoading(true);
+    try {
+      await policyApi.delete(orgId, id);
+      setMessage('Policy deleted successfully.');
+      await fetchData();
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err: any) {
+      setMessage('Error deleting policy: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -125,6 +193,7 @@ export default function SecurityPoliciesPage() {
       background: '#f8fafc',
       padding: '4rem 2rem',
       fontFamily: 'Inter, system-ui, sans-serif',
+      position: 'relative'
     }}>
       <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
         <header style={{ marginBottom: '3rem' }}>
@@ -228,7 +297,7 @@ export default function SecurityPoliciesPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>Sign-on Policies</h2>
               <button
-                onClick={handleCreatePolicy}
+                onClick={openNewPolicyModal}
                 disabled={loading}
                 style={{
                   padding: '0.6rem 1.2rem',
@@ -250,7 +319,7 @@ export default function SecurityPoliciesPage() {
             {signOnPolicies.map((policy: any) => (
               <div key={policy.id} style={cardStyle}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
-                  <div>
+                  <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => togglePolicy(policy.id)}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>{policy.name}</h3>
                       {policy.enabled && (
@@ -268,36 +337,61 @@ export default function SecurityPoliciesPage() {
                       Priority {policy.priority} • {policy.description}
                     </p>
                   </div>
-                  <button style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 600, cursor: 'pointer' }}>Edit</button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => openEditPolicyModal(policy)}
+                      style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 600, cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      <Edit2 size={16} /> Edit
+                    </button>
+                    {!policy.name.includes('Default') && (
+                      <button
+                        onClick={() => handleDeletePolicy(policy.id)}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 600, cursor: 'pointer', padding: '0.5rem' }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => togglePolicy(policy.id)}
+                      style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '0.5rem' }}
+                    >
+                      {expandedPolicies.has(policy.id) ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                    </button>
+                  </div>
                 </div>
 
-                <div style={{ background: '#f8fafc', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                  {(policy.rules || []).map((rule: any, idx: number) => (
-                    <div key={rule.id || idx} style={{
-                      padding: '1.25rem',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      borderBottom: idx < (policy.rules?.length || 0) - 1 ? '1px solid #e2e8f0' : 'none'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 700, width: '20px' }}>{idx + 1}</div>
-                        <div>
-                          <div style={{ fontWeight: 600, color: '#1e293b' }}>{rule.name}</div>
-                          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                            If group is <strong>{rule.conditions?.group || 'Any'}</strong> then <strong>{rule.requirement}</strong>
+                {expandedPolicies.has(policy.id) && (
+                  <div style={{ background: '#f8fafc', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', animation: 'fadeIn 0.2s ease-in-out' }}>
+                    {(policy.rules || []).map((rule: any, idx: number) => (
+                      <div key={rule.id || idx} style={{
+                        padding: '1.25rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        borderBottom: idx < (policy.rules?.length || 0) - 1 ? '1px solid #e2e8f0' : 'none'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <div style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 700, width: '20px' }}>{idx + 1}</div>
+                          <div>
+                            <div style={{ fontWeight: 600, color: '#1e293b' }}>{rule.name}</div>
+                            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                              If group is <strong>{rule.conditions?.group || 'Any'}</strong> then <strong>{rule.requirement}</strong>
+                            </div>
                           </div>
                         </div>
+                        <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>
+                          Priority: {rule.priority}
+                        </div>
                       </div>
-                      <ChevronRight size={18} color="#94a3b8" />
-                    </div>
-                  ))}
-                  {(!policy.rules || policy.rules.length === 0) && (
-                    <div style={{ padding: '1.25rem', color: '#94a3b8', fontSize: '0.9rem', fontStyle: 'italic' }}>
-                      No rules defined.
-                    </div>
-                  )}
-                </div>
+                    ))}
+                    {(!policy.rules || policy.rules.length === 0) && (
+                      <div style={{ padding: '1.25rem', color: '#94a3b8', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                        No rules defined.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -385,6 +479,105 @@ export default function SecurityPoliciesPage() {
             </button>
           </div>
         )}
+
+        {/* Create/Edit Policy Modal */}
+        {isModalOpen && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            backdropFilter: 'blur(5px)'
+          }}>
+            <div style={{
+              background: '#fff',
+              borderRadius: '24px',
+              padding: '2.5rem',
+              width: '100%',
+              maxWidth: '500px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              animation: 'slideUp 0.3s ease-out'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                  {editingPolicy ? 'Edit Policy' : 'New Policy'}
+                </h2>
+                <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.5rem' }}>
+                    Policy Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '1rem', outline: 'none' }}
+                    placeholder="e.g., Contractors Access"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.5rem' }}>
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '1rem', outline: 'none' }}
+                    placeholder="Access rules for contractors"
+                  />
+                </div>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.enabled}
+                    onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
+                    style={{ width: '1.2rem', height: '1.2rem' }}
+                  />
+                  <span style={{ fontSize: '1rem', color: '#334155' }}>Enable this policy immediately</span>
+                </label>
+
+                {!editingPolicy && (
+                  <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0', color: '#64748b', fontSize: '0.9rem' }}>
+                    <strong style={{ color: '#475569' }}>Note:</strong> A default "MFA for Remote" rule will be added automatically. You can edit specific rules after creating the policy.
+                  </div>
+                )}
+
+                <button
+                  onClick={handleSavePolicy}
+                  disabled={loading || !formData.name}
+                  style={{
+                    marginTop: '1rem',
+                    padding: '1rem',
+                    background: '#6366f1',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    opacity: !formData.name ? 0.5 : 1
+                  }}
+                >
+                  {loading ? 'Saving...' : (editingPolicy ? 'Update Policy' : 'Create Policy')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <style jsx>{`
             @keyframes spin {
@@ -393,6 +586,14 @@ export default function SecurityPoliciesPage() {
             }
             .animate-spin {
                 animation: spin 1.5s linear infinite;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-5px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes slideUp {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
             }
         `}</style>
     </div>
