@@ -54,25 +54,22 @@ export class PolicyService {
     }
 
     // 1. Ensure Password Policy exists
-    const passwordPolicy = await this.prisma.passwordPolicy.findUnique({
+    // Use upsert to handle race conditions where multiple requests try to create it simultaneously
+    await this.prisma.passwordPolicy.upsert({
       where: { organizationId },
+      create: {
+        organizationId,
+        // Default secure settings
+        minLength: 12,
+        requireUppercase: true,
+        requireLowercase: true,
+        requireNumbers: true,
+        requireSymbols: true,
+        lockoutThreshold: 5,
+        lockoutDuration: 30,
+      },
+      update: {}, // No-op if it exists
     });
-
-    if (!passwordPolicy) {
-      await this.prisma.passwordPolicy.create({
-        data: {
-          organizationId,
-          // Default secure settings
-          minLength: 12,
-          requireUppercase: true,
-          requireLowercase: true,
-          requireNumbers: true,
-          requireSymbols: true,
-          lockoutThreshold: 5,
-          lockoutDuration: 30,
-        },
-      });
-    }
 
     // 2. Ensure Default Sign-on Policy exists
     const signOnPolicy = await this.prisma.policy.findFirst({
