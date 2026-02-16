@@ -2,10 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuditService } from './audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditResult } from '@prisma/client';
+import { OrganizationService } from '../organization/organization.service';
 
 describe('AuditService', () => {
   let service: AuditService;
   let prismaService: jest.Mocked<PrismaService>;
+  let organizationService: jest.Mocked<OrganizationService>;
 
   const mockPrismaService = {
     auditLog: {
@@ -16,6 +18,10 @@ describe('AuditService', () => {
     },
   };
 
+  const mockOrganizationService = {
+    checkPermission: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -24,11 +30,16 @@ describe('AuditService', () => {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
+        {
+          provide: OrganizationService,
+          useValue: mockOrganizationService,
+        },
       ],
     }).compile();
 
     service = module.get<AuditService>(AuditService);
     prismaService = module.get(PrismaService);
+    organizationService = module.get(OrganizationService);
   });
 
   afterEach(() => {
@@ -111,9 +122,9 @@ describe('AuditService', () => {
 
       mockPrismaService.auditLog.findMany.mockResolvedValue(mockLogs);
       mockPrismaService.auditLog.count.mockResolvedValue(2);
+      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
 
-      const result = await service.query({
-        organizationId: 'org-1',
+      const result = await service.query('org-1', 'actor-1', {
         userId: 'user-1',
         page: 1,
         limit: 10,
@@ -144,9 +155,9 @@ describe('AuditService', () => {
 
       mockPrismaService.auditLog.findMany.mockResolvedValue([]);
       mockPrismaService.auditLog.count.mockResolvedValue(0);
+      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
 
-      await service.query({
-        organizationId: 'org-1',
+      await service.query('org-1', 'actor-1', {
         startDate,
         endDate,
       });
@@ -163,9 +174,9 @@ describe('AuditService', () => {
     it('should paginate results correctly', async () => {
       mockPrismaService.auditLog.findMany.mockResolvedValue([]);
       mockPrismaService.auditLog.count.mockResolvedValue(100);
+      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
 
-      const result = await service.query({
-        organizationId: 'org-1',
+      const result = await service.query('org-1', 'actor-1', {
         page: 3,
         limit: 20,
       });
@@ -196,8 +207,9 @@ describe('AuditService', () => {
       mockPrismaService.auditLog.groupBy
         .mockResolvedValueOnce(mockByAction as any)
         .mockResolvedValueOnce(mockByResult as any);
+      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
 
-      const result = await service.getStats('org-1', 30);
+      const result = await service.getStats('org-1', 'actor-1', 30);
 
       expect(result).toEqual({
         totalEvents: 18,
@@ -216,8 +228,9 @@ describe('AuditService', () => {
     it('should filter by date range', async () => {
       mockPrismaService.auditLog.count.mockResolvedValue(0);
       mockPrismaService.auditLog.groupBy.mockResolvedValue([]);
+      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
 
-      await service.getStats('org-1', 7);
+      await service.getStats('org-1', 'actor-1', 7);
 
       const expectedDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const callArgs = mockPrismaService.auditLog.count.mock.calls[0][0];

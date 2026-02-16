@@ -86,7 +86,7 @@ describe('ApplicationService', () => {
       expect(mockOrganizationService.checkPermission).toHaveBeenCalledWith(
         'org-1',
         'user-1',
-        [OrgRole.OWNER, OrgRole.ADMIN, OrgRole.DEVELOPER],
+        [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.APP_ADMIN],
       );
     });
 
@@ -218,7 +218,7 @@ describe('ApplicationService', () => {
       expect(mockOrganizationService.checkPermission).toHaveBeenCalledWith(
         'org-1',
         'user-1',
-        [OrgRole.OWNER, OrgRole.ADMIN, OrgRole.DEVELOPER],
+        [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.APP_ADMIN],
       );
     });
 
@@ -249,7 +249,7 @@ describe('ApplicationService', () => {
       expect(mockOrganizationService.checkPermission).toHaveBeenCalledWith(
         'org-1',
         'user-1',
-        [OrgRole.OWNER, OrgRole.ADMIN],
+        [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
       );
     });
 
@@ -297,7 +297,7 @@ describe('ApplicationService', () => {
       expect(mockOrganizationService.checkPermission).toHaveBeenCalledWith(
         'org-1',
         'user-1',
-        [OrgRole.OWNER, OrgRole.ADMIN],
+        [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
       );
     });
   });

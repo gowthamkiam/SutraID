@@ -63,7 +63,7 @@ describe('OrganizationService', () => {
       mockPrismaService.organization.create.mockResolvedValue({
         id: 'org-1',
         ...dto,
-        members: [{ role: OrgRole.OWNER }],
+        members: [{ role: OrgRole.SUPER_ADMIN }],
       } as any);
 
       const result = await service.create('user-1', dto);
@@ -75,7 +75,7 @@ describe('OrganizationService', () => {
           members: {
             create: {
               userId: 'user-1',
-              role: OrgRole.OWNER,
+              role: OrgRole.SUPER_ADMIN,
               status: MemberStatus.ACTIVE,
               joinedAt: expect.any(Date),
             },
@@ -134,7 +134,7 @@ describe('OrganizationService', () => {
     it('should return user organizations with role', async () => {
       const mockMemberships = [
         {
-          role: OrgRole.OWNER,
+          role: OrgRole.SUPER_ADMIN,
           organization: {
             id: 'org-1',
             name: 'Org 1',
@@ -153,7 +153,7 @@ describe('OrganizationService', () => {
       expect(result[0]).toMatchObject({
         id: 'org-1',
         name: 'Org 1',
-        role: OrgRole.OWNER,
+        role: OrgRole.SUPER_ADMIN,
         memberCount: 5,
         applicationCount: 3,
       });
@@ -163,12 +163,12 @@ describe('OrganizationService', () => {
   describe('checkPermission', () => {
     it('should pass if user has required role', async () => {
       mockPrismaService.organizationMember.findUnique.mockResolvedValue({
-        role: OrgRole.ADMIN,
+        role: OrgRole.ORG_ADMIN,
         status: MemberStatus.ACTIVE,
       } as any);
 
       const result = await service.checkPermission('org-1', 'user-1', [
-        OrgRole.ADMIN,
+        OrgRole.ORG_ADMIN,
       ]);
 
       expect(result).toBeDefined();
@@ -178,29 +178,29 @@ describe('OrganizationService', () => {
       mockPrismaService.organizationMember.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.checkPermission('org-1', 'user-1', [OrgRole.ADMIN]),
+        service.checkPermission('org-1', 'user-1', [OrgRole.ORG_ADMIN]),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw ForbiddenException if member not active', async () => {
       mockPrismaService.organizationMember.findUnique.mockResolvedValue({
-        role: OrgRole.ADMIN,
+        role: OrgRole.ORG_ADMIN,
         status: MemberStatus.PENDING_INVITATION,
       } as any);
 
       await expect(
-        service.checkPermission('org-1', 'user-1', [OrgRole.ADMIN]),
+        service.checkPermission('org-1', 'user-1', [OrgRole.ORG_ADMIN]),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw ForbiddenException if insufficient permissions', async () => {
       mockPrismaService.organizationMember.findUnique.mockResolvedValue({
-        role: OrgRole.MEMBER,
+        role: OrgRole.READ_ONLY_ADMIN,
         status: MemberStatus.ACTIVE,
       } as any);
 
       await expect(
-        service.checkPermission('org-1', 'user-1', [OrgRole.ADMIN]),
+        service.checkPermission('org-1', 'user-1', [OrgRole.ORG_ADMIN]),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -209,12 +209,12 @@ describe('OrganizationService', () => {
     it('should invite new member successfully', async () => {
       const dto = {
         email: 'newuser@example.com',
-        role: OrgRole.MEMBER,
+        role: OrgRole.READ_ONLY_ADMIN,
       };
 
       mockPrismaService.organizationMember.findUnique
         .mockResolvedValueOnce({
-          role: OrgRole.ADMIN,
+          role: OrgRole.ORG_ADMIN,
           status: MemberStatus.ACTIVE,
         } as any)
         .mockResolvedValueOnce(null);
@@ -246,11 +246,11 @@ describe('OrganizationService', () => {
     it('should throw BadRequestException if member limit reached', async () => {
       const dto = {
         email: 'newuser@example.com',
-        role: OrgRole.MEMBER,
+        role: OrgRole.READ_ONLY_ADMIN,
       };
 
       mockPrismaService.organizationMember.findUnique.mockResolvedValue({
-        role: OrgRole.ADMIN,
+        role: OrgRole.ORG_ADMIN,
         status: MemberStatus.ACTIVE,
       } as any);
 
@@ -268,12 +268,12 @@ describe('OrganizationService', () => {
     it('should throw ConflictException if user already member', async () => {
       const dto = {
         email: 'existing@example.com',
-        role: OrgRole.MEMBER,
+        role: OrgRole.READ_ONLY_ADMIN,
       };
 
       mockPrismaService.organizationMember.findUnique
         .mockResolvedValueOnce({
-          role: OrgRole.ADMIN,
+          role: OrgRole.ORG_ADMIN,
           status: MemberStatus.ACTIVE,
         } as any)
         .mockResolvedValueOnce({ id: 'existing-membership' } as any);
@@ -297,16 +297,16 @@ describe('OrganizationService', () => {
     it('should require OWNER role to invite OWNER', async () => {
       const dto = {
         email: 'newowner@example.com',
-        role: OrgRole.OWNER,
+        role: OrgRole.SUPER_ADMIN,
       };
 
       mockPrismaService.organizationMember.findUnique
         .mockResolvedValueOnce({
-          role: OrgRole.ADMIN,
+          role: OrgRole.ORG_ADMIN,
           status: MemberStatus.ACTIVE,
         } as any)
         .mockResolvedValueOnce({
-          role: OrgRole.ADMIN,
+          role: OrgRole.ORG_ADMIN,
           status: MemberStatus.ACTIVE,
         } as any);
 
@@ -324,16 +324,16 @@ describe('OrganizationService', () => {
 
   describe('updateMemberRole', () => {
     it('should update member role successfully', async () => {
-      const dto = { role: OrgRole.ADMIN };
+      const dto = { role: OrgRole.ORG_ADMIN };
 
       mockPrismaService.organizationMember.findUnique.mockResolvedValue({
-        role: OrgRole.OWNER,
+        role: OrgRole.SUPER_ADMIN,
         status: MemberStatus.ACTIVE,
       } as any);
 
       mockPrismaService.organizationMember.update.mockResolvedValue({
         id: 'member-1',
-        role: OrgRole.ADMIN,
+        role: OrgRole.ORG_ADMIN,
       } as any);
 
       const result = await service.updateMemberRole(
@@ -343,14 +343,14 @@ describe('OrganizationService', () => {
         dto,
       );
 
-      expect(result.role).toBe(OrgRole.ADMIN);
+      expect(result.role).toBe(OrgRole.ORG_ADMIN);
     });
 
     it('should throw BadRequestException when changing own role', async () => {
-      const dto = { role: OrgRole.ADMIN };
+      const dto = { role: OrgRole.ORG_ADMIN };
 
       mockPrismaService.organizationMember.findUnique.mockResolvedValue({
-        role: OrgRole.OWNER,
+        role: OrgRole.SUPER_ADMIN,
         status: MemberStatus.ACTIVE,
       } as any);
 
@@ -360,10 +360,10 @@ describe('OrganizationService', () => {
     });
 
     it('should only allow OWNER to promote to OWNER', async () => {
-      const dto = { role: OrgRole.OWNER };
+      const dto = { role: OrgRole.SUPER_ADMIN };
 
       mockPrismaService.organizationMember.findUnique.mockResolvedValue({
-        role: OrgRole.ADMIN,
+        role: OrgRole.ORG_ADMIN,
         status: MemberStatus.ACTIVE,
       } as any);
 
@@ -377,13 +377,13 @@ describe('OrganizationService', () => {
     it('should remove member successfully', async () => {
       mockPrismaService.organizationMember.findUnique
         .mockResolvedValueOnce({
-          role: OrgRole.ADMIN,
+          role: OrgRole.ORG_ADMIN,
           status: MemberStatus.ACTIVE,
         } as any)
         .mockResolvedValueOnce({
           id: 'target-member',
           organizationId: 'org-1',
-          role: OrgRole.MEMBER,
+          role: OrgRole.READ_ONLY_ADMIN,
         } as any);
 
       mockPrismaService.organizationMember.delete.mockResolvedValue({} as any);
@@ -397,7 +397,7 @@ describe('OrganizationService', () => {
 
     it('should throw BadRequestException when removing self', async () => {
       mockPrismaService.organizationMember.findUnique.mockResolvedValue({
-        role: OrgRole.ADMIN,
+        role: OrgRole.ORG_ADMIN,
         status: MemberStatus.ACTIVE,
       } as any);
 
@@ -409,13 +409,13 @@ describe('OrganizationService', () => {
     it('should only allow OWNER to remove OWNER', async () => {
       mockPrismaService.organizationMember.findUnique
         .mockResolvedValueOnce({
-          role: OrgRole.ADMIN,
+          role: OrgRole.ORG_ADMIN,
           status: MemberStatus.ACTIVE,
         } as any)
         .mockResolvedValueOnce({
           id: 'owner-member',
           organizationId: 'org-1',
-          role: OrgRole.OWNER,
+          role: OrgRole.SUPER_ADMIN,
         } as any);
 
       await expect(
@@ -427,18 +427,18 @@ describe('OrganizationService', () => {
   describe('getUserRole', () => {
     it('should return user role if active member', async () => {
       mockPrismaService.organizationMember.findUnique.mockResolvedValue({
-        role: OrgRole.ADMIN,
+        role: OrgRole.ORG_ADMIN,
         status: MemberStatus.ACTIVE,
       } as any);
 
       const role = await service.getUserRole('org-1', 'user-1');
 
-      expect(role).toBe(OrgRole.ADMIN);
+      expect(role).toBe(OrgRole.ORG_ADMIN);
     });
 
     it('should return null if not active member', async () => {
       mockPrismaService.organizationMember.findUnique.mockResolvedValue({
-        role: OrgRole.ADMIN,
+        role: OrgRole.ORG_ADMIN,
         status: MemberStatus.PENDING_INVITATION,
       } as any);
 

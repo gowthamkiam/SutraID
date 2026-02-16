@@ -51,15 +51,15 @@ describe('PrismaService', () => {
       process.env.NODE_ENV = 'test';
       
       // Mock deleteMany methods
-      service.session = { deleteMany: jest.fn() } as any;
-      service.authChallenge = { deleteMany: jest.fn() } as any;
-      service.user = { deleteMany: jest.fn() } as any;
+      (service as any).session = { deleteMany: jest.fn() };
+      (service as any).authChallenge = { deleteMany: jest.fn() };
+      (service as any).user = { deleteMany: jest.fn() };
 
       await service.cleanDatabase();
 
-      expect(service.session.deleteMany).toHaveBeenCalled();
-      expect(service.authChallenge.deleteMany).toHaveBeenCalled();
-      expect(service.user.deleteMany).toHaveBeenCalled();
+      expect((service as any).session.deleteMany).toHaveBeenCalled();
+      expect((service as any).authChallenge.deleteMany).toHaveBeenCalled();
+      expect((service as any).user.deleteMany).toHaveBeenCalled();
     });
   });
 });

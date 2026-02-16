@@ -78,7 +78,7 @@ describe('SsoService', () => {
       expect(mockOrganizationService.checkPermission).toHaveBeenCalledWith(
         'org-1',
         'user-1',
-        [OrgRole.OWNER, OrgRole.ADMIN],
+        [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
       );
     });
 
@@ -260,7 +260,7 @@ describe('SsoService', () => {
       expect(mockOrganizationService.checkPermission).toHaveBeenCalledWith(
         'org-1',
         'user-1',
-        [OrgRole.OWNER, OrgRole.ADMIN],
+        [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
       );
     });
   });
