@@ -8,6 +8,8 @@ export class AuthResponseDto {
     email: string;
     firstName?: string;
     lastName?: string;
+    organizationId?: string;
+    role?: string;
   };
 
   // Organization info (set after successful login)

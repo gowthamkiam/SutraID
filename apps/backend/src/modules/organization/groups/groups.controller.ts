@@ -1,107 +1,76 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  Param,
+  ParseUUIDPipe,
   Post,
   Put,
-  Delete,
-  Body,
-  Param,
   Query,
-  UseGuards,
   Request,
+  UseGuards,
 } from '@nestjs/common';
 import { GroupsService } from './groups.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { OrgContextGuard } from '../guards/org-context.guard';
 import { RbacGuard, RequirePermission } from '../../rbac/rbac.guard';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { AddMembersDto } from './dto/add-members.dto';
 
-@Controller('organizations/:orgId/groups')
-@UseGuards(JwtAuthGuard, RbacGuard)
+@Controller('groups')
+@UseGuards(JwtAuthGuard, OrgContextGuard, RbacGuard)
 export class GroupsController {
-  constructor(private readonly groupsService: GroupsService) { }
+  constructor(private readonly groupsService: GroupsService) {}
 
   @Get()
   @RequirePermission('groups:read')
   async list(
-    @Param('orgId') orgId: string,
     @Request() req: any,
     @Query('search') search?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.groupsService.list(
-      orgId,
-      {
-        search,
-        page: page ? parseInt(page) : undefined,
-        limit: limit ? parseInt(limit) : undefined,
-      },
-      req.user.id,
-    );
+    return this.groupsService.list(req.orgId, {
+      search,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
   }
 
   @Post()
   @RequirePermission('groups:create')
-  async create(
-    @Param('orgId') orgId: string,
-    @Body() dto: CreateGroupDto,
-    @Request() req: any,
-  ) {
-    return this.groupsService.create(orgId, dto, req.user.id);
+  async create(@Request() req: any, @Body() dto: CreateGroupDto) {
+    return this.groupsService.create(req.orgId, dto);
   }
 
-  @Get(':groupId')
-  @RequirePermission('groups:read')
-  async get(
-    @Param('orgId') orgId: string,
-    @Param('groupId') groupId: string,
-    @Request() req: any,
-  ) {
-    return this.groupsService.get(orgId, groupId, req.user.id);
-  }
-
-  @Put(':groupId')
+  @Put(':id')
   @RequirePermission('groups:update')
   async update(
-    @Param('orgId') orgId: string,
-    @Param('groupId') groupId: string,
-    @Body() dto: UpdateGroupDto,
     @Request() req: any,
+    @Param('id', new ParseUUIDPipe()) groupId: string,
+    @Body() dto: UpdateGroupDto,
   ) {
-    return this.groupsService.update(orgId, groupId, dto, req.user.id);
+    return this.groupsService.update(req.orgId, groupId, dto);
   }
 
-  @Delete(':groupId')
+  @Delete(':id')
   @RequirePermission('groups:delete')
   async remove(
-    @Param('orgId') orgId: string,
-    @Param('groupId') groupId: string,
     @Request() req: any,
+    @Param('id', new ParseUUIDPipe()) groupId: string,
   ) {
-    return this.groupsService.remove(orgId, groupId, req.user.id);
+    return this.groupsService.remove(req.orgId, groupId);
   }
 
-  @Post(':groupId/members')
+  @Put(':id/users')
   @RequirePermission('groups:update')
-  async addMembers(
-    @Param('orgId') orgId: string,
-    @Param('groupId') groupId: string,
+  async setUsers(
+    @Request() req: any,
+    @Param('id', new ParseUUIDPipe()) groupId: string,
     @Body() dto: AddMembersDto,
-    @Request() req: any,
   ) {
-    return this.groupsService.addMembers(orgId, groupId, dto.userIds, req.user.id);
-  }
-
-  @Delete(':groupId/members/:userId')
-  @RequirePermission('groups:update')
-  async removeMember(
-    @Param('orgId') orgId: string,
-    @Param('groupId') groupId: string,
-    @Param('userId') userId: string,
-    @Request() req: any,
-  ) {
-    return this.groupsService.removeMember(orgId, groupId, userId, req.user.id);
+    return this.groupsService.setUsers(req.orgId, groupId, dto.userIds || []);
   }
 }

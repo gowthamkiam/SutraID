@@ -1,5 +1,5 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { OrgRole } from '@prisma/client';
+import { IsArray, IsEnum, IsOptional, IsUUID, IsString } from 'class-validator';
+import { OrgRole, UserStatus } from '@prisma/client';
 
 export class UpdateUserDto {
   @IsOptional()
@@ -15,6 +15,11 @@ export class UpdateUserDto {
   role?: OrgRole;
 
   @IsOptional()
-  @IsString()
-  status?: 'ACTIVE' | 'SUSPENDED';
+  @IsEnum(UserStatus)
+  status?: UserStatus;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID(4, { each: true })
+  groupIds?: string[];
 }

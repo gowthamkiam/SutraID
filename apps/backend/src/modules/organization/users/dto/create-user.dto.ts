@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsEmail, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 import { OrgRole } from '@prisma/client';
 
 export class CreateUserDto {
@@ -16,4 +16,9 @@ export class CreateUserDto {
   @IsOptional()
   @IsEnum(OrgRole)
   role?: OrgRole;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID(4, { each: true })
+  groupIds?: string[];
 }

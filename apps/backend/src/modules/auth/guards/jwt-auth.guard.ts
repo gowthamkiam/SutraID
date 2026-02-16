@@ -37,6 +37,9 @@ export class JwtAuthGuard implements CanActivate {
 
       // Get user from database via session
       const user = await this.authService.getUserFromToken(payload.jti as string);
+      if (!user.organizationId) {
+        throw new UnauthorizedException('Organization context missing');
+      }
 
       // Attach user and JWT ID to request
       request.user = {

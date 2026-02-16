@@ -1,641 +1,318 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { mfaApi, MfaStatus, EnrollTotpResponse, MfaMethod } from '@/lib/api';
+import { useEffect, useMemo, useState } from 'react';
+import { OrgRole, OrganizationProfile, organizationSettingsApi } from '@/lib/api';
 
-type EnrollmentStep = 'idle' | 'qr' | 'verify' | 'done';
+const tabs = [
+  { key: 'organization_info', label: 'Organization Info' },
+  { key: 'security', label: 'Security' },
+  { key: 'branding', label: 'Branding' },
+  { key: 'access_policies', label: 'Access Policies' },
+  { key: 'api_configuration', label: 'API Configuration' },
+  { key: 'audit_logs', label: 'Audit Logs' },
+] as const;
 
-import { organizationSettingsApi } from '@/lib/api';
-import { LayoutDashboard, ShieldCheck, AppWindow, Users, Layers, Key, History, Settings } from 'lucide-react';
-
-const availableTabs = [
-  { label: 'SSO Providers', key: 'sso' },
-  { label: 'Applications', key: 'applications' },
-  { label: 'Users', key: 'users' },
-  { label: 'Directory', key: 'directory' },
-  { label: 'Auth Methods', key: 'auth_methods' },
-  { label: 'Security Policies', key: 'policies' },
-  { label: 'Audit Logs', key: 'audit_logs' },
-];
+type TabKey = (typeof tabs)[number]['key'];
 
 export default function SettingsPage() {
-  const [mfaStatus, setMfaStatus] = useState<MfaStatus | null>(null);
+  const [org, setOrg] = useState<OrganizationProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>('organization_info');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
-  // Enrollment state
-  const [enrollStep, setEnrollStep] = useState<EnrollmentStep>('idle');
-  const [enrollData, setEnrollData] = useState<EnrollTotpResponse | null>(null);
-  const [verifyCode, setVerifyCode] = useState('');
-  const [enrollLoading, setEnrollLoading] = useState(false);
+  const [orgName, setOrgName] = useState('');
+  const [settings, setSettings] = useState<Record<string, string>>({});
 
-  // Disable MFA state
-  const [showDisable, setShowDisable] = useState(false);
-  const [disablePassword, setDisablePassword] = useState('');
-
-  // Organization Settings state
-  const [orgSettings, setOrgSettings] = useState<Record<string, string>>({});
-  const [orgSettingsLoading, setOrgSettingsLoading] = useState(false);
-  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const orgId = localStorage.getItem('currentOrgId');
-    if (orgId) {
-      setCurrentOrgId(orgId);
-      loadOrgSettings(orgId);
+  const role = useMemo(() => {
+    if (typeof window === 'undefined') return 'READ_ONLY_ADMIN' as OrgRole;
+    const userRaw = localStorage.getItem('user');
+    if (!userRaw) return 'READ_ONLY_ADMIN' as OrgRole;
+    try {
+      return (JSON.parse(userRaw).role || 'READ_ONLY_ADMIN') as OrgRole;
+    } catch {
+      return 'READ_ONLY_ADMIN' as OrgRole;
     }
   }, []);
 
-  const loadOrgSettings = async (orgId: string) => {
-    try {
-      const settings = await organizationSettingsApi.getSettings(orgId);
-      setOrgSettings(settings);
-    } catch (err) {
-      console.error('Failed to load org settings', err);
-    }
-  };
-
-  const handleToggleTab = async (key: string, currentVisible: boolean) => {
-    if (!currentOrgId) return;
-    const newVisible = !currentVisible;
-    const settingKey = `dashboard.tabs.${key}.visible`;
-
-    const newSettings = { ...orgSettings, [settingKey]: String(newVisible) };
-    setOrgSettings(newSettings); // Optimistic update
-
-    try {
-      await organizationSettingsApi.updateSettings(currentOrgId, { [settingKey]: String(newVisible) });
-      setMessage(`Settings saved for this organization`);
-    } catch (err) {
-      setError('Failed to save settings');
-      setOrgSettings(orgSettings); // Revert
-    }
-  };
+  const canEdit = role !== 'READ_ONLY_ADMIN';
 
   useEffect(() => {
-    loadMfaStatus();
+    const load = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const data = await organizationSettingsApi.getOrg();
+        setOrg(data);
+        setOrgName(data.name);
+        setSettings(data.settings || {});
+      } catch (err: any) {
+        setError(err.message || 'Failed to load settings');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
   }, []);
 
-  const loadMfaStatus = async () => {
-    try {
-      const status = await mfaApi.getStatus();
-      setMfaStatus(status);
-    } catch (err: any) {
-      console.error('Failed to load MFA status:', err);
-      setError('Failed to load security settings. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const updateSetting = (key: string, value: string) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
-  const startEnrollment = async () => {
-    setEnrollLoading(true);
-    setError('');
-    try {
-      const data = await mfaApi.enrollTotp();
-      setEnrollData(data);
-      setEnrollStep('qr');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setEnrollLoading(false);
-    }
-  };
-
-  const handleVerifyEnrollment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!enrollData) return;
-    setEnrollLoading(true);
-    setError('');
-    try {
-      await mfaApi.verifyEnrollment(enrollData.methodId, verifyCode);
-      setEnrollStep('done');
-      setEnrollData(null);
-      setVerifyCode('');
-      setMessage('Authenticator app linked successfully!');
-      loadMfaStatus();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setEnrollLoading(false);
-    }
-  };
-
-  const handlePasskeyEnroll = async () => {
-    setEnrollLoading(true);
+  const save = async () => {
+    setSaving(true);
     setError('');
     setMessage('');
     try {
-      const options = await mfaApi.getPasskeyOptions();
-
-      // Convert challenge and user.id from base64url to BufferSource
-      const createOptions: PublicKeyCredentialCreationOptions = {
-        ...options as any,
-        challenge: Uint8Array.from(atob(options.challenge.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
-        user: {
-          ...options.user,
-          id: Uint8Array.from(atob(options.user.id.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
-        },
-      };
-
-      const credential = await navigator.credentials.create({
-        publicKey: createOptions
-      }) as PublicKeyCredential;
-
-      if (credential) {
-        // Collect necessary fields for enrollment
-        const response = credential.response as AuthenticatorAttestationResponse;
-        const enrollmentData = {
-          id: credential.id,
-          rawId: btoa(String.fromCharCode(...new Uint8Array(credential.rawId))),
-          type: credential.type,
-          response: {
-            attestationObject: btoa(String.fromCharCode(...new Uint8Array(response.attestationObject))),
-            clientDataJSON: btoa(String.fromCharCode(...new Uint8Array(response.clientDataJSON))),
-          }
-        };
-
-        await mfaApi.enrollPasskey(enrollmentData);
-        setMessage('Passkey registered successfully! You can now use it for phishing-resistant login.');
-        loadMfaStatus();
-      }
+      const updated = await organizationSettingsApi.updateOrg({
+        name: orgName,
+        settings,
+      });
+      setOrg(updated);
+      setSettings(updated.settings || {});
+      setMessage('Organization settings saved successfully.');
     } catch (err: any) {
-      setError(err.message || 'Passkey enrollment failed. Your browser may not support it or you cancelled.');
+      setError(err.message || 'Failed to save settings');
     } finally {
-      setEnrollLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleDisableMfa = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setEnrollLoading(true);
-    setError('');
-    try {
-      await mfaApi.disable(disablePassword);
-      setShowDisable(false);
-      setDisablePassword('');
-      setMessage('MFA protection has been removed.');
-      loadMfaStatus();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setEnrollLoading(false);
-    }
-  };
-
-  const handleAdaptiveAuthToggle = async () => {
-    if (!mfaStatus) return;
-    const newState = !mfaStatus.adaptiveAuthEnabled;
-    setMfaStatus({ ...mfaStatus, adaptiveAuthEnabled: newState });
-    try {
-      await mfaApi.updateAdaptiveAuth(newState);
-      setMessage(`Adaptive protection ${newState ? 'enabled' : 'disabled'} successfully.`);
-    } catch (err: any) {
-      setMfaStatus({ ...mfaStatus, adaptiveAuthEnabled: !newState });
-      setError('Failed to update adaptive protection.');
-    }
-  };
-
-  const cardStyle: React.CSSProperties = {
-    background: '#ffffff',
-    borderRadius: '20px',
-    border: '1px solid #e5e7eb',
-    padding: '2.5rem',
-    marginBottom: '2rem',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-  };
-
-  const btnPrimary: React.CSSProperties = {
-    padding: '0.875rem 1.75rem',
-    background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '12px',
-    fontSize: '0.95rem',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.2)',
-  };
-
-  const btnSecondary: React.CSSProperties = {
-    padding: '0.875rem 1.75rem',
-    background: '#fff',
-    color: '#374151',
-    border: '1.5px solid #e5e7eb',
-    borderRadius: '12px',
-    fontSize: '0.95rem',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  };
-
-  const btnDanger: React.CSSProperties = {
-    padding: '0.875rem 1.75rem',
-    background: '#fee2e2',
-    color: '#dc2626',
-    border: 'none',
-    borderRadius: '12px',
-    fontSize: '0.95rem',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  };
+  if (loading) {
+    return <div>Loading settings...</div>;
+  }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#f8fafc',
-      padding: '4rem 2rem',
-      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    }}>
-      <div style={{ maxWidth: '850px', margin: '0 auto' }}>
-        <a href="/dashboard" style={{
-          color: '#6366f1',
-          textDecoration: 'none',
-          fontSize: '0.95rem',
-          fontWeight: 600,
+    <div style={{ display: 'grid', gap: '1rem' }}>
+      <header
+        style={{
+          border: '1px solid #e2e8f0',
+          borderRadius: 14,
+          padding: '1rem 1.2rem',
+          background: '#fff',
           display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          gap: '0.6rem',
-          marginBottom: '2rem'
-        }}>
-          <span>←</span> Back to Dashboard
-        </a>
+        }}
+      >
+        <div>
+          <h1 style={{ margin: 0, fontSize: '1.7rem' }}>Settings</h1>
+          <div style={{ color: '#64748b', marginTop: 4 }}>Enterprise company settings</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {role === 'SUPER_ADMIN' ? <span style={superAdminBadge}>SUPER ADMIN</span> : null}
+          <button onClick={save} disabled={!canEdit || saving} style={btnPrimary}>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </header>
 
-        <header style={{ marginBottom: '3.5rem' }}>
-          <h1 style={{ fontSize: '2.75rem', fontWeight: 800, color: '#0f172a', margin: '0 0 0.75rem', letterSpacing: '-0.025em' }}>
-            Security Settings
-          </h1>
-          <p style={{ color: '#64748b', fontSize: '1.15rem', maxWidth: '600px', lineHeight: 1.6 }}>
-            Manage your authentication methods and protect your account with modern security standards.
-          </p>
-        </header>
+      {error ? <div style={errorStyle}>{error}</div> : null}
+      {message ? <div style={successStyle}>{message}</div> : null}
 
-        {/* Messages */}
-        {message && (
-          <div style={{
-            padding: '1.25rem', background: '#f0fdf4', border: '1px solid #86efac',
-            borderRadius: '16px', color: '#166534', fontSize: '1rem', marginBottom: '2rem',
-            display: 'flex', alignItems: 'center', gap: '0.85rem', fontWeight: 500
-          }}>
-            <span style={{ fontSize: '1.4rem' }}>✓</span> {message}
-          </div>
-        )}
-        {error && (
-          <div style={{
-            padding: '1.25rem', background: '#fef2f2', border: '1px solid #fecaca',
-            borderRadius: '16px', color: '#991b1b', fontSize: '1rem', marginBottom: '2rem',
-            display: 'flex', alignItems: 'center', gap: '0.85rem', fontWeight: 500
-          }}>
-            <span style={{ fontSize: '1.4rem' }}>⚠</span> {error}
-          </div>
-        )}
+      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '1rem' }}>
+        <aside style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '0.5rem' }}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                border: 'none',
+                borderRadius: 10,
+                marginBottom: 4,
+                background: activeTab === tab.key ? '#dbeafe' : 'transparent',
+                color: activeTab === tab.key ? '#1d4ed8' : '#0f172a',
+                fontWeight: 600,
+                padding: '0.65rem 0.7rem',
+                cursor: 'pointer',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </aside>
 
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '6rem', color: '#64748b' }}>
-            <div className="spinner" style={{ border: '4px solid #f1f5f9', borderTop: '4px solid #6366f1', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto 1.5rem' }} />
-            <p style={{ fontWeight: 500 }}>Syncing security credentials...</p>
-          </div>
-        ) : (
-          <>
-            {/* MFA Container */}
-            <section style={cardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem' }}>
-                <div>
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1e293b', margin: 0 }}>
-                    Multi-Factor Authentication
-                  </h2>
-                  <p style={{ color: '#64748b', fontSize: '1rem', margin: '0.5rem 0 0' }}>
-                    Phishing-resistant methods like Passkeys are recommended.
-                  </p>
-                </div>
-                <div style={{
-                  padding: '0.4rem 1rem',
-                  borderRadius: '9999px',
-                  fontSize: '0.85rem',
-                  fontWeight: 700,
-                  background: mfaStatus?.enabled ? '#e0e7ff' : '#f1f5f9',
-                  color: mfaStatus?.enabled ? '#4338ca' : '#64748b',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  border: mfaStatus?.enabled ? '1px solid #c7d2fe' : '1px solid #e2e8f0'
-                }}>
-                  {mfaStatus?.enabled ? 'Active Protection' : 'Action Required'}
-                </div>
-              </div>
+        <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1.1rem' }}>
+          {activeTab === 'organization_info' ? (
+            <div style={sectionGrid}>
+              <h2 style={h2}>Organization Info</h2>
+              <label style={label}>Organization Name</label>
+              <input disabled={!canEdit} value={orgName} onChange={(e) => setOrgName(e.target.value)} style={inputStyle} />
+              <label style={label}>Organization ID</label>
+              <input disabled value={org?.id || ''} style={inputStyle} />
+              <label style={label}>Slug</label>
+              <input disabled value={org?.slug || ''} style={inputStyle} />
+            </div>
+          ) : null}
 
-              {/* MFA Methods Grid */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2.5rem' }}>
-                {mfaStatus?.methods && mfaStatus.methods.length > 0 ? (
-                  mfaStatus.methods.map((method) => (
-                    <div key={method.id} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '1.25rem 1.5rem', background: '#f8fafc', borderRadius: '16px',
-                      border: '1px solid #f1f5f9', transition: 'all 0.2s'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                        <div style={{
-                          width: '48px', height: '48px', borderRadius: '12px', background: '#fff',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', border: '1px solid #f1f5f9'
-                        }}>
-                          {method.type === 'PASSKEY' || method.type === 'FIDO2' ? '🔑' : '📱'}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                            {method.name}
-                            {method.isPhishingResistant && (
-                              <span style={{
-                                background: '#dcfce7', color: '#166534', fontSize: '0.75rem',
-                                padding: '0.2rem 0.6rem', borderRadius: '6px', fontWeight: 800,
-                                textTransform: 'uppercase', letterSpacing: '0.02em'
-                              }}>Secure</span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginTop: '0.2rem' }}>
-                            {method.lastUsedAt ? `Last login ${new Date(method.lastUsedAt).toLocaleDateString()}` : 'New method registered'}
-                          </div>
-                        </div>
-                      </div>
-                      <button style={{
-                        background: '#fff', border: '1.5px solid #f1f5f9', color: '#64748b',
-                        padding: '0.5rem', borderRadius: '8px', cursor: 'pointer'
-                      }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{
-                    padding: '3rem 2rem', textAlign: 'center', background: '#f8fafc',
-                    borderRadius: '16px', border: '2px dashed #e2e8f0'
-                  }}>
-                    <div style={{ fontSize: '2.5rem', marginBottom: '1rem', opacity: 0.5 }}>🛡️</div>
-                    <p style={{ color: '#64748b', fontSize: '1rem', fontWeight: 500, margin: 0 }}>
-                      Secure your account by adding an authentication factor.
-                    </p>
-                  </div>
-                )}
-              </div>
+          {activeTab === 'security' ? (
+            <div style={sectionGrid}>
+              <h2 style={h2}>Security</h2>
+              <label style={label}>Session Timeout (minutes)</label>
+              <input
+                disabled={!canEdit}
+                value={settings['security.session_timeout_minutes'] || '30'}
+                onChange={(e) => updateSetting('security.session_timeout_minutes', e.target.value)}
+                style={inputStyle}
+              />
+              <label style={label}>MFA Required</label>
+              <select
+                disabled={!canEdit}
+                value={settings['security.mfa_required'] || 'true'}
+                onChange={(e) => updateSetting('security.mfa_required', e.target.value)}
+                style={inputStyle}
+              >
+                <option value="true">Enabled</option>
+                <option value="false">Disabled</option>
+              </select>
+            </div>
+          ) : null}
 
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <button
-                  onClick={handlePasskeyEnroll}
-                  disabled={enrollLoading}
-                  style={btnPrimary}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-                >
-                  {enrollLoading ? 'Registering...' : 'Add Passkey (WebAuthn)'}
-                </button>
-                <button
-                  onClick={startEnrollment}
-                  disabled={enrollLoading}
-                  style={btnSecondary}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#6366f1')}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
-                >
-                  Setup TOTP App
-                </button>
-                {mfaStatus?.enabled && (
-                  <button onClick={() => setShowDisable(true)} style={btnDanger}>
-                    Remove MFA
-                  </button>
-                )}
-              </div>
-            </section>
+          {activeTab === 'branding' ? (
+            <div style={sectionGrid}>
+              <h2 style={h2}>Branding</h2>
+              <label style={label}>Primary Color</label>
+              <input
+                disabled={!canEdit}
+                value={settings['branding.primary_color'] || '#1d4ed8'}
+                onChange={(e) => updateSetting('branding.primary_color', e.target.value)}
+                style={inputStyle}
+              />
+              <label style={label}>Logo URL</label>
+              <input
+                disabled={!canEdit}
+                value={settings['branding.logo_url'] || ''}
+                onChange={(e) => updateSetting('branding.logo_url', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          ) : null}
 
-            {/* TOTP Modal-like Display */}
-            {(enrollStep === 'qr' || enrollStep === 'verify') && enrollData && (
-              <div style={{
-                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100
-              }}>
-                <div style={{ ...cardStyle, maxWidth: '500px', width: '95%', marginBottom: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                    <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                      Authenticator Setup
-                    </h3>
-                    <button onClick={() => setEnrollStep('idle')} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.5rem' }}>×</button>
-                  </div>
+          {activeTab === 'access_policies' ? (
+            <div style={sectionGrid}>
+              <h2 style={h2}>Access Policies</h2>
+              <label style={label}>Default User Role</label>
+              <select
+                disabled={!canEdit}
+                value={settings['access.default_role'] || 'READ_ONLY_ADMIN'}
+                onChange={(e) => updateSetting('access.default_role', e.target.value)}
+                style={inputStyle}
+              >
+                <option value="READ_ONLY_ADMIN">READ_ONLY_ADMIN</option>
+                <option value="USER_ADMIN">USER_ADMIN</option>
+                <option value="GROUP_MEMBERSHIP_ADMIN">GROUP_MEMBERSHIP_ADMIN</option>
+              </select>
+              <label style={label}>IP Allow List (comma-separated)</label>
+              <input
+                disabled={!canEdit}
+                value={settings['access.ip_allow_list'] || ''}
+                onChange={(e) => updateSetting('access.ip_allow_list', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          ) : null}
 
-                  {enrollStep === 'qr' ? (
-                    <div style={{ textAlign: 'center' }}>
-                      <p style={{ color: '#64748b', fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.5 }}>
-                        Scan this code with Google Authenticator, Authy, or your favorite vault.
-                      </p>
-                      <div style={{
-                        display: 'inline-block', padding: '1.5rem', background: '#fff',
-                        borderRadius: '24px', border: '1px solid #f1f5f9', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)',
-                        marginBottom: '2rem'
-                      }}>
-                        <img
-                          src={enrollData.qrCodeDataUrl}
-                          alt="Verification QR Code"
-                          style={{ width: '220px', height: '220px', display: 'block' }}
-                        />
-                      </div>
-                      <button onClick={() => setEnrollStep('verify')} style={{ ...btnPrimary, width: '100%' }}>Continue to Verification</button>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleVerifyEnrollment}>
-                      <p style={{ color: '#64748b', fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.5, textAlign: 'center' }}>
-                        Enter the 6-digit code shown in your app to link your account.
-                      </p>
-                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2.5rem' }}>
-                        <input
-                          type="text"
-                          value={verifyCode}
-                          onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ''))}
-                          placeholder="000 000"
-                          maxLength={6}
-                          required
-                          autoFocus
-                          style={{
-                            width: '240px',
-                            padding: '1.25rem',
-                            border: '2px solid #e2e8f0',
-                            borderRadius: '16px',
-                            fontSize: '2.5rem',
-                            textAlign: 'center',
-                            letterSpacing: '0.4em',
-                            fontWeight: 800,
-                            color: '#0f172a',
-                            outline: 'none',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                          }}
-                        />
-                      </div>
-                      <button type="submit" disabled={enrollLoading || verifyCode.length !== 6} style={{
-                        ...btnPrimary,
-                        width: '100%',
-                        opacity: verifyCode.length !== 6 ? 0.6 : 1,
-                      }}>
-                        {enrollLoading ? 'Confirming...' : 'Finish Setup'}
-                      </button>
-                    </form>
-                  )}
-                </div>
-              </div>
-            )}
+          {activeTab === 'api_configuration' ? (
+            <div style={sectionGrid}>
+              <h2 style={h2}>API Configuration</h2>
+              <label style={label}>Rate Limit (requests/min)</label>
+              <input
+                disabled={!canEdit}
+                value={settings['api.rate_limit_per_minute'] || '120'}
+                onChange={(e) => updateSetting('api.rate_limit_per_minute', e.target.value)}
+                style={inputStyle}
+              />
+              <label style={label}>Webhook URL</label>
+              <input
+                disabled={!canEdit}
+                value={settings['api.webhook_url'] || ''}
+                onChange={(e) => updateSetting('api.webhook_url', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          ) : null}
 
-
-
-            {/* Organization Settings Section */}
-            {currentOrgId && (
-              <section style={cardStyle}>
-                <div style={{ marginBottom: '2rem' }}>
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1e293b', margin: 0 }}>
-                    Organization Dashboard Configuration
-                  </h2>
-                  <p style={{ color: '#64748b', fontSize: '1rem', margin: '0.5rem 0 0' }}>
-                    Control which tabs are visible in the sidebar for this organization.
-                  </p>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-                  {availableTabs.map((tab) => {
-                    const settingKey = `dashboard.tabs.${tab.key}.visible`;
-                    const isVisible = orgSettings[settingKey] !== 'false'; // Default to true
-
-                    return (
-                      <div key={tab.key} style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '1rem', background: '#f8fafc', borderRadius: '12px',
-                        border: '1px solid #f1f5f9'
-                      }}>
-                        <span style={{ fontWeight: 600, color: '#334155' }}>{tab.label}</span>
-                        <div
-                          onClick={() => handleToggleTab(tab.key, isVisible)}
-                          style={{
-                            width: '52px',
-                            height: '28px',
-                            background: isVisible ? '#4f46e5' : '#e2e8f0',
-                            borderRadius: '14px',
-                            position: 'relative',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          }}>
-                          <div style={{
-                            width: '24px',
-                            height: '24px',
-                            background: '#fff',
-                            borderRadius: '50%',
-                            position: 'absolute',
-                            top: '2px',
-                            left: isVisible ? '26px' : '2px',
-                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                          }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* Adaptive Authentication Card */}
-            <section style={{ ...cardStyle, background: 'linear-gradient(to right, #ffffff, #f8fafc)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                  <div style={{
-                    width: '56px', height: '56px', borderRadius: '16px',
-                    background: 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.75rem'
-                  }}>
-                    ✨
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                      Adaptive Protection
-                    </h3>
-                    <p style={{ color: '#64748b', fontSize: '1rem', margin: '0.4rem 0 0', lineHeight: 1.4 }}>
-                      AI automatically challenges high-risk logins using device and location signals.
-                    </p>
-                  </div>
-                </div>
-                <div
-                  onClick={handleAdaptiveAuthToggle}
-                  style={{
-                    width: '64px',
-                    height: '34px',
-                    background: mfaStatus?.adaptiveAuthEnabled ? '#4f46e5' : '#e2e8f0',
-                    borderRadius: '17px',
-                    position: 'relative',
-                    cursor: 'pointer',
-                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: mfaStatus?.adaptiveAuthEnabled ? '0 4px 12px rgba(79, 70, 229, 0.25)' : 'none'
-                  }}>
-                  <div style={{
-                    width: '26px',
-                    height: '26px',
-                    background: '#fff',
-                    borderRadius: '50%',
-                    position: 'absolute',
-                    top: '4px',
-                    left: mfaStatus?.adaptiveAuthEnabled ? '34px' : '4px',
-                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                  }} />
-                </div>
-              </div>
-            </section>
-
-            {/* Disable Confirmation */}
-            {showDisable && (
-              <div style={{
-                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200
-              }}>
-                <div style={{ ...cardStyle, maxWidth: '480px', width: '90%', marginBottom: 0 }}>
-                  <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                    <div style={{
-                      width: '64px', height: '64px', background: '#fee2e2', color: '#ef4444',
-                      borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '2rem', margin: '0 auto 1.5rem'
-                    }}>⚠️</div>
-                    <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b', margin: '0 0 0.75rem' }}>
-                      Disable Shield?
-                    </h3>
-                    <p style={{ color: '#64748b', fontSize: '1rem', lineHeight: 1.6 }}>
-                      Disabling MFA reduces your account security significantly. Please enter your password to acknowledge the risk.
-                    </p>
-                  </div>
-                  <form onSubmit={handleDisableMfa}>
-                    <input
-                      type="password"
-                      value={disablePassword}
-                      onChange={(e) => setDisablePassword(e.target.value)}
-                      placeholder="Enter password to confirm"
-                      required
-                      style={{
-                        width: '100%', padding: '1.1rem', border: '2px solid #f1f5f9',
-                        borderRadius: '14px', marginBottom: '2rem', fontSize: '1rem',
-                        background: '#f8fafc', outline: 'none'
-                      }}
-                    />
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                      <button type="submit" style={{ ...btnDanger, flex: 2, background: '#ef4444', color: '#fff' }}>I understand, disable</button>
-                      <button type="button" onClick={() => setShowDisable(false)} style={{ ...btnSecondary, flex: 1 }}>Go back</button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-          </>
-        )}
+          {activeTab === 'audit_logs' ? (
+            <div style={sectionGrid}>
+              <h2 style={h2}>Audit Logs</h2>
+              <label style={label}>Retention Days</label>
+              <input
+                disabled={!canEdit}
+                value={settings['audit.retention_days'] || '90'}
+                onChange={(e) => updateSetting('audit.retention_days', e.target.value)}
+                style={inputStyle}
+              />
+              <label style={label}>Export Target</label>
+              <input
+                disabled={!canEdit}
+                value={settings['audit.export_target'] || ''}
+                onChange={(e) => updateSetting('audit.export_target', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          ) : null}
+        </section>
       </div>
-      <style jsx>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div >
+    </div>
   );
 }
+
+const btnPrimary: React.CSSProperties = {
+  background: '#1d4ed8',
+  color: '#fff',
+  border: 'none',
+  borderRadius: 10,
+  padding: '0.55rem 1rem',
+  cursor: 'pointer',
+};
+
+const superAdminBadge: React.CSSProperties = {
+  background: '#dbeafe',
+  color: '#1e40af',
+  border: '1px solid #bfdbfe',
+  fontWeight: 700,
+  borderRadius: 999,
+  padding: '0.25rem 0.7rem',
+  fontSize: '0.72rem',
+};
+
+const sectionGrid: React.CSSProperties = {
+  display: 'grid',
+  gap: '0.7rem',
+};
+
+const h2: React.CSSProperties = {
+  margin: 0,
+  fontSize: '1.2rem',
+};
+
+const label: React.CSSProperties = {
+  fontSize: '0.85rem',
+  color: '#475569',
+};
+
+const inputStyle: React.CSSProperties = {
+  border: '1px solid #cbd5e1',
+  borderRadius: 8,
+  padding: '0.55rem 0.7rem',
+};
+
+const errorStyle: React.CSSProperties = {
+  background: '#fee2e2',
+  border: '1px solid #fecaca',
+  color: '#991b1b',
+  padding: '0.55rem 0.75rem',
+  borderRadius: 8,
+};
+
+const successStyle: React.CSSProperties = {
+  background: '#dcfce7',
+  border: '1px solid #bbf7d0',
+  color: '#166534',
+  padding: '0.55rem 0.75rem',
+  borderRadius: 8,
+};

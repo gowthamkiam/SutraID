@@ -1,7 +1,7 @@
 import { IsArray, IsUUID } from 'class-validator';
 
-export class AddMembersDto {
+export class AssignGroupsDto {
   @IsArray()
   @IsUUID(4, { each: true })
-  userIds: string[];
+  groupIds: string[];
 }

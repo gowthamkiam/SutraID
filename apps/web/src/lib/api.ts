@@ -720,22 +720,202 @@ export interface PublicKeyCredentialCreationOptionsJSON {
 // Organization Settings API
 // ============================================================================
 
+export type OrgRole =
+  | 'API_ACCESS_MANAGEMENT_ADMIN'
+  | 'APP_ADMIN'
+  | 'GROUP_MEMBERSHIP_ADMIN'
+  | 'HELP_DESK_ADMIN'
+  | 'MOBILE_ADMIN'
+  | 'ORG_ADMIN'
+  | 'READ_ONLY_ADMIN'
+  | 'REPORT_ADMIN'
+  | 'SUPER_ADMIN'
+  | 'USER_ADMIN';
+
+export interface OrganizationProfile {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+  updatedAt: string;
+  settings: Record<string, string>;
+}
+
+export interface OrgUser {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  status: 'ACTIVE' | 'SUSPENDED' | 'DELETED';
+  role: OrgRole;
+  lastLoginAt?: string | null;
+  createdAt: string;
+  groups: Array<{ id: string; name: string }>;
+}
+
+export interface OrgGroup {
+  id: string;
+  name: string;
+  description?: string | null;
+  memberCount: number;
+  createdAt: string;
+  members: Array<{ id: string; email: string; firstName?: string; lastName?: string; role: OrgRole }>;
+}
+
+export const roleVisibleTabs: Record<OrgRole, string[]> = {
+  SUPER_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'api-access', 'reports', 'settings'],
+  READ_ONLY_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'reports', 'settings'],
+  ORG_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'api-access', 'reports', 'settings'],
+  APP_ADMIN: ['dashboard', 'applications', 'api-access', 'settings'],
+  USER_ADMIN: ['dashboard', 'users', 'groups', 'settings'],
+  GROUP_MEMBERSHIP_ADMIN: ['dashboard', 'users', 'groups', 'settings'],
+  HELP_DESK_ADMIN: ['dashboard', 'users', 'settings'],
+  MOBILE_ADMIN: ['dashboard', 'applications', 'settings'],
+  REPORT_ADMIN: ['dashboard', 'reports', 'settings'],
+  API_ACCESS_MANAGEMENT_ADMIN: ['dashboard', 'applications', 'api-access', 'settings'],
+};
+
 export const organizationSettingsApi = {
-  async getSettings(orgId: string): Promise<Record<string, string>> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/settings`, {
+  async getOrg(): Promise<OrganizationProfile> {
+    const response = await fetch(`${API_URL}/org`, {
       headers: getAuthHeaders(),
     });
-    if (!response.ok) throw new Error('Failed to fetch organization settings');
+    if (!response.ok) throw new Error('Failed to fetch organization profile');
     return response.json();
   },
 
-  async updateSettings(orgId: string, settings: Record<string, string>): Promise<Record<string, string>> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/settings`, {
+  async updateOrg(data: { name?: string; settings?: Record<string, string> }): Promise<OrganizationProfile> {
+    const response = await fetch(`${API_URL}/org`, {
       method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify(settings),
+      body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error('Failed to update organization settings');
+    if (!response.ok) throw new Error('Failed to update organization profile');
+    return response.json();
+  },
+};
+
+export const usersApi = {
+  async list(params?: {
+    search?: string;
+    role?: OrgRole;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ users: OrgUser[]; total: number; page: number; limit: number; totalPages: number }> {
+    const searchParams = new URLSearchParams();
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.role) searchParams.set('role', params.role);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+
+    const response = await fetch(`${API_URL}/users?${searchParams.toString()}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch users');
+    return response.json();
+  },
+
+  async create(data: {
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    role?: OrgRole;
+    groupIds?: string[];
+  }): Promise<OrgUser> {
+    const response = await fetch(`${API_URL}/users`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to create user');
+    return response.json();
+  },
+
+  async update(
+    userId: string,
+    data: {
+      firstName?: string;
+      lastName?: string;
+      role?: OrgRole;
+      status?: 'ACTIVE' | 'SUSPENDED';
+      groupIds?: string[];
+    },
+  ): Promise<OrgUser> {
+    const response = await fetch(`${API_URL}/users/${userId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to update user');
+    return response.json();
+  },
+
+  async remove(userId: string): Promise<{ success: boolean }> {
+    const response = await fetch(`${API_URL}/users/${userId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to delete user');
+    return response.json();
+  },
+};
+
+export const groupsApi = {
+  async list(params?: {
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ groups: OrgGroup[]; total: number; page: number; limit: number; totalPages: number }> {
+    const searchParams = new URLSearchParams();
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+
+    const response = await fetch(`${API_URL}/groups?${searchParams.toString()}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch groups');
+    return response.json();
+  },
+
+  async create(data: { name: string; description?: string }): Promise<OrgGroup> {
+    const response = await fetch(`${API_URL}/groups`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to create group');
+    return response.json();
+  },
+
+  async update(groupId: string, data: { name?: string; description?: string }): Promise<OrgGroup> {
+    const response = await fetch(`${API_URL}/groups/${groupId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to update group');
+    return response.json();
+  },
+
+  async setUsers(groupId: string, userIds: string[]): Promise<{ success: boolean; userIds: string[] }> {
+    const response = await fetch(`${API_URL}/groups/${groupId}/users`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ userIds }),
+    });
+    if (!response.ok) throw new Error('Failed to update group members');
+    return response.json();
+  },
+
+  async remove(groupId: string): Promise<{ success: boolean }> {
+    const response = await fetch(`${API_URL}/groups/${groupId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to delete group');
     return response.json();
   },
 };

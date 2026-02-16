@@ -14,8 +14,8 @@ import { AuthResponseDto } from '../dto';
 import { AuditService } from '../../audit/audit.service';
 import { MfaService } from './mfa.service';
 import { Inject, forwardRef } from '@nestjs/common';
-import { OrgRole, MemberStatus } from '@prisma/client';
-import { generateRandomOrgSlug } from '../../organization/utils/slug-generator';
+import { OrgRole } from '@prisma/client';
+import { generateRandomKebabOrgName } from '../../organization/utils/org-name-generator';
 
 @Injectable()
 export class AuthService {
@@ -224,6 +224,8 @@ export class AuthService {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        organizationId: orgInfo.id,
+        role: orgInfo.role,
       },
       organization: orgInfo,
     };
@@ -239,9 +241,8 @@ export class AuthService {
     slug: string;
     role: string;
   }> {
-    // Check if user already has an active membership
     const existing = await this.prisma.organizationMember.findFirst({
-      where: { userId, status: MemberStatus.ACTIVE },
+      where: { userId, status: 'ACTIVE' },
       include: { organization: true },
     });
 
@@ -254,46 +255,55 @@ export class AuthService {
       };
     }
 
-    // Auto-create organization with unique slug
-    let slug: string;
-    let attempts = 0;
-    do {
-      slug = generateRandomOrgSlug();
-      const exists = await this.prisma.organization.findUnique({
-        where: { slug },
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const candidate = generateRandomKebabOrgName();
+      const slug = `${candidate}-${crypto.randomUUID().slice(0, 8)}`;
+
+      const existingName = await this.prisma.organization.findFirst({
+        where: { name: candidate },
+        select: { id: true },
       });
-      if (!exists) break;
-      attempts++;
-    } while (attempts < 10);
+      if (existingName) {
+        continue;
+      }
 
-    const name = slug
-      .split('-')
-      .map((w) => w[0].toUpperCase() + w.slice(1))
-      .join(' ');
+      try {
+        const org = await this.prisma.$transaction(async (tx) => {
+          const createdOrg = await tx.organization.create({
+            data: {
+              id: crypto.randomUUID(),
+              name: candidate,
+              slug,
+              plan: 'FREE',
+              status: 'ACTIVE',
+              members: {
+                create: {
+                  userId,
+                  role: OrgRole.SUPER_ADMIN,
+                  status: 'ACTIVE',
+                  joinedAt: new Date(),
+                },
+              },
+            },
+          });
 
-    const org = await this.prisma.organization.create({
-      data: {
-        name,
-        slug,
-        plan: 'FREE',
-        status: 'ACTIVE',
-        members: {
-          create: {
-            userId,
-            role: OrgRole.SUPER_ADMIN,
-            status: MemberStatus.ACTIVE,
-            joinedAt: new Date(),
-          },
-        },
-      },
-    });
+          return createdOrg;
+        });
 
-    return {
-      id: org.id,
-      name: org.name,
-      slug: org.slug,
-      role: OrgRole.SUPER_ADMIN,
-    };
+        return {
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+          role: OrgRole.SUPER_ADMIN,
+        };
+      } catch (error: any) {
+        if (attempt === 19) {
+          throw error;
+        }
+      }
+    }
+
+    throw new BadRequestException('Failed to create unique organization');
   }
 
   /**
@@ -778,7 +788,24 @@ export class AuthService {
       throw new UnauthorizedException('Session expired');
     }
 
-    return session.user;
+    const membership = await this.prisma.organizationMember.findFirst({
+      where: {
+        userId: session.userId,
+        status: 'ACTIVE',
+      },
+      include: {
+        organization: {
+          select: { id: true, name: true, slug: true },
+        },
+      },
+    });
+
+    return {
+      ...session.user,
+      organizationId: membership?.organizationId || null,
+      role: membership?.role || null,
+      organization: membership?.organization || null,
+    };
   }
 
   /**

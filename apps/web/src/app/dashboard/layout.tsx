@@ -71,9 +71,12 @@ export default function DashboardLayout({
                 const data = await response.json();
                 setUser(data.user);
 
-                // Check org if not set
-                let orgId = localStorage.getItem('currentOrgId');
-                if (!orgId) {
+                // Prefer organizationId from authenticated user context
+                let orgId = data.user?.organizationId || localStorage.getItem('currentOrgId');
+                if (orgId) {
+                    localStorage.setItem('currentOrgId', orgId);
+                    setCurrentOrgId(orgId);
+                } else {
                     const orgsResponse = await fetch(`${apiUrl}/organizations`, {
                         headers: { 'Authorization': `Bearer ${accessToken}` },
                     });
@@ -83,8 +86,6 @@ export default function DashboardLayout({
                         localStorage.setItem('currentOrgId', orgId!);
                         setCurrentOrgId(orgId);
                     }
-                } else {
-                    setCurrentOrgId(orgId);
                 }
             } catch (error) {
                 console.error('Auth check failed:', error);

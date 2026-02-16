@@ -6,7 +6,6 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { OrganizationService } from '../organization.service';
 import { OrgRole } from '@prisma/client';
 
 // Decorator to specify required roles for a route
@@ -15,10 +14,7 @@ export const RequireOrgRoles = (...roles: OrgRole[]) =>
 
 @Injectable()
 export class OrganizationAccessGuard implements CanActivate {
-  constructor(
-    private reflector: Reflector,
-    private organizationService: OrganizationService,
-  ) {}
+  constructor(private reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredRoles = this.reflector.get<OrgRole[]>(
@@ -43,12 +39,11 @@ export class OrganizationAccessGuard implements CanActivate {
       throw new ForbiddenException('Organization ID required');
     }
 
-    // Check user's role in organization
-    const userRole = await this.organizationService.getUserRole(
-      orgId,
-      user.id,
-    );
+    if (user.organizationId !== orgId) {
+      throw new ForbiddenException('Access denied to this organization');
+    }
 
+    const userRole = user.role as OrgRole;
     if (!userRole) {
       throw new ForbiddenException('Access denied to this organization');
     }

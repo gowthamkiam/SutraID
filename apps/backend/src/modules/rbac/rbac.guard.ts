@@ -6,8 +6,7 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PrismaService } from '../prisma/prisma.service';
-import { OrgRole, MemberStatus } from '@prisma/client';
+import { OrgRole } from '@prisma/client';
 import { hasPermission } from './rbac.constants';
 
 export const REQUIRED_PERMISSIONS_KEY = 'requiredPermissions';
@@ -21,10 +20,7 @@ export const RequirePermission = (...permissions: string[]) =>
 
 @Injectable()
 export class RbacGuard implements CanActivate {
-  constructor(
-    private reflector: Reflector,
-    private prisma: PrismaService,
-  ) {}
+  constructor(private reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
@@ -39,48 +35,40 @@ export class RbacGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
-    const orgId = request.params.orgId;
+    const orgIdFromParam = request.params.orgId as string | undefined;
+    const userOrgId = user.organizationId as string | undefined;
+    const userRole = user.role as OrgRole | undefined;
 
     if (!user) {
       throw new ForbiddenException('Authentication required');
     }
 
-    if (!orgId) {
+    if (!userOrgId || !userRole) {
       throw new ForbiddenException('Organization context required');
     }
 
-    // Look up membership
-    const membership = await this.prisma.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: orgId,
-          userId: user.id,
-        },
-      },
-    });
-
-    if (!membership || membership.status !== MemberStatus.ACTIVE) {
-      throw new ForbiddenException('Not a member of this organization');
+    if (orgIdFromParam && orgIdFromParam !== userOrgId) {
+      throw new ForbiddenException('Cross-organization access denied');
     }
 
     // SUPER_ADMIN bypasses all permission checks
-    if (membership.role === OrgRole.SUPER_ADMIN) {
-      request.orgRole = membership.role;
-      request.orgId = orgId;
+    if (userRole === OrgRole.SUPER_ADMIN) {
+      request.orgRole = userRole;
+      request.orgId = userOrgId;
       return true;
     }
 
     // Check each required permission
     const hasAll = requiredPermissions.every((perm) =>
-      hasPermission(membership.role, perm),
+      hasPermission(userRole, perm),
     );
 
     if (!hasAll) {
       throw new ForbiddenException('Insufficient permissions');
     }
 
-    request.orgRole = membership.role;
-    request.orgId = orgId;
+    request.orgRole = userRole;
+    request.orgId = userOrgId;
     return true;
   }
 }

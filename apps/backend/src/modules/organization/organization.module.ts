@@ -4,6 +4,7 @@ import { OrganizationService } from './organization.service';
 import { OrganizationSettingsController } from './settings/organization-settings.controller';
 import { OrganizationSettingsService } from './settings/organization-settings.service';
 import { OrganizationAccessGuard } from './guards/organization-access.guard';
+import { OrgContextGuard } from './guards/org-context.guard';
 import { UsersController } from './users/users.controller';
 import { UsersService } from './users/users.service';
 import { GroupsController } from './groups/groups.controller';
@@ -24,9 +25,10 @@ import { RbacModule } from '../rbac/rbac.module';
     OrganizationService,
     OrganizationSettingsService,
     OrganizationAccessGuard,
+    OrgContextGuard,
     UsersService,
     GroupsService,
   ],
-  exports: [OrganizationService, OrganizationAccessGuard],
+  exports: [OrganizationService, OrganizationAccessGuard, OrgContextGuard],
 })
 export class OrganizationModule {}

@@ -19,6 +19,9 @@ datasource db {
 model User {
   id                String   @id @default(uuid())
   email             String   @unique
+  organizationId    String?
+  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  role              OrgRole  @default(READ_ONLY_ADMIN)
   emailVerified     Boolean  @default(false)
   emailVerifiedAt   DateTime?
 
@@ -53,8 +56,10 @@ model User {
   ssoIdentities     SsoIdentity[]
   mfaMethods        MfaMethod[]
   groups            GroupMember[]
+  userGroups        UserGroup[]
 
   @@index([email])
+  @@index([organizationId])
   @@index([status])
   @@index([externalId])
   @@map("users")
@@ -115,6 +120,7 @@ model Group {
 
   // Relations
   members           GroupMember[]
+  userGroups        UserGroup[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -123,6 +129,19 @@ model Group {
   @@index([organizationId])
   @@index([externalId])
   @@map("groups")
+}
+
+model UserGroup {
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId           String
+  group             Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+
+  @@id([userId, groupId])
+  @@index([groupId])
+  @@index([userId])
+  @@map("user_groups")
 }
 
 // GroupMember - Junction table for Groups and Users
@@ -231,7 +250,7 @@ model Organization {
   id                String   @id @default(uuid())
 
   // Basic info
-  name              String
+  name              String   @unique
   slug              String   @unique  // URL-safe identifier
   domain            String?  @unique  // Primary verified domain
 
@@ -257,6 +276,7 @@ model Organization {
   updatedAt         DateTime @updatedAt
 
   // Relations
+  users             User[]
   members           OrganizationMember[]
   applications      Application[]
   ssoProviders      SsoProvider[]
