@@ -32,9 +32,7 @@ jobs:
           deno-version: v1.x
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9                 # or 8, 10, etc. — match your project's pnpm version
+        uses: pnpm/action-setup@v4              # or 8, 10, etc. — match your project's pnpm version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
