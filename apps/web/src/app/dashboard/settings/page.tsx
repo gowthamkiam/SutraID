@@ -5,6 +5,19 @@ import { mfaApi, MfaStatus, EnrollTotpResponse, MfaMethod } from '@/lib/api';
 
 type EnrollmentStep = 'idle' | 'qr' | 'verify' | 'done';
 
+import { organizationSettingsApi } from '@/lib/api';
+import { LayoutDashboard, ShieldCheck, AppWindow, Users, Layers, Key, History, Settings } from 'lucide-react';
+
+const availableTabs = [
+  { label: 'SSO Providers', key: 'sso' },
+  { label: 'Applications', key: 'applications' },
+  { label: 'Users', key: 'users' },
+  { label: 'Directory', key: 'directory' },
+  { label: 'Auth Methods', key: 'auth_methods' },
+  { label: 'Security Policies', key: 'policies' },
+  { label: 'Audit Logs', key: 'audit_logs' },
+];
+
 export default function SettingsPage() {
   const [mfaStatus, setMfaStatus] = useState<MfaStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -20,6 +33,45 @@ export default function SettingsPage() {
   // Disable MFA state
   const [showDisable, setShowDisable] = useState(false);
   const [disablePassword, setDisablePassword] = useState('');
+
+  // Organization Settings state
+  const [orgSettings, setOrgSettings] = useState<Record<string, string>>({});
+  const [orgSettingsLoading, setOrgSettingsLoading] = useState(false);
+  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const orgId = localStorage.getItem('currentOrgId');
+    if (orgId) {
+      setCurrentOrgId(orgId);
+      loadOrgSettings(orgId);
+    }
+  }, []);
+
+  const loadOrgSettings = async (orgId: string) => {
+    try {
+      const settings = await organizationSettingsApi.getSettings(orgId);
+      setOrgSettings(settings);
+    } catch (err) {
+      console.error('Failed to load org settings', err);
+    }
+  };
+
+  const handleToggleTab = async (key: string, currentVisible: boolean) => {
+    if (!currentOrgId) return;
+    const newVisible = !currentVisible;
+    const settingKey = `dashboard.tabs.${key}.visible`;
+
+    const newSettings = { ...orgSettings, [settingKey]: String(newVisible) };
+    setOrgSettings(newSettings); // Optimistic update
+
+    try {
+      await organizationSettingsApi.updateSettings(currentOrgId, { [settingKey]: String(newVisible) });
+      setMessage(`Settings saved for this organization`);
+    } catch (err) {
+      setError('Failed to save settings');
+      setOrgSettings(orgSettings); // Revert
+    }
+  };
 
   useEffect(() => {
     loadMfaStatus();
@@ -431,6 +483,62 @@ export default function SettingsPage() {
               </div>
             )}
 
+
+
+            {/* Organization Settings Section */}
+            {currentOrgId && (
+              <section style={cardStyle}>
+                <div style={{ marginBottom: '2rem' }}>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1e293b', margin: 0 }}>
+                    Organization Dashboard Configuration
+                  </h2>
+                  <p style={{ color: '#64748b', fontSize: '1rem', margin: '0.5rem 0 0' }}>
+                    Control which tabs are visible in the sidebar for this organization.
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                  {availableTabs.map((tab) => {
+                    const settingKey = `dashboard.tabs.${tab.key}.visible`;
+                    const isVisible = orgSettings[settingKey] !== 'false'; // Default to true
+
+                    return (
+                      <div key={tab.key} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '1rem', background: '#f8fafc', borderRadius: '12px',
+                        border: '1px solid #f1f5f9'
+                      }}>
+                        <span style={{ fontWeight: 600, color: '#334155' }}>{tab.label}</span>
+                        <div
+                          onClick={() => handleToggleTab(tab.key, isVisible)}
+                          style={{
+                            width: '52px',
+                            height: '28px',
+                            background: isVisible ? '#4f46e5' : '#e2e8f0',
+                            borderRadius: '14px',
+                            position: 'relative',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          }}>
+                          <div style={{
+                            width: '24px',
+                            height: '24px',
+                            background: '#fff',
+                            borderRadius: '50%',
+                            position: 'absolute',
+                            top: '2px',
+                            left: isVisible ? '26px' : '2px',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                          }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
             {/* Adaptive Authentication Card */}
             <section style={{ ...cardStyle, background: 'linear-gradient(to right, #ffffff, #f8fafc)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -528,6 +636,6 @@ export default function SettingsPage() {
           to { transform: rotate(360deg); }
         }
       `}</style>
-    </div>
+    </div >
   );
 }

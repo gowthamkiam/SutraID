@@ -18,27 +18,56 @@ import {
     AppWindow
 } from 'lucide-react';
 
+import { organizationSettingsApi } from '@/lib/api';
+
 interface SidebarProps {
     collapsed: boolean;
     onToggle: (collapsed: boolean) => void;
     user: any;
     onLogout: () => void;
+    currentOrgId: string | null;
 }
 
-const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-    { icon: ShieldCheck, label: 'SSO Providers', href: '/dashboard/sso/providers' },
-    { icon: AppWindow, label: 'Applications', href: '/dashboard/applications' },
-    { icon: Users, label: 'Users', href: '/dashboard/users' },
-    { icon: Layers, label: 'Directory', href: '/dashboard/directory' },
-    { icon: Key, label: 'Auth Methods', href: '/dashboard/authentication' },
-    { icon: ShieldCheck, label: 'Security Policies', href: '/dashboard/policies' },
-    { icon: History, label: 'Audit Logs', href: '/dashboard/audit' },
-    { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
+const defaultNavItems = [
+    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', key: 'dashboard' },
+    { icon: ShieldCheck, label: 'SSO Providers', href: '/dashboard/sso/providers', key: 'sso' },
+    { icon: AppWindow, label: 'Applications', href: '/dashboard/applications', key: 'applications' },
+    { icon: Users, label: 'Users', href: '/dashboard/users', key: 'users' },
+    { icon: Layers, label: 'Directory', href: '/dashboard/directory', key: 'directory' },
+    { icon: Key, label: 'Auth Methods', href: '/dashboard/authentication', key: 'auth_methods' },
+    { icon: ShieldCheck, label: 'Security Policies', href: '/dashboard/policies', key: 'policies' },
+    { icon: History, label: 'Audit Logs', href: '/dashboard/audit', key: 'audit_logs' },
+    { icon: Settings, label: 'Settings', href: '/dashboard/settings', key: 'settings' },
 ];
 
-export default function Sidebar({ collapsed, onToggle, user, onLogout }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, user, onLogout, currentOrgId }: SidebarProps) {
     const pathname = usePathname();
+    const [navItems, setNavItems] = useState(defaultNavItems);
+
+    useEffect(() => {
+        if (!currentOrgId) return;
+
+        const fetchSettings = async () => {
+            try {
+                const settings = await organizationSettingsApi.getSettings(currentOrgId);
+
+                const newItems = defaultNavItems.filter(item => {
+                    // Always show Dashboard and Settings
+                    if (item.key === 'dashboard' || item.key === 'settings') return true;
+
+                    // Check if visible setting exists (defaults to true if not set)
+                    const settingKey = `dashboard.tabs.${item.key}.visible`;
+                    return settings[settingKey] !== 'false';
+                });
+
+                setNavItems(newItems);
+            } catch (err) {
+                console.error('Failed to load dashboard settings', err);
+            }
+        };
+
+        fetchSettings();
+    }, [currentOrgId]);
 
     return (
         <aside style={{

@@ -265,10 +265,28 @@ model Organization {
   groups            Group[]
   passwordPolicies  PasswordPolicy[]
   directoryConfig   DirectoryConfig?
+  settings          OrganizationSetting[]
 
   @@index([slug])
   @@index([domain])
   @@map("organizations")
+}
+
+// Organization Setting - Key-value pair configuration
+model OrganizationSetting {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  key            String       // e.g., "dashboard.tabs.sso.visible"
+  value          String       @db.Text
+  
+  updatedBy      String?      // User ID of the admin who updated it
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+  @@map("organization_settings")
 }
 
 enum OrgPlan {

@@ -707,3 +707,27 @@ export interface PublicKeyCredentialCreationOptionsJSON {
   timeout?: number;
   attestation?: AttestationConveyancePreference;
 }
+
+// ============================================================================
+// Organization Settings API
+// ============================================================================
+
+export const organizationSettingsApi = {
+  async getSettings(orgId: string): Promise<Record<string, string>> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/settings`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch organization settings');
+    return response.json();
+  },
+
+  async updateSettings(orgId: string, settings: Record<string, string>): Promise<Record<string, string>> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/settings`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(settings),
+    });
+    if (!response.ok) throw new Error('Failed to update organization settings');
+    return response.json();
+  },
+};

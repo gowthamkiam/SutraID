@@ -177,6 +177,14 @@ export default function LoginPage() {
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
         localStorage.setItem('user', JSON.stringify(data.user));
+        // Pre-fetch org so Sidebar has it immediately
+        try {
+          const orgsRes = await fetch(`${apiUrl}/organizations`, {
+            headers: { 'Authorization': `Bearer ${data.accessToken}` },
+          });
+          const orgs = await orgsRes.json();
+          if (orgs?.length > 0) localStorage.setItem('currentOrgId', orgs[0].id);
+        } catch {}
         window.location.href = '/dashboard';
         return;
       } else if (mode === 'register') {
@@ -196,6 +204,14 @@ export default function LoginPage() {
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
         localStorage.setItem('user', JSON.stringify(data.user));
+        // Pre-fetch org so Sidebar has it immediately
+        try {
+          const orgsRes = await fetch(`${apiUrl}/organizations`, {
+            headers: { 'Authorization': `Bearer ${data.accessToken}` },
+          });
+          const orgs = await orgsRes.json();
+          if (orgs?.length > 0) localStorage.setItem('currentOrgId', orgs[0].id);
+        } catch {}
         window.location.href = '/dashboard';
         return;
       }
@@ -229,6 +245,14 @@ export default function LoginPage() {
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.user));
+      // Pre-fetch org so Sidebar has it immediately
+      try {
+        const orgsRes = await fetch(`${apiUrl}/organizations`, {
+          headers: { 'Authorization': `Bearer ${data.accessToken}` },
+        });
+        const orgs = await orgsRes.json();
+        if (orgs?.length > 0) localStorage.setItem('currentOrgId', orgs[0].id);
+      } catch {}
       window.location.href = '/dashboard';
     } catch (err: any) {
       setError(err.message || 'Invalid code. Please try again.');

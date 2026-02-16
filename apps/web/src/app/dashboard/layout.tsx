@@ -16,6 +16,7 @@ export default function DashboardLayout({
     const [loading, setLoading] = useState(true);
     const [colorMode, setColorMode] = useState<ColorMode>('dark');
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
     const router = useRouter();
 
     // Load saved color mode
@@ -28,6 +29,10 @@ export default function DashboardLayout({
         } else {
             document.documentElement.setAttribute('data-theme', 'dark');
         }
+
+        // Load org ID
+        const storedOrgId = localStorage.getItem('currentOrgId');
+        if (storedOrgId) setCurrentOrgId(storedOrgId);
     }, []);
 
     const handleColorModeChange = (mode: ColorMode) => {
@@ -67,14 +72,19 @@ export default function DashboardLayout({
                 setUser(data.user);
 
                 // Check org if not set
-                if (!localStorage.getItem('currentOrgId')) {
+                let orgId = localStorage.getItem('currentOrgId');
+                if (!orgId) {
                     const orgsResponse = await fetch(`${apiUrl}/organizations`, {
                         headers: { 'Authorization': `Bearer ${accessToken}` },
                     });
                     const orgs = await orgsResponse.json();
                     if (orgs && orgs.length > 0) {
-                        localStorage.setItem('currentOrgId', orgs[0].id);
+                        orgId = orgs[0].id;
+                        localStorage.setItem('currentOrgId', orgId!);
+                        setCurrentOrgId(orgId);
                     }
+                } else {
+                    setCurrentOrgId(orgId);
                 }
             } catch (error) {
                 console.error('Auth check failed:', error);
@@ -143,6 +153,7 @@ export default function DashboardLayout({
                 onToggle={setSidebarCollapsed}
                 user={user}
                 onLogout={handleLogout}
+                currentOrgId={currentOrgId}
             />
 
             <div style={{
