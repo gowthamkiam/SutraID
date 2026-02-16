@@ -74,6 +74,9 @@ importers:
       openid-client:
         specifier: ^5.7.1
         version: 5.7.1
+      otpauth:
+        specifier: ^9.5.0
+        version: 9.5.0
       passport:
         specifier: ^0.7.0
         version: 0.7.0
@@ -83,6 +86,9 @@ importers:
       prisma:
         specifier: ^5.8.0
         version: 5.22.0
+      qrcode:
+        specifier: ^1.5.4
+        version: 1.5.4
       reflect-metadata:
         specifier: ^0.1.14
         version: 0.1.14
