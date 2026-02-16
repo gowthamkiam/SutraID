@@ -2,11 +2,7 @@
 # They are provided by a third-party and are governed by
 # separate terms of service, privacy policy, and support
 # documentation.
-
-# This workflow will install Deno then run `deno lint` and `deno test`.
-# For more information see: https://github.com/denoland/setup-deno
-
-name: Deno
+name: Backend Tests (Deno runner)
 
 on:
   push:
@@ -14,29 +10,41 @@ on:
   pull_request:
     branches: ["main"]
 
+# Optional: limit permissions more strictly if you don't need to write anything
 permissions:
   contents: read
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend   # ← All run steps will execute here
 
     steps:
-      - name: Setup repo
+      - name: Checkout repository
         uses: actions/checkout@v4
+        # fetches the full repo (including main branch history)
 
       - name: Setup Deno
-        # uses: denoland/setup-deno@v1
         uses: denoland/setup-deno@61fe2df320078202e33d7d5ad347e7dcfa0e8f31  # v1.1.2
         with:
           deno-version: v1.x
 
-      # Uncomment this step to verify the use of 'deno fmt' on each commit.
-      # - name: Verify formatting
-      #   run: deno fmt --check
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9                 # or 8, 10, etc. — match your project's pnpm version
 
-      - name: Run linter
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        # --frozen-lockfile = CI-friendly, fails if pnpm-lock.yaml is out of date
+
+      - name: Run linter (optional – skip/adjust if you don't use deno lint here)
         run: deno lint
+        # If your project doesn't use Deno-style code/linting → you can remove this step
 
       - name: Run tests
-        run: deno test -A
+        run: pnpm test
+        # If your tests need Deno permissions (e.g. reading files, env, net):
+        # run: deno test -A   # ← fallback / additional Deno-native tests
