@@ -10,6 +10,7 @@
 
 SutraID is a next-generation Customer Identity and Access Management (CIAM) platform designed for the AI era. While traditional auth platforms (Auth0, Clerk, Okta) only support human users, **SutraID provides first-class support for both human users AND AI agents**.
 
+
 ### Key Features
 
 **For Humans:**
