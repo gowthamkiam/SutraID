@@ -3,10 +3,11 @@ import { AuditService } from './audit.service';
 import { AuditController } from './audit.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
+import { OrganizationModule } from '../organization/organization.module';
 
 @Global() // Make AuditService available everywhere without importing AuditModule
 @Module({
-  imports: [PrismaModule, forwardRef(() => AuthModule)],
+  imports: [PrismaModule, forwardRef(() => AuthModule), OrganizationModule],
   controllers: [AuditController],
   providers: [AuditService],
   exports: [AuditService],
