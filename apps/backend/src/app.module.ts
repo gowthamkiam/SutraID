@@ -10,6 +10,7 @@ import { SsoModule } from './modules/sso/sso.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { PolicyModule } from './modules/policy/policy.module';
 import { DirectoryModule } from './modules/directory/directory.module';
+import { RbacModule } from './modules/rbac/rbac.module';
 
 @Module({
   imports: [
@@ -34,6 +35,8 @@ import { DirectoryModule } from './modules/directory/directory.module';
     PolicyModule,
     // Directory integration module (SCIM & LDAP)
     DirectoryModule,
+    // RBAC module (permission-based access control)
+    RbacModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -20,7 +20,7 @@ export class OidcIdpService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Get or create OIDC Provider instance for an organization
@@ -130,7 +130,7 @@ export class OidcIdpService {
     const prisma = this.prisma;
 
     return class Adapter {
-      constructor(public name: string) {}
+      constructor(public name: string) { }
 
       async upsert(id: string, payload: any, expiresIn: number) {
         const expiresAt = new Date(Date.now() + expiresIn * 1000);
@@ -260,14 +260,14 @@ export class OidcIdpService {
     const applications = await this.prisma.application.findMany({
       where: {
         organizationId,
-        oidcIdpEnabled: true,
+        type: 'OIDC',
         status: 'ACTIVE',
       },
     });
 
     return applications.map((app) => ({
       client_id: app.clientId,
-      client_secret: app.clientSecret, // In production, hash this
+      client_secret: app.clientSecretHash || undefined, // Stored as hash
       grant_types: ['authorization_code', 'refresh_token'],
       redirect_uris: app.redirectUris,
       post_logout_redirect_uris: app.redirectUris,
@@ -318,7 +318,7 @@ export class OidcIdpService {
   async handleInteraction(
     organizationId: string,
     uid: string,
-    userId: string,
+    actorId: string,
     consent: boolean,
   ) {
     const provider = await this.getProviderInstance(organizationId);
@@ -334,7 +334,7 @@ export class OidcIdpService {
     // Grant consent
     const result = {
       login: {
-        accountId: userId,
+        accountId: actorId,
       },
       consent: {
         grantId: interaction.grantId,

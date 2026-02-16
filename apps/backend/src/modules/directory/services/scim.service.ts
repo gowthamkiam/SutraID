@@ -54,7 +54,7 @@ export class SCIMService {
 
             await tx.organizationMember.upsert({
                 where: { organizationId_userId: { organizationId, userId: user.id } },
-                create: { organizationId, userId: user.id, role: 'MEMBER' },
+                create: { organizationId, userId: user.id, role: 'READ_ONLY_ADMIN' },
                 update: { status: 'ACTIVE' },
             });
 

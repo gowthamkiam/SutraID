@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { applicationApi, Application } from '@/lib/api';
+import { applicationApi, Application, ApplicationProtocol } from '@/lib/api';
 
-type Tab = 'general' | 'saml-idp' | 'oidc-idp';
+type Tab = 'general' | 'security' | 'endpoints' | 'guide';
 
 export default function ApplicationDetailPage() {
   const router = useRouter();
@@ -23,17 +23,16 @@ export default function ApplicationDetailPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [redirectUris, setRedirectUris] = useState('');
-  const [allowedOrigins, setAllowedOrigins] = useState('');
+  const [grantTypes, setGrantTypes] = useState('');
+  const [scopes, setScopes] = useState('');
+  const [isPublicClient, setIsPublicClient] = useState(false);
+  const [requireDpop, setRequireDpop] = useState(false);
+  const [isAiAgent, setIsAiAgent] = useState(false);
 
-  // SAML IdP state
-  const [samlIdpEnabled, setSamlIdpEnabled] = useState(false);
+  // SAML
   const [samlSpEntityId, setSamlSpEntityId] = useState('');
   const [samlSpAcsUrl, setSamlSpAcsUrl] = useState('');
-  const [samlNameIdFormat, setSamlNameIdFormat] = useState('urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress');
-
-  // OIDC IdP state
-  const [oidcIdpEnabled, setOidcIdpEnabled] = useState(false);
-  const [oidcScopes, setOidcScopes] = useState('openid profile email');
+  const [samlNameIdFormat, setSamlNameIdFormat] = useState('');
 
   useEffect(() => {
     const stored = localStorage.getItem('currentOrgId');
@@ -50,17 +49,17 @@ export default function ApplicationDetailPage() {
       setLoading(true);
       const data = await applicationApi.get(orgId, appId);
       setApp(data);
-      // Populate form
       setName(data.name);
       setDescription(data.description || '');
-      setRedirectUris(data.redirectUris.join('\n'));
-      setAllowedOrigins(data.allowedOrigins.join('\n'));
-      setSamlIdpEnabled(data.samlIdpEnabled);
+      setRedirectUris(Array.isArray(data.redirectUris) ? data.redirectUris.join('\n') : '');
+      setGrantTypes(Array.isArray(data.grantTypes) ? data.grantTypes.join(',') : '');
+      setScopes(Array.isArray(data.scopes) ? data.scopes.join(',') : '');
+      setIsPublicClient(data.isPublicClient);
+      setRequireDpop(data.requireDpop);
+      setIsAiAgent(data.isAiAgent);
       setSamlSpEntityId(data.samlSpEntityId || '');
       setSamlSpAcsUrl(data.samlSpAcsUrl || '');
       setSamlNameIdFormat(data.samlNameIdFormat || 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress');
-      setOidcIdpEnabled(data.oidcIdpEnabled);
-      setOidcScopes(data.oidcScopes?.join(' ') || 'openid profile email');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -78,13 +77,14 @@ export default function ApplicationDetailPage() {
         name,
         description: description || undefined,
         redirectUris: redirectUris.split('\n').map(s => s.trim()).filter(Boolean),
-        allowedOrigins: allowedOrigins.split('\n').map(s => s.trim()).filter(Boolean),
-        samlIdpEnabled,
+        grantTypes: grantTypes.split(',').map(s => s.trim()).filter(Boolean),
+        scopes: scopes.split(',').map(s => s.trim()).filter(Boolean),
+        isPublicClient,
+        requireDpop,
+        isAiAgent,
         samlSpEntityId: samlSpEntityId || undefined,
         samlSpAcsUrl: samlSpAcsUrl || undefined,
         samlNameIdFormat: samlNameIdFormat || undefined,
-        oidcIdpEnabled,
-        oidcScopes: oidcScopes.split(' ').filter(Boolean),
       });
       setSuccess('Application updated successfully');
       await loadApp();
@@ -133,6 +133,15 @@ export default function ApplicationDetailPage() {
     fontSize: '0.85rem',
   };
 
+  const toggleStyle = (active: boolean): React.CSSProperties => ({
+    padding: '0.5rem 1rem',
+    background: active ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+    border: `1px solid ${active ? '#6366f1' : 'var(--border-color, #30363d)'}`,
+    borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600',
+    color: active ? '#a5b4fc' : 'var(--text-secondary, #7d8590)',
+    transition: 'all 0.2s',
+  });
+
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f1419)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -152,8 +161,9 @@ export default function ApplicationDetailPage() {
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: 'general', label: 'General', icon: '\u2699\uFE0F' },
-    { key: 'saml-idp', label: 'SAML IdP', icon: '\uD83D\uDD10' },
-    { key: 'oidc-idp', label: 'OIDC IdP', icon: '\uD83D\uDD11' },
+    { key: 'security', label: 'Security', icon: '\uD83D\uDD12' },
+    { key: 'endpoints', label: 'Endpoints', icon: '\uD83C\uDF10' },
+    { key: 'guide', label: 'Integration Guide', icon: '\uD83D\uDCD6' },
   ];
 
   return (
@@ -174,10 +184,21 @@ export default function ApplicationDetailPage() {
               color: 'var(--text-secondary, #7d8590)'
             }}>&#8592;</button>
             <div>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0 0 0.25rem' }}>{app.name}</h1>
-              <p style={{ color: 'var(--text-secondary, #7d8590)', margin: 0, fontSize: '0.85rem' }}>
-                {app.clientId}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0 }}>{app.name}</h1>
+                <span style={{
+                  padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '700',
+                  background: app.type === 'OIDC' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                  color: app.type === 'OIDC' ? '#a78bfa' : '#60a5fa',
+                }}>
+                  {app.type === 'OIDC' ? 'OAuth 2.1 / OIDC' : 'SAML 2.0'}
+                </span>
+              </div>
+              {app.clientId && (
+                <p style={{ color: 'var(--text-secondary, #7d8590)', margin: '0.25rem 0 0', fontSize: '0.85rem', fontFamily: 'monospace' }}>
+                  {app.clientId}
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -226,12 +247,6 @@ export default function ApplicationDetailPage() {
               }}
             >
               <span>{tab.icon}</span> {tab.label}
-              {tab.key === 'saml-idp' && samlIdpEnabled && (
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-              )}
-              {tab.key === 'oidc-idp' && oidcIdpEnabled && (
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-              )}
             </button>
           ))}
         </div>
@@ -241,7 +256,6 @@ export default function ApplicationDetailPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem' }}>
               <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>Application Settings</h2>
-
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
                   <label style={labelStyle}>Name</label>
@@ -251,192 +265,178 @@ export default function ApplicationDetailPage() {
                   <label style={labelStyle}>Description</label>
                   <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
                 </div>
-                <div>
-                  <label style={labelStyle}>Redirect URIs (one per line)</label>
-                  <textarea value={redirectUris} onChange={(e) => setRedirectUris(e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem' }} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Allowed Origins (one per line)</label>
-                  <textarea value={allowedOrigins} onChange={(e) => setAllowedOrigins(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem' }} />
-                </div>
+
+                {app.type === 'OIDC' && (
+                  <>
+                    <div>
+                      <label style={labelStyle}>Redirect URIs (one per line)</label>
+                      <textarea value={redirectUris} onChange={(e) => setRedirectUris(e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Grant Types (comma-separated)</label>
+                      <input type="text" value={grantTypes} onChange={(e) => setGrantTypes(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Scopes (comma-separated)</label>
+                      <input type="text" value={scopes} onChange={(e) => setScopes(e.target.value)} style={inputStyle} />
+                    </div>
+                  </>
+                )}
+
+                {app.type === 'SAML' && (
+                  <>
+                    <div>
+                      <label style={labelStyle}>SP Entity ID</label>
+                      <input type="text" value={samlSpEntityId} onChange={(e) => setSamlSpEntityId(e.target.value)}
+                        placeholder="e.g., https://app.example.com/saml/metadata" style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>SP ACS URL</label>
+                      <input type="text" value={samlSpAcsUrl} onChange={(e) => setSamlSpAcsUrl(e.target.value)}
+                        placeholder="e.g., https://app.example.com/saml/acs" style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>NameID Format</label>
+                      <select value={samlNameIdFormat} onChange={(e) => setSamlNameIdFormat(e.target.value)}
+                        style={{ ...inputStyle, appearance: 'auto' }}>
+                        <option value="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">Email Address</option>
+                        <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent">Persistent</option>
+                        <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">Transient</option>
+                        <option value="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified">Unspecified</option>
+                      </select>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
-            <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>Credentials</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label style={labelStyle}>Client ID</label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input type="text" value={app.clientId} readOnly style={{ ...readonlyFieldStyle, flex: 1 }} onClick={() => copyToClipboard(app.clientId)} />
-                    <button onClick={() => copyToClipboard(app.clientId)} style={{
-                      padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid var(--border-color, #30363d)', borderRadius: '8px',
-                      color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.85rem'
-                    }}>Copy</button>
-                  </div>
-                </div>
-                <div>
-                  <label style={labelStyle}>Client Secret</label>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', margin: '0 0 0.5rem' }}>
-                    The client secret is only shown once at creation. Rotate to generate a new one.
-                  </p>
-                  <button onClick={handleRotateSecret} style={{
-                    padding: '0.5rem 1rem', background: 'rgba(239, 68, 68, 0.15)',
-                    color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500'
-                  }}>Rotate Client Secret</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* SAML IdP Tab */}
-        {activeTab === 'saml-idp' && orgId && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                <h2 style={{ fontSize: '1.1rem', fontWeight: '600', margin: 0 }}>SAML 2.0 Identity Provider</h2>
-                <button
-                  onClick={() => setSamlIdpEnabled(!samlIdpEnabled)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: samlIdpEnabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(125, 133, 144, 0.15)',
-                    color: samlIdpEnabled ? '#34d399' : 'var(--text-secondary, #7d8590)',
-                    border: `1px solid ${samlIdpEnabled ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-color, #30363d)'}`,
-                    borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600'
-                  }}
-                >
-                  {samlIdpEnabled ? '\u25CF Enabled' : '\u25CB Disabled'}
-                </button>
-              </div>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary, #7d8590)', marginBottom: '1.5rem' }}>
-                Enable SutraID as a SAML 2.0 Identity Provider for this application. External Service Providers can authenticate users through SutraID.
-              </p>
-
-              {samlIdpEnabled && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div>
-                    <label style={labelStyle}>SP Entity ID *</label>
-                    <input type="text" value={samlSpEntityId} onChange={(e) => setSamlSpEntityId(e.target.value)}
-                      placeholder="e.g., https://app.example.com/saml/metadata" style={inputStyle} />
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary, #6e7681)', marginTop: '0.25rem' }}>
-                      The Entity ID of the external Service Provider
-                    </p>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>SP ACS URL *</label>
-                    <input type="text" value={samlSpAcsUrl} onChange={(e) => setSamlSpAcsUrl(e.target.value)}
-                      placeholder="e.g., https://app.example.com/saml/acs" style={inputStyle} />
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary, #6e7681)', marginTop: '0.25rem' }}>
-                      Assertion Consumer Service URL where SAML responses will be sent
-                    </p>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>NameID Format</label>
-                    <select value={samlNameIdFormat} onChange={(e) => setSamlNameIdFormat(e.target.value)}
-                      style={{ ...inputStyle, appearance: 'auto' }}>
-                      <option value="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">Email Address</option>
-                      <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent">Persistent</option>
-                      <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">Transient</option>
-                      <option value="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified">Unspecified</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* SAML IdP Endpoints (read-only) */}
-            {samlIdpEnabled && orgId && (
+            {/* Credentials */}
+            {app.type === 'OIDC' && (
               <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem' }}>
-                <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>IdP Endpoints</h2>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', marginBottom: '1rem' }}>
-                  Provide these URLs to the Service Provider for configuration.
-                </p>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>Credentials</h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div>
-                    <label style={labelStyle}>IdP Metadata URL</label>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input type="text" value={applicationApi.getSamlIdpMetadataUrl(orgId)} readOnly
-                        style={{ ...readonlyFieldStyle, flex: 1 }}
-                        onClick={() => copyToClipboard(applicationApi.getSamlIdpMetadataUrl(orgId))} />
-                      <button onClick={() => copyToClipboard(applicationApi.getSamlIdpMetadataUrl(orgId))} style={{
-                        padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid var(--border-color, #30363d)', borderRadius: '8px',
-                        color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.85rem'
-                      }}>Copy</button>
+                  {app.clientId && (
+                    <div>
+                      <label style={labelStyle}>Client ID</label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input type="text" value={app.clientId} readOnly style={{ ...readonlyFieldStyle, flex: 1 }} onClick={() => copyToClipboard(app.clientId!)} />
+                        <button onClick={() => copyToClipboard(app.clientId!)} style={{
+                          padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid var(--border-color, #30363d)', borderRadius: '8px',
+                          color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.85rem'
+                        }}>Copy</button>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>SSO URL</label>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input type="text" value={applicationApi.getSamlIdpSsoUrl(orgId)} readOnly
-                        style={{ ...readonlyFieldStyle, flex: 1 }}
-                        onClick={() => copyToClipboard(applicationApi.getSamlIdpSsoUrl(orgId))} />
-                      <button onClick={() => copyToClipboard(applicationApi.getSamlIdpSsoUrl(orgId))} style={{
-                        padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid var(--border-color, #30363d)', borderRadius: '8px',
-                        color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.85rem'
-                      }}>Copy</button>
+                  )}
+                  {!app.isPublicClient && !app.isAiAgent && (
+                    <div>
+                      <label style={labelStyle}>Client Secret</label>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', margin: '0 0 0.5rem' }}>
+                        The client secret is only shown once at creation. Rotate to generate a new one.
+                      </p>
+                      <button onClick={handleRotateSecret} style={{
+                        padding: '0.5rem 1rem', background: 'rgba(239, 68, 68, 0.15)',
+                        color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.3)',
+                        borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500'
+                      }}>Rotate Client Secret</button>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* OIDC IdP Tab */}
-        {activeTab === 'oidc-idp' && orgId && (
+        {/* Security Tab */}
+        {activeTab === 'security' && app.type === 'OIDC' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                <h2 style={{ fontSize: '1.1rem', fontWeight: '600', margin: 0 }}>OpenID Connect Identity Provider</h2>
-                <button
-                  onClick={() => setOidcIdpEnabled(!oidcIdpEnabled)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: oidcIdpEnabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(125, 133, 144, 0.15)',
-                    color: oidcIdpEnabled ? '#34d399' : 'var(--text-secondary, #7d8590)',
-                    border: `1px solid ${oidcIdpEnabled ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-color, #30363d)'}`,
-                    borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600'
-                  }}
-                >
-                  {oidcIdpEnabled ? '\u25CF Enabled' : '\u25CB Disabled'}
-                </button>
-              </div>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary, #7d8590)', marginBottom: '1.5rem' }}>
-                Enable SutraID as an OIDC Identity Provider. External applications can use OAuth 2.0 / OpenID Connect to authenticate users.
-              </p>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>Security Features</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <button type="button" onClick={() => setIsPublicClient(!isPublicClient)} style={toggleStyle(isPublicClient)}>
+                    {isPublicClient ? '● ' : '○ '}Public Client (SPA/Mobile)
+                  </button>
+                  <button type="button" onClick={() => setIsAiAgent(!isAiAgent)} style={toggleStyle(isAiAgent)}>
+                    {isAiAgent ? '● ' : '○ '}AI Agent
+                  </button>
+                  <button type="button" onClick={() => setRequireDpop(!requireDpop)} style={toggleStyle(requireDpop)}>
+                    {requireDpop ? '● ' : '○ '}Require DPoP
+                  </button>
+                </div>
 
-              {oidcIdpEnabled && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div>
-                    <label style={labelStyle}>Allowed Scopes</label>
-                    <input type="text" value={oidcScopes} onChange={(e) => setOidcScopes(e.target.value)}
-                      placeholder="openid profile email" style={inputStyle} />
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary, #6e7681)', marginTop: '0.25rem' }}>
-                      Space-separated list of allowed OIDC scopes
+                {requireDpop && (
+                  <div style={{
+                    background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)',
+                    borderRadius: '8px', padding: '1rem', marginTop: '0.5rem'
+                  }}>
+                    <p style={{ fontSize: '0.85rem', color: '#fbbf24', margin: 0 }}>
+                      <strong>DPoP Enabled:</strong> All token requests must include a valid DPoP proof JWT.
+                      Access tokens will be bound to the client&apos;s proof-of-possession key.
                     </p>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
 
-            {/* OIDC IdP Endpoints (read-only) */}
-            {oidcIdpEnabled && orgId && (
+                {isAiAgent && (
+                  <div style={{
+                    background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)',
+                    borderRadius: '8px', padding: '1rem', marginTop: '0.5rem'
+                  }}>
+                    <p style={{ fontSize: '0.85rem', color: '#34d399', margin: 0 }}>
+                      <strong>AI Agent Mode:</strong> This client is configured for autonomous AI agent authentication
+                      using the client_credentials grant with JWK-based authentication.
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <label style={labelStyle}>Token Endpoint Auth Method</label>
+                  <input type="text" value={app.tokenEndpointAuthMethod} readOnly style={readonlyFieldStyle} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'security' && app.type === 'SAML' && (
+          <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>SAML Certificate</h2>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', marginBottom: '1rem' }}>
+              The SAML signing certificate was auto-generated when this application was created.
+              Download the IdP metadata to get the full certificate.
+            </p>
+            {app.samlEntityId && (
+              <div>
+                <label style={labelStyle}>IdP Entity ID</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input type="text" value={app.samlEntityId} readOnly style={{ ...readonlyFieldStyle, flex: 1 }} onClick={() => copyToClipboard(app.samlEntityId!)} />
+                  <button onClick={() => copyToClipboard(app.samlEntityId!)} style={{
+                    padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid var(--border-color, #30363d)', borderRadius: '8px',
+                    color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.85rem'
+                  }}>Copy</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Endpoints Tab */}
+        {activeTab === 'endpoints' && orgId && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {app.type === 'OIDC' && (
               <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem' }}>
-                <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>OIDC Endpoints</h2>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>OIDC / OAuth 2.1 Endpoints</h2>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', marginBottom: '1rem' }}>
-                  Use these URLs to configure the external application as an OIDC client.
+                  Use these endpoints to integrate your application with SutraID.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {[
-                    { label: 'Discovery URL', value: applicationApi.getOidcIdpDiscoveryUrl(orgId) },
-                    { label: 'Authorization Endpoint', value: applicationApi.getOidcIdpAuthorizeUrl(orgId) },
-                    { label: 'Token Endpoint', value: applicationApi.getOidcIdpTokenUrl(orgId) },
-                    { label: 'JWKS URI', value: applicationApi.getOidcIdpJwksUrl(orgId) },
+                    { label: 'Discovery URL', value: applicationApi.getOidcDiscoveryUrl(orgId) },
+                    { label: 'Token Endpoint', value: applicationApi.getTokenUrl() },
+                    { label: 'Introspection Endpoint', value: applicationApi.getIntrospectUrl() },
+                    { label: 'Revocation Endpoint', value: applicationApi.getRevokeUrl() },
+                    { label: 'DCR Endpoint', value: applicationApi.getDcrUrl() },
                   ].map(({ label, value }) => (
                     <div key={label}>
                       <label style={labelStyle}>{label}</label>
@@ -451,21 +451,110 @@ export default function ApplicationDetailPage() {
                       </div>
                     </div>
                   ))}
-                  <div>
-                    <label style={labelStyle}>Client ID</label>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input type="text" value={app.clientId} readOnly style={{ ...readonlyFieldStyle, flex: 1 }}
-                        onClick={() => copyToClipboard(app.clientId)} />
-                      <button onClick={() => copyToClipboard(app.clientId)} style={{
-                        padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid var(--border-color, #30363d)', borderRadius: '8px',
-                        color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.85rem'
-                      }}>Copy</button>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
+
+            {app.type === 'SAML' && (
+              <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>SAML 2.0 IdP Endpoints</h2>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', marginBottom: '1rem' }}>
+                  Provide these URLs to the external Service Provider for configuration.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {[
+                    { label: 'IdP Metadata URL', value: applicationApi.getSamlMetadataUrl(orgId, appId) },
+                    { label: 'SSO URL (HTTP-POST)', value: applicationApi.getSamlSsoUrl(orgId, appId) },
+                  ].map(({ label, value }) => (
+                    <div key={label}>
+                      <label style={labelStyle}>{label}</label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input type="text" value={value} readOnly style={{ ...readonlyFieldStyle, flex: 1 }}
+                          onClick={() => copyToClipboard(value)} />
+                        <button onClick={() => copyToClipboard(value)} style={{
+                          padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid var(--border-color, #30363d)', borderRadius: '8px',
+                          color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.85rem'
+                        }}>Copy</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Integration Guide Tab */}
+        {activeTab === 'guide' && orgId && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>Quick Start Integration</h2>
+
+              {app.type === 'OIDC' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  <div>
+                    <label style={labelStyle}>cURL — Token Request (Client Credentials)</label>
+                    <pre style={{
+                      background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color, #30363d)',
+                      borderRadius: '8px', padding: '1rem', overflow: 'auto',
+                      fontSize: '0.8rem', color: '#a5b4fc', lineHeight: '1.5'
+                    }}>{`curl -X POST ${applicationApi.getTokenUrl()} \\
+  -H "Content-Type: application/x-www-form-urlencoded" \\
+  -d "grant_type=client_credentials" \\
+  -d "client_id=${app.clientId || '<CLIENT_ID>'}" \\
+  -d "client_secret=<CLIENT_SECRET>" \\
+  -d "scope=${Array.isArray(app.scopes) ? app.scopes.join(' ') : 'openid'}"`}</pre>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Node.js — openid-client</label>
+                    <pre style={{
+                      background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color, #30363d)',
+                      borderRadius: '8px', padding: '1rem', overflow: 'auto',
+                      fontSize: '0.8rem', color: '#a5b4fc', lineHeight: '1.5'
+                    }}>{`const { Issuer } = require('openid-client');
+
+const issuer = await Issuer.discover(
+  '${applicationApi.getOidcDiscoveryUrl(orgId)}'
+);
+
+const client = new issuer.Client({
+  client_id: '${app.clientId || '<CLIENT_ID>'}',
+  client_secret: '<CLIENT_SECRET>',
+});
+
+const tokenSet = await client.grant({
+  grant_type: 'client_credentials',
+});
+
+console.log('Access Token:', tokenSet.access_token);`}</pre>
+                  </div>
+                </div>
+              )}
+
+              {app.type === 'SAML' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  <div>
+                    <label style={labelStyle}>IdP Metadata XML</label>
+                    <pre style={{
+                      background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color, #30363d)',
+                      borderRadius: '8px', padding: '1rem', overflow: 'auto',
+                      fontSize: '0.8rem', color: '#60a5fa', lineHeight: '1.5'
+                    }}>{`<!-- Download from: -->
+${applicationApi.getSamlMetadataUrl(orgId, appId)}
+
+<!-- Or configure your SP with: -->
+<IDPSSODescriptor>
+  SSO URL: ${applicationApi.getSamlSsoUrl(orgId, appId)}
+  NameID Format: ${samlNameIdFormat}
+</IDPSSODescriptor>`}</pre>
+                  </div>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)' }}>
+                    Import the IdP Metadata URL into your Service Provider to complete the SAML configuration.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>

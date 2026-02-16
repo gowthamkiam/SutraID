@@ -14,7 +14,7 @@ export class SamlIdpService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Get or create SAML Identity Provider instance for an organization
@@ -356,7 +356,7 @@ export class SamlIdpService {
       where: {
         organizationId,
         samlSpEntityId: spEntityId,
-        samlIdpEnabled: true,
+        type: 'SAML',
         status: 'ACTIVE',
       },
     });

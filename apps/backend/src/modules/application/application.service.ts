@@ -2,76 +2,67 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationService } from '../organization/organization.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
-import { OrgRole } from '@prisma/client';
-import * as crypto from 'crypto';
+import { OrgRole, ApplicationProtocol } from '@prisma/client';
+import { ApplicationUtils } from './utils/application.utils';
 
 @Injectable()
 export class ApplicationService {
   constructor(
     private prisma: PrismaService,
     private organizationService: OrganizationService,
-  ) {}
+    private utils: ApplicationUtils,
+  ) { }
 
   /**
-   * Generate secure OAuth credentials
-   */
-  private generateClientCredentials() {
-    const clientId = `app_${crypto.randomBytes(16).toString('hex')}`;
-    const clientSecret = `sk_${crypto.randomBytes(32).toString('hex')}`;
-
-    // Hash client secret for storage (we'll return plaintext once, then store hash)
-    const clientSecretHash = crypto
-      .createHash('sha256')
-      .update(clientSecret)
-      .digest('hex');
-
-    return { clientId, clientSecret, clientSecretHash };
-  }
-
-  /**
-   * Create a new application (requires OWNER, ADMIN, or DEVELOPER role)
+   * Create a new application
    */
   async create(
     organizationId: string,
-    userId: string,
+    actorId: string,
     dto: CreateApplicationDto,
   ) {
-    // Check if user has permission (OWNER, ADMIN, or DEVELOPER)
-    await this.organizationService.checkPermission(organizationId, userId, [
-      OrgRole.OWNER,
-      OrgRole.ADMIN,
-      OrgRole.DEVELOPER,
+    // Check if user has permission
+    await this.organizationService.checkPermission(organizationId, actorId, [
+      OrgRole.SUPER_ADMIN,
+      OrgRole.ORG_ADMIN,
+      OrgRole.APP_ADMIN,
     ]);
 
-    // Get organization to check limits
+    // Check application limit
     const org = await this.prisma.organization.findUnique({
       where: { id: organizationId },
-      include: {
-        _count: {
-          select: { applications: true },
-        },
-      },
+      include: { _count: { select: { applications: true } } },
     });
 
-    if (!org) {
-      throw new NotFoundException('Organization not found');
-    }
+    if (!org) throw new NotFoundException('Organization not found');
 
-    // Check application limit
     if (org._count.applications >= org.maxApplications) {
       throw new BadRequestException(
         `Organization has reached maximum application limit (${org.maxApplications})`,
       );
     }
 
-    // Generate OAuth credentials
-    const { clientId, clientSecret, clientSecretHash } =
-      this.generateClientCredentials();
+    let clientId: string | undefined = undefined;
+    let clientSecret: string | undefined = undefined;
+    let clientSecretHash: string | undefined = undefined;
+    let samlCert: string | undefined = undefined;
+    let samlKey: string | undefined = undefined;
+
+    if (dto.type === ApplicationProtocol.OIDC) {
+      clientId = this.utils.generateClientId();
+      if (!dto.isPublicClient && !dto.isAiAgent) {
+        clientSecret = this.utils.generateClientSecret();
+        clientSecretHash = this.utils.hashSecret(clientSecret);
+      }
+    } else if (dto.type === ApplicationProtocol.SAML) {
+      const { privateKey, certificate } = this.utils.generateSamlCertificates();
+      samlKey = privateKey;
+      samlCert = certificate;
+    }
 
     // Create application
     const application = await this.prisma.application.create({
@@ -80,41 +71,46 @@ export class ApplicationService {
         name: dto.name,
         description: dto.description,
         logoUrl: dto.logoUrl,
-        clientId,
-        clientSecret: clientSecretHash, // Store hashed secret
-        redirectUris: dto.redirectUris,
-        allowedOrigins: dto.allowedOrigins || [],
         type: dto.type,
-        status: 'ACTIVE',
-        // SAML IdP fields
-        samlIdpEnabled: dto.samlIdpEnabled ?? false,
+        clientId,
+        clientSecretHash,
+        redirectUris: dto.redirectUris || [],
+        grantTypes: dto.grantTypes || ['authorization_code', 'refresh_token'],
+        responseTypes: dto.responseTypes || ['code'],
+        scopes: dto.scopes || ['openid', 'profile', 'email'],
+        tokenEndpointAuthMethod: dto.tokenEndpointAuthMethod || 'client_secret_post',
+        isPublicClient: dto.isPublicClient ?? false,
+        requireDpop: dto.requireDpop ?? false,
+        jwks: dto.jwks as any,
+        dpopNonceEnabled: dto.dpopNonceEnabled ?? true,
+        isAiAgent: dto.isAiAgent ?? false,
+        samlEntityId: dto.samlEntityId,
+        samlCertificate: samlCert,
+        samlPrivateKey: samlKey,
         samlSpEntityId: dto.samlSpEntityId,
         samlSpAcsUrl: dto.samlSpAcsUrl,
         samlNameIdFormat: dto.samlNameIdFormat,
-        samlAttributeMapping: dto.samlAttributeMapping ?? undefined,
-        // OIDC IdP fields
-        oidcIdpEnabled: dto.oidcIdpEnabled ?? false,
-        oidcScopes: dto.oidcScopes ?? ['openid', 'profile', 'email'],
+        samlAttributeMapping: dto.samlAttributeMapping as any,
+        createdBy: actorId,
+        status: 'ACTIVE',
       },
     });
 
-    // Return application with plaintext secret (only shown once!)
     return {
       ...application,
-      clientSecret, // Plaintext secret (will not be retrievable again)
+      clientSecret, // Return plaintext secret once
     };
   }
 
   /**
    * Get all applications for an organization
    */
-  async findAll(organizationId: string, userId: string) {
-    // Check if user has access to organization
-    await this.organizationService.checkPermission(organizationId, userId, [
-      OrgRole.OWNER,
-      OrgRole.ADMIN,
-      OrgRole.DEVELOPER,
-      OrgRole.MEMBER,
+  async findAll(organizationId: string, actorId: string) {
+    await this.organizationService.checkPermission(organizationId, actorId, [
+      OrgRole.SUPER_ADMIN,
+      OrgRole.ORG_ADMIN,
+      OrgRole.APP_ADMIN,
+      OrgRole.READ_ONLY_ADMIN,
     ]);
 
     return this.prisma.application.findMany({
@@ -122,69 +118,24 @@ export class ApplicationService {
         organizationId,
         status: { not: 'ARCHIVED' },
       },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        logoUrl: true,
-        clientId: true,
-        // Do NOT return clientSecret
-        redirectUris: true,
-        allowedOrigins: true,
-        type: true,
-        status: true,
-        samlIdpEnabled: true,
-        oidcIdpEnabled: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
   /**
    * Get single application details
    */
-  async findOne(applicationId: string, userId: string) {
+  async findOne(applicationId: string, actorId: string) {
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
-      select: {
-        id: true,
-        organizationId: true,
-        name: true,
-        description: true,
-        logoUrl: true,
-        clientId: true,
-        // Do NOT return clientSecret
-        redirectUris: true,
-        allowedOrigins: true,
-        type: true,
-        status: true,
-        // SAML IdP fields
-        samlIdpEnabled: true,
-        samlSpEntityId: true,
-        samlSpAcsUrl: true,
-        samlNameIdFormat: true,
-        samlAttributeMapping: true,
-        // OIDC IdP fields
-        oidcIdpEnabled: true,
-        oidcScopes: true,
-        createdAt: true,
-        updatedAt: true,
-      },
     });
 
-    if (!application) {
-      throw new NotFoundException('Application not found');
-    }
+    if (!application) throw new NotFoundException('Application not found');
 
-    // Check if user has access
     await this.organizationService.checkPermission(
       application.organizationId,
-      userId,
-      [OrgRole.OWNER, OrgRole.ADMIN, OrgRole.DEVELOPER, OrgRole.MEMBER],
+      actorId,
+      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.APP_ADMIN, OrgRole.READ_ONLY_ADMIN],
     );
 
     return application;
@@ -195,22 +146,19 @@ export class ApplicationService {
    */
   async update(
     applicationId: string,
-    userId: string,
+    actorId: string,
     dto: Partial<CreateApplicationDto>,
   ) {
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
     });
 
-    if (!application) {
-      throw new NotFoundException('Application not found');
-    }
+    if (!application) throw new NotFoundException('Application not found');
 
-    // Check if user has permission (OWNER, ADMIN, or DEVELOPER)
     await this.organizationService.checkPermission(
       application.organizationId,
-      userId,
-      [OrgRole.OWNER, OrgRole.ADMIN, OrgRole.DEVELOPER],
+      actorId,
+      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.APP_ADMIN],
     );
 
     return this.prisma.application.update({
@@ -220,104 +168,78 @@ export class ApplicationService {
         description: dto.description,
         logoUrl: dto.logoUrl,
         redirectUris: dto.redirectUris,
-        allowedOrigins: dto.allowedOrigins,
-        type: dto.type,
-        // SAML IdP fields
-        samlIdpEnabled: dto.samlIdpEnabled,
+        grantTypes: dto.grantTypes,
+        responseTypes: dto.responseTypes,
+        scopes: dto.scopes,
+        tokenEndpointAuthMethod: dto.tokenEndpointAuthMethod,
+        isPublicClient: dto.isPublicClient,
+        requireDpop: dto.requireDpop,
+        jwks: dto.jwks,
+        dpopNonceEnabled: dto.dpopNonceEnabled,
+        samlEntityId: dto.samlEntityId,
         samlSpEntityId: dto.samlSpEntityId,
         samlSpAcsUrl: dto.samlSpAcsUrl,
         samlNameIdFormat: dto.samlNameIdFormat,
         samlAttributeMapping: dto.samlAttributeMapping,
-        // OIDC IdP fields
-        oidcIdpEnabled: dto.oidcIdpEnabled,
-        oidcScopes: dto.oidcScopes,
-      },
-      select: {
-        id: true,
-        organizationId: true,
-        name: true,
-        description: true,
-        logoUrl: true,
-        clientId: true,
-        redirectUris: true,
-        allowedOrigins: true,
-        type: true,
-        status: true,
-        samlIdpEnabled: true,
-        samlSpEntityId: true,
-        samlSpAcsUrl: true,
-        samlNameIdFormat: true,
-        samlAttributeMapping: true,
-        oidcIdpEnabled: true,
-        oidcScopes: true,
-        createdAt: true,
-        updatedAt: true,
       },
     });
   }
 
   /**
-   * Rotate client secret (requires OWNER or ADMIN)
+   * Rotate client secret
    */
-  async rotateSecret(applicationId: string, userId: string) {
+  async rotateSecret(applicationId: string, actorId: string) {
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
     });
 
-    if (!application) {
-      throw new NotFoundException('Application not found');
+    if (!application) throw new NotFoundException('Application not found');
+
+    if (application.type !== ApplicationProtocol.OIDC) {
+      throw new BadRequestException('Secret rotation is only for OIDC applications');
     }
 
-    // Only OWNER or ADMIN can rotate secrets
     await this.organizationService.checkPermission(
       application.organizationId,
-      userId,
-      [OrgRole.OWNER, OrgRole.ADMIN],
+      actorId,
+      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
     );
 
-    // Generate new credentials
-    const { clientSecret, clientSecretHash } =
-      this.generateClientCredentials();
+    const clientSecret = this.utils.generateClientSecret();
+    const clientSecretHash = this.utils.hashSecret(clientSecret);
 
-    // Update application with new secret
     await this.prisma.application.update({
       where: { id: applicationId },
-      data: {
-        clientSecret: clientSecretHash,
-      },
+      data: { clientSecretHash },
     });
 
-    // Return new plaintext secret (only shown once!)
     return {
       clientId: application.clientId,
-      clientSecret, // New plaintext secret
-      message: 'Client secret rotated successfully. Save this secret now.',
+      clientSecret,
+      message: 'Client secret rotated successfully.',
     };
   }
 
   /**
    * Delete application (archive)
    */
-  async remove(applicationId: string, userId: string) {
+  async remove(applicationId: string, actorId: string) {
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
     });
 
-    if (!application) {
-      throw new NotFoundException('Application not found');
-    }
+    if (!application) throw new NotFoundException('Application not found');
 
-    // Only OWNER or ADMIN can delete
     await this.organizationService.checkPermission(
       application.organizationId,
-      userId,
-      [OrgRole.OWNER, OrgRole.ADMIN],
+      actorId,
+      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
     );
 
-    // Soft delete by setting status to ARCHIVED
     return this.prisma.application.update({
       where: { id: applicationId },
       data: { status: 'ARCHIVED' },
     });
   }
 }
+

@@ -1,17 +1,26 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { OrgRole, MemberStatus, OrganizationSetting } from '@prisma/client';
+import { OrgRole, OrganizationSetting } from '@prisma/client';
+import { OrganizationService } from '../organization.service';
 
 @Injectable()
 export class OrganizationSettingsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private organizationService: OrganizationService,
+    ) { }
 
     /**
      * Get all settings for an organization
      */
-    async findAll(orgId: string, userId: string) {
+    async findAll(orgId: string, actorId: string) {
         // Check permission (Admins only)
-        await this.checkPermission(orgId, userId, [OrgRole.OWNER, OrgRole.ADMIN]);
+        await this.organizationService.checkPermission(orgId, actorId, [
+            // @ts-ignore
+            OrgRole.SUPER_ADMIN,
+            // @ts-ignore
+            OrgRole.ORG_ADMIN,
+        ]);
 
         const settings = await this.prisma.organizationSetting.findMany({
             where: { organizationId: orgId },
@@ -27,9 +36,14 @@ export class OrganizationSettingsService {
     /**
      * Update or create a setting
      */
-    async update(orgId: string, userId: string, key: string, value: string) {
+    async update(orgId: string, actorId: string, key: string, value: string) {
         // Check permission (Admins only)
-        await this.checkPermission(orgId, userId, [OrgRole.OWNER, OrgRole.ADMIN]);
+        await this.organizationService.checkPermission(orgId, actorId, [
+            // @ts-ignore
+            OrgRole.SUPER_ADMIN,
+            // @ts-ignore
+            OrgRole.ORG_ADMIN,
+        ]);
 
         return this.prisma.organizationSetting.upsert({
             where: {
@@ -40,13 +54,13 @@ export class OrganizationSettingsService {
             },
             update: {
                 value,
-                updatedBy: userId,
+                updatedBy: actorId,
             },
             create: {
                 organizationId: orgId,
                 key,
                 value,
-                updatedBy: userId,
+                updatedBy: actorId,
             },
         });
     }
@@ -54,9 +68,14 @@ export class OrganizationSettingsService {
     /**
      * Batch update settings
      */
-    async updateBatch(orgId: string, userId: string, settings: Record<string, string>) {
+    async updateBatch(orgId: string, actorId: string, settings: Record<string, string>) {
         // Check permission (Admins only)
-        await this.checkPermission(orgId, userId, [OrgRole.OWNER, OrgRole.ADMIN]);
+        await this.organizationService.checkPermission(orgId, actorId, [
+            // @ts-ignore
+            OrgRole.SUPER_ADMIN,
+            // @ts-ignore
+            OrgRole.ORG_ADMIN,
+        ]);
 
         const operations = Object.entries(settings).map(([key, value]) =>
             this.prisma.organizationSetting.upsert({
@@ -68,47 +87,20 @@ export class OrganizationSettingsService {
                 },
                 update: {
                     value,
-                    updatedBy: userId,
+                    updatedBy: actorId,
                 },
                 create: {
                     organizationId: orgId,
                     key,
                     value,
-                    updatedBy: userId,
+                    updatedBy: actorId,
                 },
             }),
         );
 
         await this.prisma.$transaction(operations);
 
-        return this.findAll(orgId, userId);
+        return this.findAll(orgId, actorId);
     }
 
-    /**
-     * Helper to check permissions
-     */
-    private async checkPermission(
-        orgId: string,
-        userId: string,
-        requiredRoles: OrgRole[],
-    ) {
-        const membership = await this.prisma.organizationMember.findUnique({
-            where: {
-                organizationId_userId: {
-                    organizationId: orgId,
-                    userId,
-                },
-            },
-        });
-
-        if (!membership || membership.status !== MemberStatus.ACTIVE) {
-            throw new ForbiddenException('Access denied');
-        }
-
-        if (!requiredRoles.includes(membership.role)) {
-            throw new ForbiddenException('Insufficient permissions');
-        }
-
-        return membership;
-    }
 }

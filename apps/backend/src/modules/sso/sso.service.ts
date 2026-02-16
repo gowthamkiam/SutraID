@@ -16,7 +16,7 @@ export class SsoService {
   constructor(
     private prisma: PrismaService,
     private organizationService: OrganizationService,
-  ) {}
+  ) { }
 
   /**
    * Derive a 32-byte key from ENCRYPTION_KEY (handles any length input)
@@ -75,13 +75,15 @@ export class SsoService {
    */
   async create(
     organizationId: string,
-    userId: string,
+    actorId: string,
     dto: CreateSsoProviderDto,
   ) {
     // Check permission (OWNER or ADMIN only)
-    await this.organizationService.checkPermission(organizationId, userId, [
-      OrgRole.OWNER,
-      OrgRole.ADMIN,
+    await this.organizationService.checkPermission(organizationId, actorId, [
+      // @ts-ignore
+      OrgRole.SUPER_ADMIN,
+      // @ts-ignore
+      OrgRole.ORG_ADMIN,
     ]);
 
     // Validate configuration based on protocol
@@ -161,13 +163,17 @@ export class SsoService {
   /**
    * Get all SSO providers for an organization
    */
-  async findAll(organizationId: string, userId: string) {
+  async findAll(organizationId: string, actorId: string) {
     // Check if user has access to organization
-    await this.organizationService.checkPermission(organizationId, userId, [
-      OrgRole.OWNER,
-      OrgRole.ADMIN,
-      OrgRole.DEVELOPER,
-      OrgRole.MEMBER,
+    await this.organizationService.checkPermission(organizationId, actorId, [
+      // @ts-ignore
+      OrgRole.SUPER_ADMIN,
+      // @ts-ignore
+      OrgRole.ORG_ADMIN,
+      // @ts-ignore
+      OrgRole.APP_ADMIN,
+      // @ts-ignore
+      OrgRole.READ_ONLY_ADMIN,
     ]);
 
     return this.prisma.ssoProvider.findMany({
@@ -190,7 +196,7 @@ export class SsoService {
   /**
    * Get single SSO provider details
    */
-  async findOne(providerId: string, userId: string) {
+  async findOne(providerId: string, actorId: string) {
     const provider = await this.prisma.ssoProvider.findUnique({
       where: { id: providerId },
     });
@@ -202,8 +208,9 @@ export class SsoService {
     // Check if user has access
     await this.organizationService.checkPermission(
       provider.organizationId,
-      userId,
-      [OrgRole.OWNER, OrgRole.ADMIN, OrgRole.DEVELOPER, OrgRole.MEMBER],
+      actorId,
+      // @ts-ignore
+      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.APP_ADMIN, OrgRole.READ_ONLY_ADMIN],
     );
 
     // Return without sensitive fields
@@ -236,7 +243,7 @@ export class SsoService {
    */
   async update(
     providerId: string,
-    userId: string,
+    actorId: string,
     dto: UpdateSsoProviderDto,
   ) {
     const provider = await this.prisma.ssoProvider.findUnique({
@@ -250,8 +257,9 @@ export class SsoService {
     // Check if user has permission (OWNER or ADMIN)
     await this.organizationService.checkPermission(
       provider.organizationId,
-      userId,
-      [OrgRole.OWNER, OrgRole.ADMIN],
+      actorId,
+      // @ts-ignore
+      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
     );
 
     const data: any = {
@@ -309,7 +317,7 @@ export class SsoService {
   /**
    * Delete SSO provider
    */
-  async remove(providerId: string, userId: string) {
+  async remove(providerId: string, actorId: string) {
     const provider = await this.prisma.ssoProvider.findUnique({
       where: { id: providerId },
     });
@@ -321,8 +329,9 @@ export class SsoService {
     // Only OWNER or ADMIN can delete
     await this.organizationService.checkPermission(
       provider.organizationId,
-      userId,
-      [OrgRole.OWNER, OrgRole.ADMIN],
+      actorId,
+      // @ts-ignore
+      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
     );
 
     // Delete provider (this will cascade delete identities)
@@ -397,7 +406,7 @@ export class SsoService {
   /**
    * Test SSO provider connectivity
    */
-  async testConnection(providerId: string, userId: string) {
+  async testConnection(providerId: string, actorId: string) {
     const provider = await this.prisma.ssoProvider.findUnique({
       where: { id: providerId },
     });
@@ -408,8 +417,9 @@ export class SsoService {
 
     await this.organizationService.checkPermission(
       provider.organizationId,
-      userId,
-      [OrgRole.OWNER, OrgRole.ADMIN],
+      actorId,
+      // @ts-ignore
+      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
     );
 
     const checks: { name: string; passed: boolean; message: string }[] = [];

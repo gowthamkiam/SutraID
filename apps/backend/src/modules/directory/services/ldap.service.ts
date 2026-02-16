@@ -1,12 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { OrgRole } from '@prisma/client';
+import { OrganizationService } from '../../organization/organization.service';
 // import * as ldap from 'ldapjs'; // Assuming ldapjs is available
 
 @Injectable()
 export class LDAPService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private organizationService: OrganizationService,
+    ) { }
 
-    async updateConfig(organizationId: string, data: any) {
+    async updateConfig(organizationId: string, actorId: string, data: any) {
+        await this.organizationService.checkPermission(organizationId, actorId, [
+            // @ts-ignore
+            OrgRole.SUPER_ADMIN,
+            // @ts-ignore
+            OrgRole.ORG_ADMIN,
+        ]);
         return this.prisma.directoryConfig.upsert({
             where: { organizationId },
             create: {
@@ -21,7 +32,13 @@ export class LDAPService {
         });
     }
 
-    async syncOrganization(organizationId: string) {
+    async syncOrganization(organizationId: string, actorId: string) {
+        await this.organizationService.checkPermission(organizationId, actorId, [
+            // @ts-ignore
+            OrgRole.SUPER_ADMIN,
+            // @ts-ignore
+            OrgRole.ORG_ADMIN,
+        ]);
         const config = await this.prisma.directoryConfig.findUnique({
             where: { organizationId },
         });

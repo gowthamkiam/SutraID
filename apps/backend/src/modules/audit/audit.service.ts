@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuditResult } from '@prisma/client';
+import { AuditResult, OrgRole } from '@prisma/client';
+import { OrganizationService } from '../organization/organization.service';
 
 export interface AuditEvent {
   organizationId?: string;
@@ -15,7 +16,10 @@ export interface AuditEvent {
 
 @Injectable()
 export class AuditService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private organizationService: OrganizationService,
+  ) { }
 
   /**
    * Log an audit event (append-only, never update/delete)
@@ -43,18 +47,30 @@ export class AuditService {
   /**
    * Query audit logs with filters
    */
-  async query(params: {
-    organizationId?: string;
-    userId?: string;
-    action?: string;
-    result?: AuditResult;
-    startDate?: Date;
-    endDate?: Date;
-    page?: number;
-    limit?: number;
-  }) {
+  async query(
+    organizationId: string,
+    actorId: string,
+    params: {
+      userId?: string;
+      action?: string;
+      result?: AuditResult;
+      startDate?: Date;
+      endDate?: Date;
+      page?: number;
+      limit?: number;
+    },
+  ) {
+    // Check permission
+    await this.organizationService.checkPermission(organizationId, actorId, [
+      // @ts-ignore
+      OrgRole.SUPER_ADMIN,
+      // @ts-ignore
+      OrgRole.ORG_ADMIN,
+      // @ts-ignore
+      OrgRole.REPORT_ADMIN,
+    ]);
+
     const {
-      organizationId,
       userId,
       action,
       result,
@@ -98,7 +114,17 @@ export class AuditService {
   /**
    * Get audit log statistics for an organization
    */
-  async getStats(organizationId: string, days: number = 30) {
+  async getStats(organizationId: string, actorId: string, days: number = 30) {
+    // Check permission
+    await this.organizationService.checkPermission(organizationId, actorId, [
+      // @ts-ignore
+      OrgRole.SUPER_ADMIN,
+      // @ts-ignore
+      OrgRole.ORG_ADMIN,
+      // @ts-ignore
+      OrgRole.REPORT_ADMIN,
+    ]);
+
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
     const [totalEvents, byAction, byResult] = await Promise.all([

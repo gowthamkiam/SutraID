@@ -73,14 +73,6 @@ export default function ApplicationsPage() {
     app.type.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const appTypeLabels: Record<string, string> = {
-    WEB: 'Web App',
-    SPA: 'Single Page App',
-    NATIVE_MOBILE: 'Mobile App',
-    NATIVE_DESKTOP: 'Desktop App',
-    M2M: 'Machine-to-Machine',
-  };
-
   if (loading) {
     return (
       <div style={{
@@ -145,7 +137,7 @@ export default function ApplicationsPage() {
                 <span>Applications</span>
               </h1>
               <p style={{ color: 'var(--text-secondary, #7d8590)', margin: 0, fontSize: '0.9rem' }}>
-                Manage your applications and Identity Provider integrations
+                Manage OAuth 2.1 (OIDC) and SAML 2.0 Identity Provider applications
               </p>
             </div>
           </div>
@@ -217,7 +209,7 @@ export default function ApplicationsPage() {
               color: 'var(--text-secondary, #7d8590)', marginBottom: '2rem',
               maxWidth: '500px', margin: '0 auto 2rem', fontSize: '1rem', lineHeight: '1.6'
             }}>
-              Create your first application to enable Identity Provider features like SAML 2.0 and OIDC.
+              Create your first application to enable OAuth 2.1 (OIDC) or SAML 2.0 Identity Provider features.
             </p>
             <button
               onClick={() => router.push('/dashboard/applications/new')}
@@ -259,13 +251,10 @@ export default function ApplicationsPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                   <div style={{
                     width: '48px', height: '48px', borderRadius: '10px',
-                    background: 'rgba(99, 102, 241, 0.2)',
+                    background: app.type === 'OIDC' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(59, 130, 246, 0.2)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem'
                   }}>
-                    {app.type === 'WEB' ? '\uD83C\uDF10' :
-                     app.type === 'SPA' ? '\u26A1' :
-                     app.type === 'NATIVE_MOBILE' ? '\uD83D\uDCF1' :
-                     app.type === 'NATIVE_DESKTOP' ? '\uD83D\uDDA5\uFE0F' : '\u2699\uFE0F'}
+                    {app.type === 'OIDC' ? '\uD83D\uDD11' : '\uD83D\uDD10'}
                   </div>
                   <div style={{
                     padding: '0.25rem 0.75rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600',
@@ -285,32 +274,43 @@ export default function ApplicationsPage() {
 
                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
                   <span style={{
-                    background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa',
+                    background: app.type === 'OIDC' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                    color: app.type === 'OIDC' ? '#a78bfa' : '#60a5fa',
                     padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600'
                   }}>
-                    {appTypeLabels[app.type] || app.type}
+                    {app.type === 'OIDC' ? 'OAuth 2.1 / OIDC' : 'SAML 2.0'}
                   </span>
-                  {app.samlIdpEnabled && (
+                  {app.requireDpop && (
                     <span style={{
-                      background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa',
+                      background: 'rgba(234, 179, 8, 0.15)', color: '#fbbf24',
                       padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600'
                     }}>
-                      SAML IdP
+                      DPoP
                     </span>
                   )}
-                  {app.oidcIdpEnabled && (
+                  {app.isAiAgent && (
                     <span style={{
                       background: 'rgba(16, 185, 129, 0.15)', color: '#34d399',
                       padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600'
                     }}>
-                      OIDC IdP
+                      AI Agent
+                    </span>
+                  )}
+                  {app.isPublicClient && (
+                    <span style={{
+                      background: 'rgba(251, 146, 60, 0.15)', color: '#fb923c',
+                      padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600'
+                    }}>
+                      Public
                     </span>
                   )}
                 </div>
 
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary, #6e7681)', marginBottom: '1rem' }}>
-                  Client ID: <code style={{ background: 'rgba(255,255,255,0.05)', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>{app.clientId.substring(0, 20)}...</code>
-                </div>
+                {app.clientId && (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary, #6e7681)', marginBottom: '1rem' }}>
+                    Client ID: <code style={{ background: 'rgba(255,255,255,0.05)', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>{app.clientId.substring(0, 20)}...</code>
+                  </div>
+                )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                   <button

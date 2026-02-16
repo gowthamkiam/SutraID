@@ -25,7 +25,7 @@ export class OidcIdpController {
     private oidcIdpService: OidcIdpService,
     private authService: AuthService,
     private prisma: PrismaService,
-  ) {}
+  ) { }
 
   /**
    * GET /.well-known/openid-configuration
@@ -230,12 +230,12 @@ export class OidcIdpController {
       const interaction = await this.oidcIdpService.handleInteraction(
         organizationId,
         uid,
-        user.id,
+        req.user.id,
         body.consent,
       );
 
       console.log(
-        `✅ OIDC consent ${body.consent ? 'granted' : 'denied'} by user ${user.id}`,
+        `✅ OIDC consent ${body.consent ? 'granted' : 'denied'} by user ${req.user.id}`,
       );
 
       return {

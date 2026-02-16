@@ -312,7 +312,7 @@ model OrganizationMember {
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Role-based access control
-  role              OrgRole  @default(MEMBER)
+  role              OrgRole  @default(READ_ONLY_ADMIN)
 
   // Status
   status            MemberStatus @default(ACTIVE)
@@ -330,10 +330,16 @@ model OrganizationMember {
 }
 
 enum OrgRole {
-  OWNER      // Full control, billing, delete org
-  ADMIN      // Manage members, apps, policies
-  DEVELOPER  // Manage apps and integrations
-  MEMBER     // Read-only access
+  SUPER_ADMIN                   // Full control, billing, delete org
+  ORG_ADMIN                     // Manage members, apps, policies
+  APP_ADMIN                     // Manage apps and integrations
+  USER_ADMIN                    // Manage users
+  GROUP_MEMBERSHIP_ADMIN        // Manage groups
+  HELP_DESK_ADMIN               // Reset passwords, unlock users
+  MOBILE_ADMIN                  // Manage mobile app configs
+  READ_ONLY_ADMIN               // Read-only access
+  REPORT_ADMIN                  // Audit logs and reports
+  API_ACCESS_MANAGEMENT_ADMIN   // Manage API keys and integrations
 }
 
 enum MemberStatus {
@@ -348,35 +354,42 @@ model Application {
   organizationId    String
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  // App details
+  // Basic info
   name              String
   description       String?
   logoUrl           String?
+  type              ApplicationProtocol @default(OIDC)
 
-  // OAuth/OIDC settings
-  clientId          String   @unique
-  clientSecret      String   // Encrypted
-  redirectUris      String[] // Allowed redirect URIs
-  allowedOrigins    String[] // CORS origins
+  // OAuth/OIDC settings (OAuth 2.1 aligned)
+  clientId          String?   @unique
+  clientSecretHash  String?   // Hashed
+  redirectUris      Json      @default("[]") // Allowed redirect URIs
+  grantTypes        Json      @default("[\"authorization_code\", \"refresh_token\"]")
+  responseTypes     Json      @default("[\"code\"]")
+  scopes            Json      @default("[\"openid\", \"profile\", \"email\"]")
+  tokenEndpointAuthMethod String @default("client_secret_post")
+  isPublicClient    Boolean   @default(false)
+  
+  // Security Features
+  requireDpop       Boolean   @default(false)
+  jwks               Json?     // For DPoP-bound clients or AI Agents
+  dpopNonceEnabled   Boolean   @default(true)
+  
+  // AI Agent specific
+  isAiAgent         Boolean   @default(false)
 
-  // App type
-  type              AppType  @default(WEB)
+  // SAML Identity Provider Configuration
+  samlEntityId       String?
+  samlCertificate    String?   @db.Text
+  samlPrivateKey     String?   @db.Text
+  samlSpEntityId     String?   // External SP's Entity ID
+  samlSpAcsUrl       String?   // External SP's Assertion Consumer Service URL
+  samlNameIdFormat   String?   @default("urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress")
+  samlAttributeMapping Json?   // Map our attributes to SP's expected attributes
 
-  // Status
+  // Status and Metadata
   status            AppStatus @default(ACTIVE)
-
-  // SAML Identity Provider Configuration (Phase 3)
-  samlIdpEnabled     Boolean  @default(false)  // Enable this app to use us as SAML IDP
-  samlSpEntityId     String?  // External SP's Entity ID
-  samlSpAcsUrl       String?  // External SP's Assertion Consumer Service URL
-  samlNameIdFormat   String?  // NameID format (default: emailAddress)
-  samlAttributeMapping Json?  // Map our attributes to SP's expected attributes
-
-  // OIDC Identity Provider Configuration (Phase 3)
-  oidcIdpEnabled     Boolean  @default(false)  // Enable this app to use us as OIDC IDP
-  oidcScopes         String[] @default(["openid", "profile", "email"])  // Allowed scopes
-
-  // Timestamps
+  createdBy         String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -385,12 +398,9 @@ model Application {
   @@map("applications")
 }
 
-enum AppType {
-  WEB           // Traditional web app
-  SPA           // Single-page application
-  NATIVE_MOBILE // iOS/Android
-  NATIVE_DESKTOP // Desktop app
-  M2M           // Machine-to-machine
+enum ApplicationProtocol {
+  OIDC
+  SAML
 }
 
 enum AppStatus {

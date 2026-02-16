@@ -72,13 +72,13 @@ describe('SsoService', () => {
         protocol: dto.protocol,
       } as any);
 
-      const result = await service.create('org-1', 'user-1', dto);
+      const result = await service.create('org-1', 'actor-1', dto);
 
       expect(result.id).toBe('sso-1');
       expect(mockOrganizationService.checkPermission).toHaveBeenCalledWith(
         'org-1',
-        'user-1',
-        [OrgRole.OWNER, OrgRole.ADMIN],
+        'actor-1',
+        [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
       );
     });
 
@@ -99,7 +99,7 @@ describe('SsoService', () => {
         protocol: dto.protocol,
       } as any);
 
-      const result = await service.create('org-1', 'user-1', dto);
+      const result = await service.create('org-1', 'actor-1', dto);
 
       expect(result.id).toBe('sso-1');
     });
@@ -115,7 +115,7 @@ describe('SsoService', () => {
 
       mockOrganizationService.checkPermission.mockResolvedValue({} as any);
 
-      await expect(service.create('org-1', 'user-1', dto as any)).rejects.toThrow(
+      await expect(service.create('org-1', 'actor-1', dto as any)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -131,7 +131,7 @@ describe('SsoService', () => {
 
       mockOrganizationService.checkPermission.mockResolvedValue({} as any);
 
-      await expect(service.create('org-1', 'user-1', dto as any)).rejects.toThrow(
+      await expect(service.create('org-1', 'actor-1', dto as any)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -159,7 +159,7 @@ describe('SsoService', () => {
         mockProviders as any,
       );
 
-      const result = await service.findAll('org-1', 'user-1');
+      const result = await service.findAll('org-1', 'actor-1');
 
       expect(result).toEqual(mockProviders);
     });
@@ -180,7 +180,7 @@ describe('SsoService', () => {
       );
       mockOrganizationService.checkPermission.mockResolvedValue({} as any);
 
-      const result = await service.findOne('sso-1', 'user-1');
+      const result = await service.findOne('sso-1', 'actor-1');
 
       expect(result.id).toBe('sso-1');
       // Should not return encrypted certificate
@@ -190,7 +190,7 @@ describe('SsoService', () => {
     it('should throw NotFoundException if provider not found', async () => {
       mockPrismaService.ssoProvider.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne('sso-1', 'user-1')).rejects.toThrow(
+      await expect(service.findOne('sso-1', 'actor-1')).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -215,7 +215,7 @@ describe('SsoService', () => {
         enabled: dto.enabled,
       } as any);
 
-      const result = await service.update('sso-1', 'user-1', dto);
+      const result = await service.update('sso-1', 'actor-1', dto);
 
       expect(result.name).toBe('Updated Provider');
       expect(result.enabled).toBe(false);
@@ -225,7 +225,7 @@ describe('SsoService', () => {
       mockPrismaService.ssoProvider.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.update('sso-1', 'user-1', { name: 'Updated' }),
+        service.update('sso-1', 'actor-1', { name: 'Updated' }),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -240,7 +240,7 @@ describe('SsoService', () => {
       mockOrganizationService.checkPermission.mockResolvedValue({} as any);
       mockPrismaService.ssoProvider.delete.mockResolvedValue({} as any);
 
-      await service.remove('sso-1', 'user-1');
+      await service.remove('sso-1', 'actor-1');
 
       expect(mockPrismaService.ssoProvider.delete).toHaveBeenCalledWith({
         where: { id: 'sso-1' },
@@ -255,12 +255,12 @@ describe('SsoService', () => {
 
       mockOrganizationService.checkPermission.mockResolvedValue({} as any);
 
-      await service.remove('sso-1', 'user-1');
+      await service.remove('sso-1', 'actor-1');
 
       expect(mockOrganizationService.checkPermission).toHaveBeenCalledWith(
         'org-1',
-        'user-1',
-        [OrgRole.OWNER, OrgRole.ADMIN],
+        'actor-1',
+        [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
       );
     });
   });
@@ -361,7 +361,7 @@ describe('SsoService', () => {
         status: 200,
       });
 
-      const result = await service.testConnection('sso-1', 'user-1');
+      const result = await service.testConnection('sso-1', 'actor-1');
 
       expect(result.checks).toBeDefined();
       expect(Array.isArray(result.checks)).toBe(true);
@@ -392,7 +392,7 @@ describe('SsoService', () => {
         }),
       });
 
-      const result = await service.testConnection('sso-1', 'user-1');
+      const result = await service.testConnection('sso-1', 'actor-1');
 
       expect(result.checks).toBeDefined();
       expect(result.checks.some((c: any) => c.name === 'OIDC Discovery')).toBe(

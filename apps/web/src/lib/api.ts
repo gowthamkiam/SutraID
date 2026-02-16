@@ -172,11 +172,7 @@ export const ssoApi = {
   },
 };
 
-// ============================================================================
-// Application API (Phase 3 - Identity Provider)
-// ============================================================================
-
-export type AppType = 'WEB' | 'SPA' | 'NATIVE_MOBILE' | 'NATIVE_DESKTOP' | 'M2M';
+export type ApplicationProtocol = 'OIDC' | 'SAML';
 export type AppStatus = 'ACTIVE' | 'DISABLED' | 'ARCHIVED';
 
 export interface Application {
@@ -185,20 +181,28 @@ export interface Application {
   name: string;
   description?: string;
   logoUrl?: string;
-  clientId: string;
+  type: ApplicationProtocol;
+  clientId?: string;
   redirectUris: string[];
-  allowedOrigins: string[];
-  type: AppType;
-  status: AppStatus;
-  // SAML IdP
-  samlIdpEnabled: boolean;
+  grantTypes: string[];
+  responseTypes: string[];
+  scopes: string[];
+  tokenEndpointAuthMethod: string;
+  isPublicClient: boolean;
+  requireDpop: boolean;
+  jwks?: any;
+  dpopNonceEnabled: boolean;
+  isAiAgent: boolean;
+  // SAML
+  samlEntityId?: string;
+  samlCertificate?: string;
   samlSpEntityId?: string;
   samlSpAcsUrl?: string;
   samlNameIdFormat?: string;
-  samlAttributeMapping?: Record<string, string>;
-  // OIDC IdP
-  oidcIdpEnabled: boolean;
-  oidcScopes: string[];
+  samlAttributeMapping?: Record<string, any>;
+  // Metadata
+  status: AppStatus;
+  createdBy?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -207,18 +211,23 @@ export interface CreateApplicationDto {
   name: string;
   description?: string;
   logoUrl?: string;
-  redirectUris: string[];
-  allowedOrigins?: string[];
-  type: AppType;
-  // SAML IdP
-  samlIdpEnabled?: boolean;
+  type: ApplicationProtocol;
+  redirectUris?: string[];
+  grantTypes?: string[];
+  responseTypes?: string[];
+  scopes?: string[];
+  tokenEndpointAuthMethod?: string;
+  isPublicClient?: boolean;
+  requireDpop?: boolean;
+  jwks?: any;
+  dpopNonceEnabled?: boolean;
+  isAiAgent?: boolean;
+  // SAML
+  samlEntityId?: string;
   samlSpEntityId?: string;
   samlSpAcsUrl?: string;
   samlNameIdFormat?: string;
-  samlAttributeMapping?: Record<string, string>;
-  // OIDC IdP
-  oidcIdpEnabled?: boolean;
-  oidcScopes?: string[];
+  samlAttributeMapping?: Record<string, any>;
 }
 
 export const applicationApi = {
@@ -238,7 +247,7 @@ export const applicationApi = {
     return response.json();
   },
 
-  async create(orgId: string, data: CreateApplicationDto): Promise<Application & { clientSecret: string }> {
+  async create(orgId: string, data: CreateApplicationDto): Promise<Application & { clientSecret?: string }> {
     const response = await fetch(`${API_URL}/organizations/${orgId}/applications`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -281,40 +290,39 @@ export const applicationApi = {
     if (!response.ok) throw new Error('Failed to delete application');
   },
 
-  async getIdpMetadata(orgId: string, appId: string): Promise<string> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/applications/${appId}/idp-metadata`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error('Failed to fetch IdP metadata');
-    return response.text();
+  // SAML endpoints
+  getSamlMetadataUrl(orgId: string, appId: string): string {
+    return `${API_URL.replace('/api/v1', '')}/saml/${orgId}/${appId}/metadata.xml`;
   },
 
-  getIdpMetadataUrl(orgId: string, appId: string): string {
-    return `${API_URL}/organizations/${orgId}/applications/${appId}/idp-metadata`;
+  getSamlSsoUrl(orgId: string, appId: string): string {
+    return `${API_URL.replace('/api/v1', '')}/saml/${orgId}/${appId}/sso`;
   },
 
-  getSamlIdpSsoUrl(orgId: string): string {
-    return `${API_URL}/sso/saml-idp/${orgId}/sso`;
+  // OIDC endpoints
+  getOidcDiscoveryUrl(orgId: string): string {
+    return `${API_URL.replace('/api/v1', '')}/.well-known/openid-configuration/${orgId}`;
   },
 
-  getSamlIdpMetadataUrl(orgId: string): string {
-    return `${API_URL}/sso/saml-idp/${orgId}/metadata`;
+  getTokenUrl(): string {
+    return `${API_URL.replace('/api/v1', '')}/oauth/token`;
   },
 
-  getOidcIdpDiscoveryUrl(orgId: string): string {
-    return `${API_URL}/sso/oidc-idp/${orgId}/.well-known/openid-configuration`;
+  getIntrospectUrl(): string {
+    return `${API_URL.replace('/api/v1', '')}/oauth/introspect`;
   },
 
-  getOidcIdpAuthorizeUrl(orgId: string): string {
-    return `${API_URL}/sso/oidc-idp/${orgId}/authorize`;
+  getRevokeUrl(): string {
+    return `${API_URL.replace('/api/v1', '')}/oauth/revoke`;
   },
 
-  getOidcIdpTokenUrl(orgId: string): string {
-    return `${API_URL}/sso/oidc-idp/${orgId}/token`;
+  getDcrUrl(): string {
+    return `${API_URL.replace('/api/v1', '')}/oauth/register`;
   },
 
-  getOidcIdpJwksUrl(orgId: string): string {
-    return `${API_URL}/sso/oidc-idp/${orgId}/jwks`;
+  // Guide
+  getGuideUrl(orgSlug: string, appId: string): string {
+    return `${API_URL.replace('/api/v1', '')}/guide/${orgSlug}/${appId}`;
   },
 };
 

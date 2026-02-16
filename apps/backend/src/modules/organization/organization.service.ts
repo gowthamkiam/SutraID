@@ -19,7 +19,7 @@ export class OrganizationService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Create a new organization with the creator as OWNER
+   * Create a new organization with the creator as SUPER_ADMIN
    */
   async create(userId: string, dto: CreateOrganizationDto) {
     // Check if slug is already taken
@@ -42,14 +42,14 @@ export class OrganizationService {
       }
     }
 
-    // Create organization with creator as OWNER
+    // Create organization with creator as SUPER_ADMIN
     const organization = await this.prisma.organization.create({
       data: {
         ...dto,
         members: {
           create: {
             userId,
-            role: OrgRole.OWNER,
+            role: OrgRole.SUPER_ADMIN,
             status: MemberStatus.ACTIVE,
             joinedAt: new Date(),
           },
@@ -152,11 +152,11 @@ export class OrganizationService {
   }
 
   /**
-   * Update organization settings (requires OWNER or ADMIN role)
+   * Update organization settings (requires SUPER_ADMIN or ADMIN role)
    */
   async update(orgId: string, userId: string, dto: UpdateOrganizationDto) {
-    // Check if user has permission (OWNER or ADMIN)
-    await this.checkPermission(orgId, userId, [OrgRole.OWNER, OrgRole.ADMIN]);
+    // Check if user has permission (SUPER_ADMIN or ADMIN)
+    await this.checkPermission(orgId, userId, [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN]);
 
     // If changing slug, check availability
     if (dto.slug) {
@@ -193,11 +193,11 @@ export class OrganizationService {
   }
 
   /**
-   * Delete organization (requires OWNER role)
+   * Delete organization (requires SUPER_ADMIN role)
    */
   async remove(orgId: string, userId: string) {
-    // Only OWNER can delete
-    await this.checkPermission(orgId, userId, [OrgRole.OWNER]);
+    // Only SUPER_ADMIN can delete
+    await this.checkPermission(orgId, userId, [OrgRole.SUPER_ADMIN]);
 
     // Soft delete by setting status to DELETED
     return this.prisma.organization.update({
@@ -210,10 +210,10 @@ export class OrganizationService {
    * Invite a member to the organization
    */
   async inviteMember(orgId: string, inviterId: string, dto: InviteMemberDto) {
-    // Check if inviter has permission (OWNER or ADMIN)
+    // Check if inviter has permission (SUPER_ADMIN or ADMIN)
     await this.checkPermission(orgId, inviterId, [
-      OrgRole.OWNER,
-      OrgRole.ADMIN,
+      OrgRole.SUPER_ADMIN,
+      OrgRole.ORG_ADMIN,
     ]);
 
     // Get organization to check limits
@@ -237,9 +237,9 @@ export class OrganizationService {
       );
     }
 
-    // Only OWNER can invite another OWNER
-    if (dto.role === OrgRole.OWNER) {
-      await this.checkPermission(orgId, inviterId, [OrgRole.OWNER]);
+    // Only SUPER_ADMIN can invite another SUPER_ADMIN
+    if (dto.role === OrgRole.SUPER_ADMIN) {
+      await this.checkPermission(orgId, inviterId, [OrgRole.SUPER_ADMIN]);
     }
 
     // Find or create user by email
@@ -296,7 +296,7 @@ export class OrganizationService {
   }
 
   /**
-   * Update member role (requires OWNER or ADMIN)
+   * Update member role (requires SUPER_ADMIN or ADMIN)
    */
   async updateMemberRole(
     orgId: string,
@@ -318,15 +318,15 @@ export class OrganizationService {
       throw new ForbiddenException('Access denied');
     }
 
-    // Only OWNER and ADMIN can change roles
-    const allowedRoles: OrgRole[] = [OrgRole.OWNER, OrgRole.ADMIN];
+    // Only SUPER_ADMIN and ADMIN can change roles
+    const allowedRoles: OrgRole[] = [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN];
     if (!allowedRoles.includes(actorMembership.role)) {
       throw new ForbiddenException('Insufficient permissions');
     }
 
-    // Only OWNER can promote to OWNER
-    if (dto.role === OrgRole.OWNER && actorMembership.role !== OrgRole.OWNER) {
-      throw new ForbiddenException('Only OWNER can promote to OWNER role');
+    // Only SUPER_ADMIN can promote to SUPER_ADMIN
+    if (dto.role === OrgRole.SUPER_ADMIN && actorMembership.role !== OrgRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Only SUPER_ADMIN can promote to SUPER_ADMIN role');
     }
 
     // Cannot change your own role
@@ -351,7 +351,7 @@ export class OrganizationService {
   }
 
   /**
-   * Remove member from organization (requires OWNER or ADMIN)
+   * Remove member from organization (requires SUPER_ADMIN or ADMIN)
    */
   async removeMember(orgId: string, memberId: string, actorId: string) {
     // Check if actor has permission
@@ -368,7 +368,7 @@ export class OrganizationService {
       throw new ForbiddenException('Access denied');
     }
 
-    const allowedRoles: OrgRole[] = [OrgRole.OWNER, OrgRole.ADMIN];
+    const allowedRoles: OrgRole[] = [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN];
     if (!allowedRoles.includes(actorMembership.role)) {
       throw new ForbiddenException('Insufficient permissions');
     }
@@ -387,12 +387,12 @@ export class OrganizationService {
       throw new NotFoundException('Member not found');
     }
 
-    // Only OWNER can remove another OWNER
+    // Only SUPER_ADMIN can remove another SUPER_ADMIN
     if (
-      targetMember.role === OrgRole.OWNER &&
-      actorMembership.role !== OrgRole.OWNER
+      targetMember.role === OrgRole.SUPER_ADMIN &&
+      actorMembership.role !== OrgRole.SUPER_ADMIN
     ) {
-      throw new ForbiddenException('Only OWNER can remove another OWNER');
+      throw new ForbiddenException('Only SUPER_ADMIN can remove another SUPER_ADMIN');
     }
 
     // Delete membership

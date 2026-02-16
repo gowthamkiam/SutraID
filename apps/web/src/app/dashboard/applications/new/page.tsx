@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { applicationApi, AppType } from '@/lib/api';
+import { applicationApi, ApplicationProtocol } from '@/lib/api';
 
 export default function NewApplicationPage() {
   const router = useRouter();
@@ -11,11 +11,25 @@ export default function NewApplicationPage() {
   const [createdSecret, setCreatedSecret] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
 
+  // Step 1: Protocol
+  const [protocol, setProtocol] = useState<ApplicationProtocol>('OIDC');
+
+  // Step 2: Basic info
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState<AppType>('WEB');
   const [redirectUris, setRedirectUris] = useState('');
-  const [allowedOrigins, setAllowedOrigins] = useState('');
+
+  // OIDC-specific
+  const [isPublicClient, setIsPublicClient] = useState(false);
+  const [isAiAgent, setIsAiAgent] = useState(false);
+  const [requireDpop, setRequireDpop] = useState(false);
+  const [grantTypes, setGrantTypes] = useState('authorization_code,refresh_token');
+  const [scopes, setScopes] = useState('openid,profile,email');
+
+  // SAML-specific
+  const [samlSpEntityId, setSamlSpEntityId] = useState('');
+  const [samlSpAcsUrl, setSamlSpAcsUrl] = useState('');
+  const [samlNameIdFormat, setSamlNameIdFormat] = useState('urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress');
 
   useEffect(() => {
     const stored = localStorage.getItem('currentOrgId');
@@ -33,11 +47,22 @@ export default function NewApplicationPage() {
       const result = await applicationApi.create(orgId, {
         name: name.trim(),
         description: description.trim() || undefined,
-        type,
+        type: protocol,
         redirectUris: redirectUris.split('\n').map(s => s.trim()).filter(Boolean),
-        allowedOrigins: allowedOrigins.split('\n').map(s => s.trim()).filter(Boolean),
+        grantTypes: protocol === 'OIDC' ? grantTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+        scopes: protocol === 'OIDC' ? scopes.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+        isPublicClient: protocol === 'OIDC' ? isPublicClient : undefined,
+        isAiAgent: protocol === 'OIDC' ? isAiAgent : undefined,
+        requireDpop: protocol === 'OIDC' ? requireDpop : undefined,
+        samlSpEntityId: protocol === 'SAML' ? samlSpEntityId || undefined : undefined,
+        samlSpAcsUrl: protocol === 'SAML' ? samlSpAcsUrl || undefined : undefined,
+        samlNameIdFormat: protocol === 'SAML' ? samlNameIdFormat : undefined,
       });
-      setCreatedSecret(result.clientSecret);
+      if (result.clientSecret) {
+        setCreatedSecret(result.clientSecret);
+      } else {
+        router.push('/dashboard/applications');
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to create application');
       setSubmitting(false);
@@ -61,13 +86,14 @@ export default function NewApplicationPage() {
     marginBottom: '0.5rem', color: 'var(--text-primary, #e6edf3)',
   };
 
-  const appTypes: { value: AppType; label: string; icon: string; desc: string }[] = [
-    { value: 'WEB', label: 'Web Application', icon: '\uD83C\uDF10', desc: 'Traditional server-rendered web app' },
-    { value: 'SPA', label: 'Single Page App', icon: '\u26A1', desc: 'Client-side rendered application' },
-    { value: 'NATIVE_MOBILE', label: 'Mobile App', icon: '\uD83D\uDCF1', desc: 'iOS or Android native app' },
-    { value: 'NATIVE_DESKTOP', label: 'Desktop App', icon: '\uD83D\uDDA5\uFE0F', desc: 'Native desktop application' },
-    { value: 'M2M', label: 'Machine-to-Machine', icon: '\u2699\uFE0F', desc: 'Backend service or API' },
-  ];
+  const toggleStyle = (active: boolean): React.CSSProperties => ({
+    padding: '0.5rem 1rem',
+    background: active ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+    border: `1px solid ${active ? '#6366f1' : 'var(--border-color, #30363d)'}`,
+    borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600',
+    color: active ? '#a5b4fc' : 'var(--text-secondary, #7d8590)',
+    transition: 'all 0.2s',
+  });
 
   // Show secret after creation
   if (createdSecret) {
@@ -146,25 +172,28 @@ export default function NewApplicationPage() {
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* App Type Selection */}
+          {/* Protocol Selection */}
           <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem' }}>Application Type</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
-              {appTypes.map((at) => (
+            <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem' }}>Protocol</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              {([
+                { value: 'OIDC' as ApplicationProtocol, label: 'OAuth 2.1 / OIDC', icon: '\uD83D\uDD11', desc: 'OpenID Connect with OAuth 2.1 security' },
+                { value: 'SAML' as ApplicationProtocol, label: 'SAML 2.0', icon: '\uD83D\uDD10', desc: 'SAML 2.0 Identity Provider' },
+              ]).map((p) => (
                 <button
-                  key={at.value}
+                  key={p.value}
                   type="button"
-                  onClick={() => setType(at.value)}
+                  onClick={() => setProtocol(p.value)}
                   style={{
-                    background: type === at.value ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-primary, #0f1419)',
-                    border: `2px solid ${type === at.value ? '#6366f1' : 'var(--border-color, #30363d)'}`,
-                    borderRadius: '10px', padding: '1rem', cursor: 'pointer', textAlign: 'left',
+                    background: protocol === p.value ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-primary, #0f1419)',
+                    border: `2px solid ${protocol === p.value ? '#6366f1' : 'var(--border-color, #30363d)'}`,
+                    borderRadius: '10px', padding: '1.25rem', cursor: 'pointer', textAlign: 'left',
                     transition: 'all 0.2s', color: 'inherit'
                   }}
                 >
-                  <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{at.icon}</div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '0.25rem' }}>{at.label}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary, #7d8590)' }}>{at.desc}</div>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{p.icon}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '0.25rem' }}>{p.label}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary, #7d8590)' }}>{p.desc}</div>
                 </button>
               ))}
             </div>
@@ -185,20 +214,84 @@ export default function NewApplicationPage() {
                   placeholder="Brief description of your application" rows={2}
                   style={{ ...inputStyle, resize: 'vertical' }} />
               </div>
-              <div>
-                <label style={labelStyle}>Redirect URIs * (one per line)</label>
-                <textarea value={redirectUris} onChange={(e) => setRedirectUris(e.target.value)}
-                  placeholder="https://myapp.com/callback" rows={3}
-                  style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem' }} />
-              </div>
-              <div>
-                <label style={labelStyle}>Allowed Origins (one per line)</label>
-                <textarea value={allowedOrigins} onChange={(e) => setAllowedOrigins(e.target.value)}
-                  placeholder="https://myapp.com" rows={2}
-                  style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem' }} />
-              </div>
+              {protocol === 'OIDC' && (
+                <div>
+                  <label style={labelStyle}>Redirect URIs (one per line)</label>
+                  <textarea value={redirectUris} onChange={(e) => setRedirectUris(e.target.value)}
+                    placeholder="https://myapp.com/callback" rows={3}
+                    style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem' }} />
+                </div>
+              )}
             </div>
           </div>
+
+          {/* OIDC-specific */}
+          {protocol === 'OIDC' && (
+            <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem' }}>OAuth 2.1 Settings</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={labelStyle}>Grant Types (comma-separated)</label>
+                  <input type="text" value={grantTypes} onChange={(e) => setGrantTypes(e.target.value)}
+                    placeholder="authorization_code,refresh_token" style={inputStyle} />
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary, #6e7681)', marginTop: '0.25rem' }}>
+                    Common: authorization_code, client_credentials, refresh_token
+                  </p>
+                </div>
+                <div>
+                  <label style={labelStyle}>Scopes (comma-separated)</label>
+                  <input type="text" value={scopes} onChange={(e) => setScopes(e.target.value)}
+                    placeholder="openid,profile,email" style={inputStyle} />
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <button type="button" onClick={() => setIsPublicClient(!isPublicClient)} style={toggleStyle(isPublicClient)}>
+                    {isPublicClient ? '● ' : '○ '}Public Client (SPA/Mobile)
+                  </button>
+                  <button type="button" onClick={() => setIsAiAgent(!isAiAgent)} style={toggleStyle(isAiAgent)}>
+                    {isAiAgent ? '● ' : '○ '}AI Agent
+                  </button>
+                  <button type="button" onClick={() => setRequireDpop(!requireDpop)} style={toggleStyle(requireDpop)}>
+                    {requireDpop ? '● ' : '○ '}Require DPoP
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SAML-specific */}
+          {protocol === 'SAML' && (
+            <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem' }}>SAML 2.0 Settings</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={labelStyle}>SP Entity ID</label>
+                  <input type="text" value={samlSpEntityId} onChange={(e) => setSamlSpEntityId(e.target.value)}
+                    placeholder="https://app.example.com/saml/metadata" style={inputStyle} />
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary, #6e7681)', marginTop: '0.25rem' }}>
+                    The Entity ID of the Service Provider you are connecting to
+                  </p>
+                </div>
+                <div>
+                  <label style={labelStyle}>SP ACS URL</label>
+                  <input type="text" value={samlSpAcsUrl} onChange={(e) => setSamlSpAcsUrl(e.target.value)}
+                    placeholder="https://app.example.com/saml/acs" style={inputStyle} />
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary, #6e7681)', marginTop: '0.25rem' }}>
+                    Assertion Consumer Service URL where SAML responses are sent
+                  </p>
+                </div>
+                <div>
+                  <label style={labelStyle}>NameID Format</label>
+                  <select value={samlNameIdFormat} onChange={(e) => setSamlNameIdFormat(e.target.value)}
+                    style={{ ...inputStyle, appearance: 'auto' }}>
+                    <option value="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">Email Address</option>
+                    <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent">Persistent</option>
+                    <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">Transient</option>
+                    <option value="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified">Unspecified</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"

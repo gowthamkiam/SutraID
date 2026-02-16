@@ -6,8 +6,9 @@ import {
   IsBoolean,
   IsObject,
   MaxLength,
+  IsUrl,
 } from 'class-validator';
-import { AppType } from '@prisma/client';
+import { ApplicationProtocol } from '@prisma/client';
 
 export class CreateApplicationDto {
   @IsString()
@@ -23,22 +24,60 @@ export class CreateApplicationDto {
   @IsString()
   logoUrl?: string;
 
+  @IsEnum(ApplicationProtocol)
+  type: ApplicationProtocol;
+
+  // OAuth/OIDC settings
   @IsArray()
   @IsString({ each: true })
-  redirectUris: string[];
+  @IsOptional()
+  redirectUris?: string[];
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  allowedOrigins?: string[];
+  grantTypes?: string[];
 
-  @IsEnum(AppType)
-  type: AppType;
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  responseTypes?: string[];
 
-  // SAML Identity Provider Configuration (Phase 3)
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  scopes?: string[];
+
+  @IsOptional()
+  @IsString()
+  tokenEndpointAuthMethod?: string;
+
   @IsOptional()
   @IsBoolean()
-  samlIdpEnabled?: boolean;
+  isPublicClient?: boolean;
+
+  // Security Features
+  @IsOptional()
+  @IsBoolean()
+  requireDpop?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  jwks?: any;
+
+  @IsOptional()
+  @IsBoolean()
+  dpopNonceEnabled?: boolean;
+
+  // AI Agent specific
+  @IsOptional()
+  @IsBoolean()
+  isAiAgent?: boolean;
+
+  // SAML Identity Provider Configuration
+  @IsOptional()
+  @IsString()
+  samlEntityId?: string;
 
   @IsOptional()
   @IsString()
@@ -54,15 +93,5 @@ export class CreateApplicationDto {
 
   @IsOptional()
   @IsObject()
-  samlAttributeMapping?: Record<string, string>;
-
-  // OIDC Identity Provider Configuration (Phase 3)
-  @IsOptional()
-  @IsBoolean()
-  oidcIdpEnabled?: boolean;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  oidcScopes?: string[];
+  samlAttributeMapping?: Record<string, any>;
 }

@@ -4,15 +4,17 @@ import {
   Query,
   Param,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { AuditService } from './audit.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuditResult } from '@prisma/client';
+import { Request } from '@nestjs/common';
 
 @Controller('organizations/:orgId/audit')
 @UseGuards(JwtAuthGuard)
 export class AuditController {
-  constructor(private auditService: AuditService) {}
+  constructor(private auditService: AuditService) { }
 
   /**
    * GET /api/v1/organizations/:orgId/audit/logs
@@ -21,6 +23,7 @@ export class AuditController {
   @Get('logs')
   async getLogs(
     @Param('orgId') orgId: string,
+    @Req() req: any,
     @Query('userId') userId?: string,
     @Query('action') action?: string,
     @Query('result') result?: AuditResult,
@@ -29,8 +32,7 @@ export class AuditController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.auditService.query({
-      organizationId: orgId,
+    return this.auditService.query(orgId, req.user.id, {
       userId,
       action,
       result,
@@ -48,10 +50,12 @@ export class AuditController {
   @Get('stats')
   async getStats(
     @Param('orgId') orgId: string,
+    @Req() req: any,
     @Query('days') days?: string,
   ) {
     return this.auditService.getStats(
       orgId,
+      req.user.id,
       days ? parseInt(days, 10) : 30,
     );
   }

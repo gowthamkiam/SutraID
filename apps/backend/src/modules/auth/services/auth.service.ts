@@ -14,6 +14,8 @@ import { AuthResponseDto } from '../dto';
 import { AuditService } from '../../audit/audit.service';
 import { MfaService } from './mfa.service';
 import { Inject, forwardRef } from '@nestjs/common';
+import { OrgRole, MemberStatus } from '@prisma/client';
+import { generateRandomOrgSlug } from '../../organization/utils/slug-generator';
 
 @Injectable()
 export class AuthService {
@@ -209,6 +211,9 @@ export class AuthService {
       },
     });
 
+    // Ensure user belongs to an organization (auto-create if needed)
+    const orgInfo = await this.ensureOrganization(user.id);
+
     return {
       accessToken,
       refreshToken,
@@ -220,6 +225,74 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
       },
+      organization: orgInfo,
+    };
+  }
+
+  /**
+   * Ensure user has an organization. Auto-create one if they don't.
+   * First user of an auto-created org becomes SUPER_ADMIN.
+   */
+  private async ensureOrganization(userId: string): Promise<{
+    id: string;
+    name: string;
+    slug: string;
+    role: string;
+  }> {
+    // Check if user already has an active membership
+    const existing = await this.prisma.organizationMember.findFirst({
+      where: { userId, status: MemberStatus.ACTIVE },
+      include: { organization: true },
+    });
+
+    if (existing) {
+      return {
+        id: existing.organization.id,
+        name: existing.organization.name,
+        slug: existing.organization.slug,
+        role: existing.role,
+      };
+    }
+
+    // Auto-create organization with unique slug
+    let slug: string;
+    let attempts = 0;
+    do {
+      slug = generateRandomOrgSlug();
+      const exists = await this.prisma.organization.findUnique({
+        where: { slug },
+      });
+      if (!exists) break;
+      attempts++;
+    } while (attempts < 10);
+
+    const name = slug
+      .split('-')
+      .map((w) => w[0].toUpperCase() + w.slice(1))
+      .join(' ');
+
+    const org = await this.prisma.organization.create({
+      data: {
+        name,
+        slug,
+        plan: 'FREE',
+        status: 'ACTIVE',
+        members: {
+          create: {
+            userId,
+            role: OrgRole.SUPER_ADMIN,
+            status: MemberStatus.ACTIVE,
+            joinedAt: new Date(),
+          },
+        },
+      },
+    });
+
+    return {
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      role: OrgRole.SUPER_ADMIN,
     };
   }
 

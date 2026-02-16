@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   Query,
+  Request,
 } from '@nestjs/common';
 import { PolicyService } from './policy.service';
 import { CreatePolicyDto, UpdatePolicyDto, EvaluatePolicyDto } from './dto';
@@ -26,10 +27,11 @@ export class PolicyController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
+    @Request() req: any,
     @Param('orgId') orgId: string,
     @Body() dto: CreatePolicyDto,
   ) {
-    return this.policyService.create(orgId, {
+    return this.policyService.create(orgId, req.user.id, {
       name: dto.name,
       description: dto.description,
       effect: dto.effect as any,
@@ -47,16 +49,16 @@ export class PolicyController {
    * GET /api/v1/organizations/:orgId/policies
    */
   @Get()
-  async findAll(@Param('orgId') orgId: string, @Query('type') type?: string) {
-    return this.policyService.findAll(orgId, type);
+  async findAll(@Request() req: any, @Param('orgId') orgId: string, @Query('type') type?: string) {
+    return this.policyService.findAll(orgId, req.user.id, type);
   }
 
   /**
    * GET /api/v1/organizations/:orgId/policies/password
    */
   @Get('password')
-  async getPasswordPolicy(@Param('orgId') orgId: string) {
-    return this.policyService.getPasswordPolicy(orgId);
+  async getPasswordPolicy(@Request() req: any, @Param('orgId') orgId: string) {
+    return this.policyService.getPasswordPolicy(orgId, req.user.id);
   }
 
   /**
@@ -64,10 +66,11 @@ export class PolicyController {
    */
   @Put('password')
   async updatePasswordPolicy(
+    @Request() req: any,
     @Param('orgId') orgId: string,
     @Body() body: any,
   ) {
-    return this.policyService.updatePasswordPolicy(orgId, body);
+    return this.policyService.updatePasswordPolicy(orgId, req.user.id, body);
   }
 
   /**
@@ -75,10 +78,11 @@ export class PolicyController {
    */
   @Get(':policyId')
   async findOne(
+    @Request() req: any,
     @Param('orgId') orgId: string,
     @Param('policyId') policyId: string,
   ) {
-    return this.policyService.findOne(orgId, policyId);
+    return this.policyService.findOne(orgId, policyId, req.user.id);
   }
 
   /**
@@ -86,11 +90,12 @@ export class PolicyController {
    */
   @Put(':policyId')
   async update(
+    @Request() req: any,
     @Param('orgId') orgId: string,
     @Param('policyId') policyId: string,
     @Body() dto: UpdatePolicyDto,
   ) {
-    return this.policyService.update(orgId, policyId, dto as any);
+    return this.policyService.update(orgId, policyId, req.user.id, dto as any);
   }
 
   /**
@@ -99,10 +104,11 @@ export class PolicyController {
   @Delete(':policyId')
   @HttpCode(HttpStatus.OK)
   async delete(
+    @Request() req: any,
     @Param('orgId') orgId: string,
     @Param('policyId') policyId: string,
   ) {
-    return this.policyService.delete(orgId, policyId);
+    return this.policyService.delete(orgId, policyId, req.user.id);
   }
 
   /**
@@ -112,11 +118,12 @@ export class PolicyController {
   @Post('evaluate')
   @HttpCode(HttpStatus.OK)
   async evaluate(
+    @Request() req: any,
     @Param('orgId') orgId: string,
     @Body() dto: EvaluatePolicyDto,
   ) {
     return this.policyService.evaluate(orgId, {
-      userId: dto.userId,
+      userId: dto.userId || req.user.id,
       agentId: dto.agentId,
       resource: dto.resource,
       action: dto.action,
