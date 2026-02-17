@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SCIMController } from './controllers/scim.controller';
 import { LDAPController } from './controllers/ldap.controller';
+import { DirectoryScimController } from './controllers/directory-scim.controller';
 import { SCIMService } from './services/scim.service';
 import { LDAPService } from './services/ldap.service';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -9,7 +10,7 @@ import { AuthModule } from '../auth/auth.module';
 
 @Module({
     imports: [PrismaModule, OrganizationModule, AuthModule],
-    controllers: [SCIMController, LDAPController],
+    controllers: [SCIMController, LDAPController, DirectoryScimController],
     providers: [SCIMService, LDAPService],
     exports: [SCIMService, LDAPService],
 })

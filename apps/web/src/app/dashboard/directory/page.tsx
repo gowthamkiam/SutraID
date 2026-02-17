@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { directoryApi, organizationSettingsApi } from '@/lib/api';
 import {
     Layers,
     Shield,
@@ -23,6 +24,8 @@ export default function DirectoryPage() {
     const [message, setMessage] = useState('');
     const [scimToken, setScimToken] = useState('');
     const [copied, setCopied] = useState(false);
+    const [orgId, setOrgId] = useState('');
+    const [orgRef, setOrgRef] = useState('');
 
     // LDAP State
     const [ldapConfig, setLdapConfig] = useState({
@@ -34,23 +37,44 @@ export default function DirectoryPage() {
         groupFilter: '(objectClass=group)',
     });
 
-    // Mock org ID for demonstration
-    const orgId = "org_sutraid_enterprise_demo";
-    const tenantUrl = `https://api.sutraid.com/scim/v2/${orgId}`;
+    useEffect(() => {
+        const loadOrg = async () => {
+            try {
+                const org = await organizationSettingsApi.getOrg();
+                setOrgId(org.id);
+                setOrgRef(org.slug || org.id);
+            } catch {
+                const fallbackOrgId = localStorage.getItem('currentOrgId') || '';
+                setOrgId(fallbackOrgId);
+                setOrgRef(fallbackOrgId);
+            }
+        };
+
+        loadOrg();
+    }, []);
+
+    const getPublicApiBaseUrl = () => {
+        const configured = process.env.NEXT_PUBLIC_API_URL || 'https://api.sutraid.com/api/v1';
+        return configured.replace(/\/api\/v1\/?$/, '');
+    };
+
+    const tenantUrl = `${getPublicApiBaseUrl()}/scim/v2/${orgRef || orgId}`;
 
     const handleGenerateToken = async () => {
         setLoading(true);
+        setMessage('');
         try {
-            // In a real app: const response = await directoryApi.generateScimToken(orgId);
-            // setScimToken(response.token);
-            setTimeout(() => {
-                setScimToken('st_live_' + Math.random().toString(36).substring(7).repeat(4));
-                setLoading(false);
-                setMessage('New SCIM 2.0 token generated successfully.');
-            }, 1000);
+            if (!orgId) {
+                throw new Error('Organization is not available in session');
+            }
+
+            const response = await directoryApi.generateScimToken(orgId);
+            setScimToken(response.token);
+            setMessage('New SCIM 2.0 token generated successfully.');
         } catch (err: any) {
-            setLoading(false);
             setMessage('Error: ' + err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -58,14 +82,16 @@ export default function DirectoryPage() {
         setLoading(true);
         setMessage('');
         try {
-            // await directoryApi.updateConfig(orgId, ldapConfig);
-            setTimeout(() => {
-                setLoading(false);
-                setMessage('LDAP configuration saved and connection verified successfully.');
-            }, 1200);
+            if (!orgId) {
+                throw new Error('Organization is not available in session');
+            }
+
+            await directoryApi.updateConfig(orgId, ldapConfig);
+            setMessage('LDAP configuration saved and connection verified successfully.');
         } catch (err: any) {
-            setLoading(false);
             setMessage('Connection failed: ' + err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -73,14 +99,16 @@ export default function DirectoryPage() {
         setLoading(true);
         setMessage('');
         try {
-            // await directoryApi.sync(orgId);
-            setTimeout(() => {
-                setLoading(false);
-                setMessage('Manual synchronization initiated. This may take a few minutes.');
-            }, 800);
+            if (!orgId) {
+                throw new Error('Organization is not available in session');
+            }
+
+            await directoryApi.sync(orgId);
+            setMessage('Manual synchronization initiated. This may take a few minutes.');
         } catch (err: any) {
-            setLoading(false);
             setMessage('Sync failed: ' + err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
