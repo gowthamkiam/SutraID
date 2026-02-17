@@ -761,6 +761,7 @@ export default function LoginPage() {
         alignItems: 'flex-end',
         gap: '0.75rem',
         zIndex: 10,
+        pointerEvents: 'none',
       }}>
         <div style={{
           background: 'rgba(255, 255, 255, 0.95)',
