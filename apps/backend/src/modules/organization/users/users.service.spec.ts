@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OrganizationService } from '../organization.service';
+import { AuthService } from '../../auth/services/auth.service';
 import { OrgRole, MemberStatus } from '@prisma/client';
 import { ForbiddenException, NotFoundException, ConflictException } from '@nestjs/common';
 
@@ -9,6 +10,7 @@ describe('UsersService', () => {
     let service: UsersService;
     let prismaService: jest.Mocked<PrismaService>;
     let orgService: jest.Mocked<OrganizationService>;
+    let authService: jest.Mocked<AuthService>;
 
     const mockPrismaService = {
         user: {
@@ -26,16 +28,23 @@ describe('UsersService', () => {
         },
         group: {
             findFirst: jest.fn(),
+            findMany: jest.fn(),
         },
         groupMember: {
             findUnique: jest.fn(),
             create: jest.fn(),
             delete: jest.fn(),
+            deleteMany: jest.fn(),
+            createMany: jest.fn(),
         },
     };
 
     const mockOrgService = {
         checkPermission: jest.fn(),
+    };
+
+    const mockAuthService = {
+        requestMagicLink: jest.fn(),
     };
 
     beforeEach(async () => {
@@ -50,12 +59,18 @@ describe('UsersService', () => {
                     provide: OrganizationService,
                     useValue: mockOrgService,
                 },
+                {
+                    provide: AuthService,
+                    useValue: mockAuthService,
+                },
             ],
         }).compile();
 
         service = module.get<UsersService>(UsersService);
         prismaService = module.get(PrismaService);
         orgService = module.get(OrganizationService);
+        authService = module.get(AuthService);
+        mockAuthService.requestMagicLink.mockResolvedValue({ message: 'Magic link sent' });
     });
 
     afterEach(() => {
@@ -86,9 +101,11 @@ describe('UsersService', () => {
             mockOrgService.checkPermission.mockResolvedValue({} as any);
             mockPrismaService.user.findUnique.mockResolvedValue(null);
             mockPrismaService.user.create.mockResolvedValue({ id: 'user-1', ...dto } as any);
-            mockPrismaService.organizationMember.findUnique.mockResolvedValue({
+            mockPrismaService.organizationMember.findUnique
+            .mockResolvedValueOnce(null as any)
+            .mockResolvedValueOnce({
                 id: 'member-1',
-                user: { id: 'user-1', ...dto, groups: [] },
+                user: { id: 'user-1', ...dto, groups: [], applicationAssignments: [] },
                 role: OrgRole.READ_ONLY_ADMIN
             } as any);
 
@@ -107,7 +124,7 @@ describe('UsersService', () => {
                 id: 'member-1',
                 organizationId: 'org-1',
                 userId: 'user-1',
-                user: { id: 'user-1', firstName: 'Updated', groups: [] }
+                user: { id: 'user-1', firstName: 'Updated', groups: [], applicationAssignments: [] }
             } as any);
 
             await service.update('org-1', 'user-1', dto, 'actor-1');

@@ -13,6 +13,15 @@ describe('PolicyService', () => {
   let organizationService: jest.Mocked<OrganizationService>;
 
   const mockPrismaService = {
+    organization: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
+    passwordPolicy: {
+      upsert: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+      update: jest.fn(),
+    },
     policy: {
       create: jest.fn(),
       findMany: jest.fn(),
@@ -59,6 +68,8 @@ describe('PolicyService', () => {
     prismaService = module.get(PrismaService);
     auditService = module.get(AuditService);
     organizationService = module.get(OrganizationService);
+    mockPrismaService.organization.findUnique.mockResolvedValue({ id: 'org-1' } as any);
+    mockPrismaService.passwordPolicy.upsert.mockResolvedValue({} as any);
   });
 
   afterEach(() => {
@@ -88,9 +99,11 @@ describe('PolicyService', () => {
           name: data.name,
           description: undefined,
           effect: PolicyEffect.ALLOW,
+          type: 'ACCESS',
           resource: data.resource,
           actions: data.actions,
           conditions: {},
+          rules: [],
           priority: 0,
           enabled: true,
         },

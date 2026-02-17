@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ApplicationService } from './application.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationService } from '../organization/organization.service';
+import { ApplicationUtils } from './utils/application.utils';
 import {
   NotFoundException,
   BadRequestException,
@@ -13,6 +14,7 @@ describe('ApplicationService', () => {
   let service: ApplicationService;
   let prismaService: jest.Mocked<PrismaService>;
   let organizationService: jest.Mocked<OrganizationService>;
+  let applicationUtils: jest.Mocked<ApplicationUtils>;
 
   const mockPrismaService = {
     application: {
@@ -30,6 +32,16 @@ describe('ApplicationService', () => {
     checkPermission: jest.fn(),
   };
 
+  const mockApplicationUtils = {
+    generateClientId: jest.fn(() => 'app_generated_client'),
+    generateClientSecret: jest.fn(() => 'sk_generated_secret'),
+    hashSecret: jest.fn(() => 'hashed_secret'),
+    generateSamlCertificates: jest.fn(() => ({
+      privateKey: 'mock-private-key',
+      certificate: 'mock-certificate',
+    })),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -42,12 +54,17 @@ describe('ApplicationService', () => {
           provide: OrganizationService,
           useValue: mockOrganizationService,
         },
+        {
+          provide: ApplicationUtils,
+          useValue: mockApplicationUtils,
+        },
       ],
     }).compile();
 
     service = module.get<ApplicationService>(ApplicationService);
     prismaService = module.get(PrismaService);
     organizationService = module.get(OrganizationService);
+    applicationUtils = module.get(ApplicationUtils);
   });
 
   afterEach(() => {
@@ -59,7 +76,7 @@ describe('ApplicationService', () => {
       const dto = {
         name: 'Test App',
         description: 'Test description',
-        type: 'WEB' as any,
+        type: 'OIDC' as any,
         redirectUris: ['https://example.com/callback'],
         allowedOrigins: ['https://example.com'],
       };
@@ -74,15 +91,15 @@ describe('ApplicationService', () => {
       mockPrismaService.application.create.mockResolvedValue({
         id: 'app-1',
         ...dto,
-        clientId: 'app_test',
+        clientId: 'app_generated_client',
         clientSecret: 'hashed_secret',
       } as any);
 
       const result = await service.create('org-1', 'user-1', dto);
 
       expect(result.id).toBe('app-1');
-      expect(result.clientId).toMatch(/^app_/);
-      expect(result.clientSecret).toMatch(/^sk_/);
+      expect(result.clientId).toBe('app_generated_client');
+      expect(result.clientSecret).toBe('sk_generated_secret');
       expect(mockOrganizationService.checkPermission).toHaveBeenCalledWith(
         'org-1',
         'user-1',
@@ -93,7 +110,7 @@ describe('ApplicationService', () => {
     it('should throw BadRequestException if app limit reached', async () => {
       const dto = {
         name: 'Test App',
-        type: 'WEB' as any,
+        type: 'OIDC' as any,
         redirectUris: ['https://example.com/callback'],
       };
 
@@ -112,7 +129,7 @@ describe('ApplicationService', () => {
     it('should throw NotFoundException if organization not found', async () => {
       const dto = {
         name: 'Test App',
-        type: 'WEB' as any,
+        type: 'OIDC' as any,
         redirectUris: ['https://example.com/callback'],
       };
 
@@ -153,11 +170,14 @@ describe('ApplicationService', () => {
           organizationId: 'org-1',
           status: { not: 'ARCHIVED' },
         },
-        select: expect.objectContaining({
-          id: true,
-          name: true,
-          clientId: true,
-        }),
+        include: {
+          _count: {
+            select: {
+              userAssignments: true,
+              groupAssignments: true,
+            },
+          },
+        },
         orderBy: {
           createdAt: 'desc',
         },
@@ -237,6 +257,7 @@ describe('ApplicationService', () => {
         id: 'app-1',
         organizationId: 'org-1',
         clientId: 'client-1',
+        type: 'OIDC',
       } as any);
 
       mockOrganizationService.checkPermission.mockResolvedValue({} as any);

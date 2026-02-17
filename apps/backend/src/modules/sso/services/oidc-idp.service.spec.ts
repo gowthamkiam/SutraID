@@ -35,9 +35,8 @@ describe('OidcIdpService', () => {
     organizationId: 'org-1',
     name: 'Test App',
     clientId: 'client-123',
-    clientSecret: 'secret-456',
+    clientSecretHash: 'secret-456',
     redirectUris: ['https://example.com/callback'],
-    oidcIdpEnabled: true,
     status: 'ACTIVE',
   };
 
@@ -440,7 +439,7 @@ describe('OidcIdpService', () => {
       expect(mockPrismaService.application.findMany).toHaveBeenCalledWith({
         where: {
           organizationId: 'org-1',
-          oidcIdpEnabled: true,
+          type: 'OIDC',
           status: 'ACTIVE',
         },
       });
