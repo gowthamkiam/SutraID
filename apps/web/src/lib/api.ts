@@ -786,16 +786,16 @@ export interface OrgGroup {
 }
 
 export const roleVisibleTabs: Record<OrgRole, string[]> = {
-  SUPER_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'api-access', 'reports', 'settings'],
+  SUPER_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'api-access', 'reports', 'settings'],
   READ_ONLY_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'reports', 'settings'],
-  ORG_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'api-access', 'reports', 'settings'],
+  ORG_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'api-access', 'reports', 'settings'],
   APP_ADMIN: ['dashboard', 'applications', 'api-access', 'settings'],
   USER_ADMIN: ['dashboard', 'users', 'groups', 'settings'],
-  GROUP_MEMBERSHIP_ADMIN: ['dashboard', 'users', 'groups', 'settings'],
+  GROUP_MEMBERSHIP_ADMIN: ['dashboard', 'users', 'groups', 'directory', 'settings'],
   HELP_DESK_ADMIN: ['dashboard', 'users', 'settings'],
   MOBILE_ADMIN: ['dashboard', 'applications', 'settings'],
   REPORT_ADMIN: ['dashboard', 'reports', 'settings'],
-  API_ACCESS_MANAGEMENT_ADMIN: ['dashboard', 'applications', 'api-access', 'settings'],
+  API_ACCESS_MANAGEMENT_ADMIN: ['dashboard', 'applications', 'directory', 'api-access', 'settings'],
 };
 
 export const organizationSettingsApi = {
