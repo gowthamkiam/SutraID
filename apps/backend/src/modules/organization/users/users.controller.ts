@@ -19,6 +19,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { AssignGroupsDto } from './dto/assign-groups.dto';
+import { AssignApplicationsDto } from './dto/assign-applications.dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, OrgContextGuard, RbacGuard)
@@ -70,5 +71,15 @@ export class UsersController {
     @Body() dto: AssignGroupsDto,
   ) {
     return this.usersService.assignGroups(req.orgId, userId, dto.groupIds || []);
+  }
+
+  @Put(':id/applications')
+  @RequirePermission('apps:update')
+  async assignApplications(
+    @Request() req: any,
+    @Param('id', new ParseUUIDPipe()) userId: string,
+    @Body() dto: AssignApplicationsDto,
+  ) {
+    return this.usersService.assignApplications(req.orgId, userId, dto.applicationIds || []);
   }
 }

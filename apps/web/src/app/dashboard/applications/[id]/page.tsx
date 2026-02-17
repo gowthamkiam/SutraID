@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { applicationApi, Application, ApplicationProtocol } from '@/lib/api';
+import { applicationApi, Application, groupsApi, usersApi } from '@/lib/api';
 
-type Tab = 'general' | 'security' | 'endpoints' | 'guide';
+type Tab = 'general' | 'security' | 'endpoints' | 'guide' | 'assignments';
 
 export default function ApplicationDetailPage() {
   const router = useRouter();
@@ -28,6 +28,11 @@ export default function ApplicationDetailPage() {
   const [isPublicClient, setIsPublicClient] = useState(false);
   const [requireDpop, setRequireDpop] = useState(false);
   const [isAiAgent, setIsAiAgent] = useState(false);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [allGroups, setAllGroups] = useState<any[]>([]);
+  const [assignedUserIds, setAssignedUserIds] = useState<string[]>([]);
+  const [assignedGroupIds, setAssignedGroupIds] = useState<string[]>([]);
+  const [savingAssignments, setSavingAssignments] = useState(false);
 
   // SAML
   const [samlSpEntityId, setSamlSpEntityId] = useState('');
@@ -41,6 +46,10 @@ export default function ApplicationDetailPage() {
 
   useEffect(() => {
     if (orgId && appId) loadApp();
+  }, [orgId, appId]);
+
+  useEffect(() => {
+    if (orgId && appId) loadAssignments();
   }, [orgId, appId]);
 
   const loadApp = async () => {
@@ -64,6 +73,30 @@ export default function ApplicationDetailPage() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAssignments = async () => {
+    if (!orgId) return;
+    try {
+      const [usersResult, groupsResult] = await Promise.all([
+        usersApi.list({ page: 1, limit: 500 }),
+        groupsApi.list({ page: 1, limit: 500 }),
+      ]);
+      setAllUsers(usersResult.users || []);
+      setAllGroups(groupsResult.groups || []);
+      setAssignedUserIds(
+        (usersResult.users || [])
+          .filter((u: any) => (u.applications || []).some((a: any) => a.id === appId))
+          .map((u: any) => u.id),
+      );
+      setAssignedGroupIds(
+        (groupsResult.groups || [])
+          .filter((g: any) => (g.applications || []).some((a: any) => a.id === appId))
+          .map((g: any) => g.id),
+      );
+    } catch (err: any) {
+      setError(err.message || 'Failed to load assignments');
     }
   };
 
@@ -110,6 +143,25 @@ export default function ApplicationDetailPage() {
     navigator.clipboard.writeText(text);
     setSuccess('Copied to clipboard');
     setTimeout(() => setSuccess(null), 2000);
+  };
+
+  const saveAssignments = async () => {
+    if (!orgId) return;
+    setSavingAssignments(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await Promise.all([
+        applicationApi.setUsers(orgId, appId, assignedUserIds),
+        applicationApi.setGroups(orgId, appId, assignedGroupIds),
+      ]);
+      setSuccess('Application assignments updated successfully');
+      await loadAssignments();
+    } catch (err: any) {
+      setError(err.message || 'Failed to update assignments');
+    } finally {
+      setSavingAssignments(false);
+    }
   };
 
   const inputStyle: React.CSSProperties = {
@@ -163,6 +215,7 @@ export default function ApplicationDetailPage() {
     { key: 'general', label: 'General', icon: '\u2699\uFE0F' },
     { key: 'security', label: 'Security', icon: '\uD83D\uDD12' },
     { key: 'endpoints', label: 'Endpoints', icon: '\uD83C\uDF10' },
+    { key: 'assignments', label: 'Assignments', icon: '\uD83D\uDD17' },
     { key: 'guide', label: 'Integration Guide', icon: '\uD83D\uDCD6' },
   ];
 
@@ -482,6 +535,70 @@ export default function ApplicationDetailPage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Integration Guide Tab */}
+        {activeTab === 'assignments' && orgId && (
+          <div style={{ display: 'grid', gap: '1.5rem' }}>
+            <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem' }}>Assign Users</h2>
+              <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--border-color, #30363d)', borderRadius: 8, padding: '0.75rem' }}>
+                {allUsers.map((user) => (
+                  <label key={user.id} style={{ display: 'block', marginBottom: 6, color: 'var(--text-primary, #e6edf3)' }}>
+                    <input
+                      type="checkbox"
+                      checked={assignedUserIds.includes(user.id)}
+                      onChange={() =>
+                        setAssignedUserIds((prev) =>
+                          prev.includes(user.id) ? prev.filter((id) => id !== user.id) : [...prev, user.id],
+                        )
+                      }
+                    />
+                    <span style={{ marginLeft: 8 }}>{user.email}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem' }}>Assign Groups</h2>
+              <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--border-color, #30363d)', borderRadius: 8, padding: '0.75rem' }}>
+                {allGroups.map((group) => (
+                  <label key={group.id} style={{ display: 'block', marginBottom: 6, color: 'var(--text-primary, #e6edf3)' }}>
+                    <input
+                      type="checkbox"
+                      checked={assignedGroupIds.includes(group.id)}
+                      onChange={() =>
+                        setAssignedGroupIds((prev) =>
+                          prev.includes(group.id) ? prev.filter((id) => id !== group.id) : [...prev, group.id],
+                        )
+                      }
+                    />
+                    <span style={{ marginLeft: 8 }}>{group.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <button
+                onClick={saveAssignments}
+                disabled={savingAssignments}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  background: savingAssignments ? '#4b5563' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: savingAssignments ? 'not-allowed' : 'pointer',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                }}
+              >
+                {savingAssignments ? 'Saving...' : 'Save Assignments'}
+              </button>
+            </div>
           </div>
         )}
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { OrgRole, groupsApi, usersApi } from '@/lib/api';
+import { applicationApi, Application, OrgRole, groupsApi, usersApi } from '@/lib/api';
 
 const roles: OrgRole[] = [
   'SUPER_ADMIN',
@@ -16,9 +16,13 @@ const roles: OrgRole[] = [
   'READ_ONLY_ADMIN',
 ];
 
+type OnboardingMethod = 'MAGIC_LINK' | 'TEMP_PASSWORD';
+
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [page, setPage] = useState(1);
@@ -34,26 +38,36 @@ export default function UsersPage() {
     lastName: '',
     role: 'READ_ONLY_ADMIN' as OrgRole,
     groupIds: [] as string[],
+    applicationIds: [] as string[],
+    onboardingMethod: 'MAGIC_LINK' as OnboardingMethod,
+    temporaryPassword: '',
   });
 
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '1rem',
-  };
+  const applicationOptions = useMemo(
+    () => applications.filter((app) => app.status !== 'ARCHIVED').map((app) => ({ value: app.id, label: app.name })),
+    [applications],
+  );
+
+  const groupOptions = useMemo(() => groups.map((g) => ({ value: g.id, label: g.name })), [groups]);
+
+  useEffect(() => {
+    setOrgId(localStorage.getItem('currentOrgId'));
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
     setError('');
     try {
-      const [usersResult, groupsResult] = await Promise.all([
+      const [usersResult, groupsResult, appResult] = await Promise.all([
         usersApi.list({ search, role: (roleFilter || undefined) as OrgRole | undefined, page, limit: 10 }),
         groupsApi.list({ page: 1, limit: 200 }),
+        orgId ? applicationApi.list(orgId) : Promise.resolve([] as Application[]),
       ]);
+
       setUsers(usersResult.users);
       setTotalPages(usersResult.totalPages || 1);
       setGroups(groupsResult.groups);
+      setApplications(appResult);
     } catch (err: any) {
       setError(err.message || 'Failed to load users');
     } finally {
@@ -62,18 +76,35 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
+    if (!orgId) return;
     loadData();
-  }, [page]);
-
-  const groupOptions = useMemo(() => groups.map((g) => ({ value: g.id, label: g.name })), [groups]);
+  }, [page, orgId]);
 
   const resetForm = () => {
-    setForm({ email: '', firstName: '', lastName: '', role: 'READ_ONLY_ADMIN', groupIds: [] });
+    setForm({
+      email: '',
+      firstName: '',
+      lastName: '',
+      role: 'READ_ONLY_ADMIN',
+      groupIds: [],
+      applicationIds: [],
+      onboardingMethod: 'MAGIC_LINK',
+      temporaryPassword: '',
+    });
     setEditingUser(null);
   };
 
   const onCreate = async () => {
-    await usersApi.create(form);
+    await usersApi.create({
+      email: form.email,
+      firstName: form.firstName || undefined,
+      lastName: form.lastName || undefined,
+      role: form.role,
+      groupIds: form.groupIds,
+      applicationIds: form.applicationIds,
+      onboardingMethod: form.onboardingMethod,
+      temporaryPassword: form.onboardingMethod === 'TEMP_PASSWORD' ? form.temporaryPassword : undefined,
+    });
     setOpenCreate(false);
     resetForm();
     loadData();
@@ -82,10 +113,11 @@ export default function UsersPage() {
   const onUpdate = async () => {
     if (!editingUser) return;
     await usersApi.update(editingUser.id, {
-      firstName: form.firstName,
-      lastName: form.lastName,
+      firstName: form.firstName || undefined,
+      lastName: form.lastName || undefined,
       role: form.role,
       groupIds: form.groupIds,
+      applicationIds: form.applicationIds,
     });
     setEditingUser(null);
     resetForm();
@@ -100,12 +132,24 @@ export default function UsersPage() {
 
   const openEdit = (user: any) => {
     setEditingUser(user);
+    setOpenCreate(false);
     setForm({
       email: user.email,
       firstName: user.firstName || '',
       lastName: user.lastName || '',
       role: user.role,
       groupIds: user.groups?.map((g: any) => g.id) || [],
+      applicationIds: user.applications?.map((app: any) => app.id) || [],
+      onboardingMethod: 'MAGIC_LINK',
+      temporaryPassword: '',
+    });
+  };
+
+  const toggleInList = (key: 'groupIds' | 'applicationIds', value: string) => {
+    const exists = form[key].includes(value);
+    setForm({
+      ...form,
+      [key]: exists ? form[key].filter((id) => id !== value) : [...form[key], value],
     });
   };
 
@@ -114,9 +158,9 @@ export default function UsersPage() {
       <div style={headerStyle}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.75rem' }}>Users</h1>
-          <p style={{ margin: '0.25rem 0 0', color: '#64748b' }}>Organization-scoped user administration</p>
+          <p style={{ margin: '0.25rem 0 0', color: 'var(--text-secondary)' }}>Organization-scoped user administration</p>
         </div>
-        <button onClick={() => setOpenCreate(true)} style={btnPrimary}>Create User</button>
+        <button onClick={() => { resetForm(); setOpenCreate(true); }} style={btnPrimary}>Create User</button>
       </div>
 
       <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -143,22 +187,27 @@ export default function UsersPage() {
               <th style={thStyle}>Name</th>
               <th style={thStyle}>Role</th>
               <th style={thStyle}>Groups</th>
+              <th style={thStyle}>Applications</th>
               <th style={thStyle}>Status</th>
               <th style={thStyle}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td style={tdStyle} colSpan={6}>Loading...</td></tr>
+              <tr><td style={tdStyle} colSpan={7}>Loading...</td></tr>
             ) : users.length === 0 ? (
-              <tr><td style={tdStyle} colSpan={6}>No users found</td></tr>
+              <tr><td style={tdStyle} colSpan={7}>No users found</td></tr>
             ) : users.map((user) => (
               <tr key={user.id}>
                 <td style={tdStyle}>{user.email}</td>
                 <td style={tdStyle}>{[user.firstName, user.lastName].filter(Boolean).join(' ') || '-'}</td>
                 <td style={tdStyle}><span style={badge}>{user.role}</span></td>
                 <td style={tdStyle}>{user.groups?.map((g: any) => g.name).join(', ') || '-'}</td>
-                <td style={tdStyle}>{user.status}</td>
+                <td style={tdStyle}>{user.applications?.map((a: any) => a.name).join(', ') || '-'}</td>
+                <td style={tdStyle}>
+                  {user.status}
+                  {user.mustChangePassword ? <span style={mustChangeBadge}>PW Reset Required</span> : null}
+                </td>
                 <td style={tdStyle}>
                   <button onClick={() => openEdit(user)} style={linkBtn}>Edit</button>
                   <button onClick={() => onDelete(user.id)} style={dangerBtn}>Delete</button>
@@ -178,40 +227,81 @@ export default function UsersPage() {
       {(openCreate || editingUser) ? (
         <div style={modalOverlay}>
           <div style={modalCard}>
-            <h2>{editingUser ? 'Edit User' : 'Create User'}</h2>
+            <h2 style={{ margin: 0 }}>{editingUser ? 'Edit User' : 'Create User'}</h2>
+
             {!editingUser ? (
-              <input placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} style={inputStyle} />
+              <>
+                <input placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} style={inputStyle} />
+                <div style={sectionCard}>
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>First-time Password Setup</div>
+                  <label style={inlineLabel}>
+                    <input
+                      type="radio"
+                      checked={form.onboardingMethod === 'MAGIC_LINK'}
+                      onChange={() => setForm({ ...form, onboardingMethod: 'MAGIC_LINK', temporaryPassword: '' })}
+                    />
+                    <span style={{ marginLeft: 8 }}>Set by user (magic link)</span>
+                  </label>
+                  <label style={inlineLabel}>
+                    <input
+                      type="radio"
+                      checked={form.onboardingMethod === 'TEMP_PASSWORD'}
+                      onChange={() => setForm({ ...form, onboardingMethod: 'TEMP_PASSWORD' })}
+                    />
+                    <span style={{ marginLeft: 8 }}>Admin sets temporary password</span>
+                  </label>
+                  {form.onboardingMethod === 'TEMP_PASSWORD' ? (
+                    <input
+                      placeholder="Temporary password (min 8 characters)"
+                      value={form.temporaryPassword}
+                      onChange={(e) => setForm({ ...form, temporaryPassword: e.target.value })}
+                      style={{ ...inputStyle, marginTop: 8 }}
+                      type="password"
+                    />
+                  ) : null}
+                </div>
+              </>
             ) : null}
+
             <input placeholder="First name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} style={inputStyle} />
             <input placeholder="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} style={inputStyle} />
             <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as OrgRole })} style={inputStyle}>
               {roles.map((role) => <option key={role} value={role}>{role}</option>)}
             </select>
 
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.75rem', maxHeight: 160, overflowY: 'auto' }}>
-              {groupOptions.map((group) => {
-                const checked = form.groupIds.includes(group.value);
-                return (
-                  <label key={group.value} style={{ display: 'block', marginBottom: 6 }}>
+            <div style={sectionCard}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Groups</div>
+              <div style={checkListStyle}>
+                {groupOptions.map((group) => (
+                  <label key={group.value} style={checkItemStyle}>
                     <input
                       type="checkbox"
-                      checked={checked}
-                      onChange={() => {
-                        setForm({
-                          ...form,
-                          groupIds: checked
-                            ? form.groupIds.filter((id) => id !== group.value)
-                            : [...form.groupIds, group.value],
-                        });
-                      }}
+                      checked={form.groupIds.includes(group.value)}
+                      onChange={() => toggleInList('groupIds', group.value)}
                     />
                     <span style={{ marginLeft: 8 }}>{group.label}</span>
                   </label>
-                );
-              })}
+                ))}
+              </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: '1rem' }}>
+            <div style={sectionCard}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Direct Application Assignment</div>
+              <div style={checkListStyle}>
+                {applicationOptions.map((app) => (
+                  <label key={app.value} style={checkItemStyle}>
+                    <input
+                      type="checkbox"
+                      checked={form.applicationIds.includes(app.value)}
+                      onChange={() => toggleInList('applicationIds', app.value)}
+                    />
+                    <span style={{ marginLeft: 8 }}>{app.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: '0.5rem' }}>
               <button onClick={() => { setOpenCreate(false); resetForm(); }} style={btnSecondary}>Cancel</button>
               <button onClick={editingUser ? onUpdate : onCreate} style={btnPrimary}>{editingUser ? 'Save' : 'Create'}</button>
             </div>
@@ -222,9 +312,16 @@ export default function UsersPage() {
   );
 }
 
+const headerStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: '1rem',
+};
+
 const btnPrimary: React.CSSProperties = {
-  background: '#1d4ed8',
-  color: '#fff',
+  background: 'var(--btn-primary-bg, #4f46e5)',
+  color: 'var(--btn-primary-text, #fff)',
   border: 'none',
   borderRadius: 8,
   padding: '0.6rem 1rem',
@@ -232,8 +329,9 @@ const btnPrimary: React.CSSProperties = {
 };
 
 const btnSecondary: React.CSSProperties = {
-  background: '#fff',
-  border: '1px solid #cbd5e1',
+  background: 'var(--btn-secondary-bg, #fff)',
+  color: 'var(--btn-secondary-text, #374151)',
+  border: '1px solid var(--btn-secondary-border, #cbd5e1)',
   borderRadius: 8,
   padding: '0.55rem 0.9rem',
   cursor: 'pointer',
@@ -242,7 +340,7 @@ const btnSecondary: React.CSSProperties = {
 const dangerBtn: React.CSSProperties = {
   background: 'transparent',
   border: 'none',
-  color: '#dc2626',
+  color: '#ef4444',
   cursor: 'pointer',
   marginLeft: 10,
 };
@@ -250,22 +348,24 @@ const dangerBtn: React.CSSProperties = {
 const linkBtn: React.CSSProperties = {
   background: 'transparent',
   border: 'none',
-  color: '#1d4ed8',
+  color: 'var(--accent-primary, #6366f1)',
   cursor: 'pointer',
 };
 
 const inputStyle: React.CSSProperties = {
   padding: '0.55rem 0.7rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-input, #cbd5e1)',
   borderRadius: 8,
   width: '100%',
+  background: 'var(--bg-input, #fff)',
+  color: 'var(--text-primary)',
 };
 
 const tableWrap: React.CSSProperties = {
-  border: '1px solid #e2e8f0',
+  border: '1px solid var(--border-color, #274267)',
   borderRadius: 12,
   overflow: 'hidden',
-  background: '#fff',
+  background: 'var(--bg-card, #0f1d33)',
 };
 
 const tableStyle: React.CSSProperties = {
@@ -276,48 +376,89 @@ const tableStyle: React.CSSProperties = {
 const thStyle: React.CSSProperties = {
   textAlign: 'left',
   padding: '0.8rem',
-  borderBottom: '1px solid #e2e8f0',
-  background: '#f8fafc',
+  borderBottom: '1px solid var(--border-color, #274267)',
+  background: 'color-mix(in srgb, var(--bg-card, #0f1d33) 78%, #1b3f73 22%)',
   fontSize: '0.84rem',
+  color: 'var(--text-secondary)',
 };
 
 const tdStyle: React.CSSProperties = {
   padding: '0.8rem',
-  borderBottom: '1px solid #f1f5f9',
+  borderBottom: '1px solid var(--border-color, #274267)',
   fontSize: '0.9rem',
 };
 
 const badge: React.CSSProperties = {
   borderRadius: 999,
   padding: '0.2rem 0.6rem',
-  background: '#dbeafe',
-  color: '#1e40af',
+  background: 'rgba(59,130,246,0.2)',
+  color: '#bfdbfe',
   fontSize: '0.72rem',
+  fontWeight: 700,
+};
+
+const mustChangeBadge: React.CSSProperties = {
+  marginLeft: 8,
+  borderRadius: 999,
+  padding: '0.15rem 0.5rem',
+  fontSize: '0.68rem',
+  background: 'rgba(245,158,11,0.22)',
+  color: '#fbbf24',
   fontWeight: 700,
 };
 
 const modalOverlay: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
-  background: 'rgba(15,23,42,0.45)',
+  background: 'rgba(8, 17, 32, 0.65)',
   display: 'grid',
   placeItems: 'center',
   zIndex: 200,
 };
 
 const modalCard: React.CSSProperties = {
-  width: 'min(560px, 92vw)',
-  background: '#fff',
+  width: 'min(720px, 94vw)',
+  maxHeight: '90vh',
+  overflowY: 'auto',
+  background: 'color-mix(in srgb, var(--bg-card, #0f1d33) 86%, #1a3760 14%)',
+  border: '1px solid var(--border-color, #274267)',
   borderRadius: 12,
   padding: '1rem',
   display: 'grid',
   gap: '0.7rem',
 };
 
+const sectionCard: React.CSSProperties = {
+  border: '1px solid var(--border-color, #274267)',
+  background: 'color-mix(in srgb, var(--bg-card, #0f1d33) 82%, #1d3d69 18%)',
+  borderRadius: 8,
+  padding: '0.75rem',
+};
+
+const checkListStyle: React.CSSProperties = {
+  maxHeight: 160,
+  overflowY: 'auto',
+  display: 'grid',
+  gap: 4,
+};
+
+const checkItemStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '0.92rem',
+  color: 'var(--text-primary)',
+};
+
+const inlineLabel: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  marginBottom: 6,
+  fontSize: '0.92rem',
+};
+
 const errorStyle: React.CSSProperties = {
-  background: '#fee2e2',
-  border: '1px solid #fecaca',
-  color: '#991b1b',
+  background: 'var(--error-bg, #fee2e2)',
+  border: '1px solid var(--error-border, #fecaca)',
+  color: 'var(--error-text, #991b1b)',
   padding: '0.6rem 0.8rem',
   borderRadius: 8,
   marginBottom: '0.8rem',

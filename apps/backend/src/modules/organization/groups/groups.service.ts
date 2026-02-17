@@ -38,8 +38,10 @@ export class GroupsService {
       ];
     }
 
+    const prismaAny = this.prisma as any;
+
     const [groups, total] = await Promise.all([
-      this.prisma.group.findMany({
+      prismaAny.group.findMany({
         where,
         skip,
         take: limit,
@@ -58,19 +60,35 @@ export class GroupsService {
               },
             },
           },
+          applicationAssignments: {
+            where: {
+              application: { organizationId: orgId, status: { not: 'ARCHIVED' } },
+            },
+            include: {
+              application: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                  status: true,
+                },
+              },
+            },
+          },
         },
       }),
-      this.prisma.group.count({ where }),
+      prismaAny.group.count({ where }),
     ]);
 
     return {
-      groups: groups.map((group) => ({
+      groups: groups.map((group: any) => ({
         id: group.id,
         name: group.name,
         description: group.description,
         createdAt: group.createdAt,
         memberCount: group._count.members,
-        members: group.members.map((entry) => ({ ...entry.user, role: 'READ_ONLY_ADMIN' })),
+        members: group.members.map((entry: any) => ({ ...entry.user, role: 'READ_ONLY_ADMIN' })),
+        applications: group.applicationAssignments.map((entry: any) => entry.application),
       })),
       total,
       page,
@@ -195,6 +213,41 @@ export class GroupsService {
     }
 
     return { success: true, userIds: validUserIds };
+  }
+
+  async setApplications(orgId: string, groupId: string, applicationIds: string[]) {
+    const prismaAny = this.prisma as any;
+    const group = await this.prisma.group.findFirst({ where: { id: groupId, organizationId: orgId } });
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    const uniqueApplicationIds = Array.from(new Set(applicationIds));
+    const validApps = await this.prisma.application.findMany({
+      where: {
+        id: { in: uniqueApplicationIds },
+        organizationId: orgId,
+        status: { not: 'ARCHIVED' },
+      },
+      select: { id: true },
+    });
+    const validAppIds = validApps.map((app) => app.id);
+
+    await prismaAny.groupApplicationAssignment.deleteMany({
+      where: {
+        groupId,
+        application: { organizationId: orgId },
+      },
+    });
+
+    if (validAppIds.length > 0) {
+      await prismaAny.groupApplicationAssignment.createMany({
+        data: validAppIds.map((applicationId) => ({ groupId, applicationId })),
+        skipDuplicates: true,
+      });
+    }
+
+    return { success: true, applicationIds: validAppIds };
   }
 
   async addMembers(orgId: string, groupId: string, userIds: string[], actorId: string) {

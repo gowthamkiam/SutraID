@@ -113,10 +113,18 @@ export class ApplicationService {
       OrgRole.READ_ONLY_ADMIN,
     ]);
 
-    return this.prisma.application.findMany({
+    return (this.prisma as any).application.findMany({
       where: {
         organizationId,
         status: { not: 'ARCHIVED' },
+      },
+      include: {
+        _count: {
+          select: {
+            userAssignments: true,
+            groupAssignments: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -241,5 +249,98 @@ export class ApplicationService {
       data: { status: 'ARCHIVED' },
     });
   }
-}
 
+  async setAssignedUsers(
+    organizationId: string,
+    applicationId: string,
+    actorId: string,
+    userIds: string[],
+  ) {
+    await this.organizationService.checkPermission(organizationId, actorId, [
+      OrgRole.SUPER_ADMIN,
+      OrgRole.ORG_ADMIN,
+      OrgRole.APP_ADMIN,
+      OrgRole.USER_ADMIN,
+    ]);
+
+    const application = await this.prisma.application.findFirst({
+      where: { id: applicationId, organizationId, status: { not: 'ARCHIVED' } },
+      select: { id: true },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+
+    const uniqueUserIds = Array.from(new Set(userIds));
+    const validMembers = await this.prisma.organizationMember.findMany({
+      where: {
+        organizationId,
+        userId: { in: uniqueUserIds },
+        status: 'ACTIVE',
+      },
+      select: { userId: true },
+    });
+    const validUserIds = validMembers.map((m) => m.userId);
+
+    const prismaAny = this.prisma as any;
+
+    await prismaAny.userApplicationAssignment.deleteMany({
+      where: {
+        applicationId,
+        user: { organizationId },
+      },
+    });
+
+    if (validUserIds.length > 0) {
+      await prismaAny.userApplicationAssignment.createMany({
+        data: validUserIds.map((userId) => ({ applicationId, userId })),
+        skipDuplicates: true,
+      });
+    }
+
+    return { success: true, userIds: validUserIds };
+  }
+
+  async setAssignedGroups(
+    organizationId: string,
+    applicationId: string,
+    actorId: string,
+    groupIds: string[],
+  ) {
+    await this.organizationService.checkPermission(organizationId, actorId, [
+      OrgRole.SUPER_ADMIN,
+      OrgRole.ORG_ADMIN,
+      OrgRole.APP_ADMIN,
+      OrgRole.GROUP_MEMBERSHIP_ADMIN,
+    ]);
+
+    const application = await this.prisma.application.findFirst({
+      where: { id: applicationId, organizationId, status: { not: 'ARCHIVED' } },
+      select: { id: true },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+
+    const uniqueGroupIds = Array.from(new Set(groupIds));
+    const validGroups = await this.prisma.group.findMany({
+      where: { id: { in: uniqueGroupIds }, organizationId },
+      select: { id: true },
+    });
+    const validGroupIds = validGroups.map((group) => group.id);
+
+    const prismaAny = this.prisma as any;
+
+    await prismaAny.groupApplicationAssignment.deleteMany({
+      where: {
+        applicationId,
+        group: { organizationId },
+      },
+    });
+
+    if (validGroupIds.length > 0) {
+      await prismaAny.groupApplicationAssignment.createMany({
+        data: validGroupIds.map((groupId) => ({ applicationId, groupId })),
+        skipDuplicates: true,
+      });
+    }
+
+    return { success: true, groupIds: validGroupIds };
+  }
+}

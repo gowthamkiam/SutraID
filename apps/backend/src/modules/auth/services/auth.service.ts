@@ -177,6 +177,7 @@ export class AuthService {
    * Create a new session with access and refresh tokens
    */
   private async createSession(user: any): Promise<AuthResponseDto> {
+    const userMustChangePassword = !!(user as any).mustChangePassword;
     const jti = crypto.randomUUID();
     const refreshToken = crypto.randomBytes(32).toString('hex');
     const refreshTokenHash = crypto
@@ -226,8 +227,10 @@ export class AuthService {
         lastName: user.lastName,
         organizationId: orgInfo.id,
         role: orgInfo.role,
+        mustChangePassword: userMustChangePassword,
       },
       organization: orgInfo,
+      mustChangePassword: userMustChangePassword,
     };
   }
 
@@ -328,7 +331,8 @@ export class AuthService {
           passwordChangedAt: new Date(),
           emailVerified: true,
           emailVerifiedAt: existingUser.emailVerifiedAt || new Date(),
-        },
+          mustChangePassword: false,
+        } as any,
       });
     } else {
       user = await this.prisma.user.create({
@@ -338,7 +342,8 @@ export class AuthService {
           passwordChangedAt: new Date(),
           emailVerified: false,
           status: 'ACTIVE',
-        },
+          mustChangePassword: false,
+        } as any,
       });
     }
 
@@ -406,6 +411,7 @@ export class AuthService {
         metadata: { method: 'password', email, mfa_required: true },
       });
 
+      const userMustChangePassword = !!(user as any).mustChangePassword;
       return {
         tokenType: 'Bearer',
         user: {
@@ -413,9 +419,11 @@ export class AuthService {
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
+          mustChangePassword: userMustChangePassword,
         },
         mfaRequired: true,
         mfaToken,
+        mustChangePassword: userMustChangePassword,
       } as AuthResponseDto;
     }
 
@@ -512,7 +520,8 @@ export class AuthService {
       data: {
         passwordHash,
         passwordChangedAt: new Date(),
-      },
+        mustChangePassword: false,
+      } as any,
     });
 
     await this.auditService.log({
@@ -552,7 +561,8 @@ export class AuthService {
       data: {
         passwordHash,
         passwordChangedAt: new Date(),
-      },
+        mustChangePassword: false,
+      } as any,
     });
 
     await this.auditService.log({

@@ -6,12 +6,15 @@ import {
   Delete,
   Body,
   Param,
+  ParseUUIDPipe,
   UseGuards,
   Request,
 } from '@nestjs/common';
 import { ApplicationService } from './application.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AssignUsersDto } from './dto/assign-users.dto';
+import { AssignGroupsDto } from './dto/assign-groups.dto';
 
 @Controller('organizations/:orgId/applications')
 @UseGuards(JwtAuthGuard)
@@ -56,5 +59,25 @@ export class ApplicationController {
   @Delete(':appId')
   async remove(@Request() req: any, @Param('appId') appId: string) {
     return this.applicationService.remove(appId, req.user.id);
+  }
+
+  @Put(':appId/users')
+  async assignUsers(
+    @Request() req: any,
+    @Param('orgId', new ParseUUIDPipe()) orgId: string,
+    @Param('appId', new ParseUUIDPipe()) appId: string,
+    @Body() dto: AssignUsersDto,
+  ) {
+    return this.applicationService.setAssignedUsers(orgId, appId, req.user.id, dto.userIds || []);
+  }
+
+  @Put(':appId/groups')
+  async assignGroups(
+    @Request() req: any,
+    @Param('orgId', new ParseUUIDPipe()) orgId: string,
+    @Param('appId', new ParseUUIDPipe()) appId: string,
+    @Body() dto: AssignGroupsDto,
+  ) {
+    return this.applicationService.setAssignedGroups(orgId, appId, req.user.id, dto.groupIds || []);
   }
 }

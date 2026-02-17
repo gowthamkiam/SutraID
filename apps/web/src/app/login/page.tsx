@@ -179,6 +179,10 @@ export default function LoginPage() {
         localStorage.setItem('user', JSON.stringify(data.user));
         const orgId = data.organization?.id || data.user?.organizationId;
         if (orgId) localStorage.setItem('currentOrgId', orgId);
+        if (data.mustChangePassword || data.user?.mustChangePassword) {
+          window.location.href = '/auth/change-password';
+          return;
+        }
         window.location.href = '/dashboard';
         return;
       } else if (mode === 'register') {
@@ -235,6 +239,10 @@ export default function LoginPage() {
       localStorage.setItem('user', JSON.stringify(data.user));
       const orgId = data.organization?.id || data.user?.organizationId;
       if (orgId) localStorage.setItem('currentOrgId', orgId);
+      if (data.mustChangePassword || data.user?.mustChangePassword) {
+        window.location.href = '/auth/change-password';
+        return;
+      }
       window.location.href = '/dashboard';
     } catch (err: any) {
       setError(err.message || 'Invalid code. Please try again.');

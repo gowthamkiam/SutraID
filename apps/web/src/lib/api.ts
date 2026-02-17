@@ -290,6 +290,26 @@ export const applicationApi = {
     if (!response.ok) throw new Error('Failed to delete application');
   },
 
+  async setUsers(orgId: string, appId: string, userIds: string[]): Promise<{ success: boolean; userIds: string[] }> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/applications/${appId}/users`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ userIds }),
+    });
+    if (!response.ok) throw new Error('Failed to assign users to application');
+    return response.json();
+  },
+
+  async setGroups(orgId: string, appId: string, groupIds: string[]): Promise<{ success: boolean; groupIds: string[] }> {
+    const response = await fetch(`${API_URL}/organizations/${orgId}/applications/${appId}/groups`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ groupIds }),
+    });
+    if (!response.ok) throw new Error('Failed to assign groups to application');
+    return response.json();
+  },
+
   // SAML endpoints
   getSamlMetadataUrl(orgId: string, appId: string): string {
     return `${API_URL.replace('/api/v1', '')}/saml/${orgId}/${appId}/metadata.xml`;
@@ -751,6 +771,8 @@ export interface OrgUser {
   lastLoginAt?: string | null;
   createdAt: string;
   groups: Array<{ id: string; name: string }>;
+  applications?: Array<{ id: string; name: string; type: 'OIDC' | 'SAML'; status: AppStatus }>;
+  mustChangePassword?: boolean;
 }
 
 export interface OrgGroup {
@@ -760,6 +782,7 @@ export interface OrgGroup {
   memberCount: number;
   createdAt: string;
   members: Array<{ id: string; email: string; firstName?: string; lastName?: string; role: OrgRole }>;
+  applications?: Array<{ id: string; name: string; type: 'OIDC' | 'SAML'; status: AppStatus }>;
 }
 
 export const roleVisibleTabs: Record<OrgRole, string[]> = {
@@ -823,6 +846,9 @@ export const usersApi = {
     lastName?: string;
     role?: OrgRole;
     groupIds?: string[];
+    applicationIds?: string[];
+    onboardingMethod?: 'MAGIC_LINK' | 'TEMP_PASSWORD';
+    temporaryPassword?: string;
   }): Promise<OrgUser> {
     const response = await fetch(`${API_URL}/users`, {
       method: 'POST',
@@ -841,6 +867,7 @@ export const usersApi = {
       role?: OrgRole;
       status?: 'ACTIVE' | 'SUSPENDED';
       groupIds?: string[];
+      applicationIds?: string[];
     },
   ): Promise<OrgUser> {
     const response = await fetch(`${API_URL}/users/${userId}`, {
@@ -858,6 +885,16 @@ export const usersApi = {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete user');
+    return response.json();
+  },
+
+  async setApplications(userId: string, applicationIds: string[]): Promise<{ success: boolean; applicationIds: string[] }> {
+    const response = await fetch(`${API_URL}/users/${userId}/applications`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ applicationIds }),
+    });
+    if (!response.ok) throw new Error('Failed to update user application assignments');
     return response.json();
   },
 };
@@ -907,6 +944,16 @@ export const groupsApi = {
       body: JSON.stringify({ userIds }),
     });
     if (!response.ok) throw new Error('Failed to update group members');
+    return response.json();
+  },
+
+  async setApplications(groupId: string, applicationIds: string[]): Promise<{ success: boolean; applicationIds: string[] }> {
+    const response = await fetch(`${API_URL}/groups/${groupId}/applications`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ applicationIds }),
+    });
+    if (!response.ok) throw new Error('Failed to update group application assignments');
     return response.json();
   },
 

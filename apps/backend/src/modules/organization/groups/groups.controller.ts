@@ -18,6 +18,7 @@ import { RbacGuard, RequirePermission } from '../../rbac/rbac.guard';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { AddMembersDto } from './dto/add-members.dto';
+import { AssignApplicationsDto } from './dto/assign-applications.dto';
 
 @Controller('groups')
 @UseGuards(JwtAuthGuard, OrgContextGuard, RbacGuard)
@@ -72,5 +73,15 @@ export class GroupsController {
     @Body() dto: AddMembersDto,
   ) {
     return this.groupsService.setUsers(req.orgId, groupId, dto.userIds || []);
+  }
+
+  @Put(':id/applications')
+  @RequirePermission('apps:update')
+  async setApplications(
+    @Request() req: any,
+    @Param('id', new ParseUUIDPipe()) groupId: string,
+    @Body() dto: AssignApplicationsDto,
+  ) {
+    return this.groupsService.setApplications(req.orgId, groupId, dto.applicationIds || []);
   }
 }

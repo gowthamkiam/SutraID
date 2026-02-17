@@ -3,12 +3,16 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { OrgRole, MemberStatus, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { OrganizationService } from '../organization.service';
+import { AuthService } from '../../auth/services/auth.service';
+import * as bcrypt from 'bcrypt';
+import { UserOnboardingMethod } from './dto/create-user.dto';
 
 const ROLE_WEIGHT: Record<OrgRole, number> = {
   SUPER_ADMIN: 100,
@@ -28,6 +32,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private orgService: OrganizationService,
+    private authService: AuthService,
   ) {}
 
   async list(
@@ -76,8 +81,10 @@ export class UsersService {
       };
     }
 
+    const prismaAny = this.prisma as any;
+
     const [members, total] = await Promise.all([
-      this.prisma.organizationMember.findMany({
+      prismaAny.organizationMember.findMany({
         where,
         skip,
         take: limit,
@@ -92,6 +99,7 @@ export class UsersService {
               status: true,
               lastLoginAt: true,
               createdAt: true,
+              mustChangePassword: true,
               groups: {
                 where: {
                   group: { organizationId: orgId },
@@ -105,15 +113,30 @@ export class UsersService {
                   },
                 },
               },
+              applicationAssignments: {
+                where: {
+                  application: { organizationId: orgId, status: { not: 'ARCHIVED' } },
+                },
+                include: {
+                  application: {
+                    select: {
+                      id: true,
+                      name: true,
+                      type: true,
+                      status: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },
       }),
-      this.prisma.organizationMember.count({ where }),
+      prismaAny.organizationMember.count({ where }),
     ]);
 
     return {
-      users: members.map((member) => ({
+      users: members.map((member: any) => ({
         id: member.user.id,
         email: member.user.email,
         firstName: member.user.firstName,
@@ -122,7 +145,9 @@ export class UsersService {
         role: member.role,
         createdAt: member.user.createdAt,
         lastLoginAt: member.user.lastLoginAt,
-        groups: member.user.groups.map((entry) => entry.group),
+        mustChangePassword: member.user.mustChangePassword,
+        groups: member.user.groups.map((entry: any) => entry.group),
+        applications: member.user.applicationAssignments.map((entry: any) => entry.application),
       })),
       total,
       page,
@@ -144,6 +169,8 @@ export class UsersService {
 
     let user = await this.prisma.user.findUnique({ where: { email: dto.email } });
 
+    const onboardingMethod = dto.onboardingMethod || UserOnboardingMethod.MAGIC_LINK;
+
     if (!user) {
       user = await this.prisma.user.create({
         data: {
@@ -151,6 +178,15 @@ export class UsersService {
           firstName: dto.firstName,
           lastName: dto.lastName,
           status: 'ACTIVE',
+          mustChangePassword: onboardingMethod === UserOnboardingMethod.TEMP_PASSWORD,
+        } as any,
+      });
+    } else if (dto.firstName || dto.lastName) {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          firstName: dto.firstName ?? user.firstName,
+          lastName: dto.lastName ?? user.lastName,
         },
       });
     }
@@ -180,6 +216,28 @@ export class UsersService {
 
     if (dto.groupIds?.length) {
       await this.assignGroups(orgId, user.id, dto.groupIds);
+    }
+
+    if (dto.applicationIds?.length) {
+      await this.assignApplications(orgId, user.id, dto.applicationIds);
+    }
+
+    if (onboardingMethod === UserOnboardingMethod.TEMP_PASSWORD) {
+      if (!dto.temporaryPassword || dto.temporaryPassword.length < 8) {
+        throw new BadRequestException('temporaryPassword is required and must be at least 8 characters');
+      }
+
+      const passwordHash = await bcrypt.hash(dto.temporaryPassword, 12);
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          passwordChangedAt: new Date(),
+          mustChangePassword: true,
+        } as any,
+      });
+    } else {
+      await this.authService.requestMagicLink(user.email);
     }
 
     return this.getOne(orgId, user.id);
@@ -236,6 +294,10 @@ export class UsersService {
 
     if (dto.groupIds) {
       await this.assignGroups(orgId, userId, dto.groupIds);
+    }
+
+    if (dto.applicationIds) {
+      await this.assignApplications(orgId, userId, dto.applicationIds);
     }
 
     return this.getOne(orgId, userId);
@@ -332,6 +394,50 @@ export class UsersService {
     return { success: true, groupIds: validGroupIds };
   }
 
+  async assignApplications(orgId: string, userId: string, applicationIds: string[]) {
+    const prismaAny = this.prisma as any;
+    const userMembership = await this.prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: orgId,
+          userId,
+        },
+      },
+    });
+
+    if (!userMembership) {
+      throw new NotFoundException('User not found in this organization');
+    }
+
+    const uniqueIds = Array.from(new Set(applicationIds));
+    const validApps = await this.prisma.application.findMany({
+      where: {
+        id: { in: uniqueIds },
+        organizationId: orgId,
+        status: { not: 'ARCHIVED' },
+      },
+      select: { id: true },
+    });
+
+    const validApplicationIds = validApps.map((app) => app.id);
+
+    await prismaAny.userApplicationAssignment.deleteMany({
+      where: {
+        userId,
+        application: { organizationId: orgId },
+      },
+    });
+
+    if (validApplicationIds.length > 0) {
+      await prismaAny.userApplicationAssignment.createMany({
+        data: validApplicationIds.map((applicationId) => ({ userId, applicationId })),
+        skipDuplicates: true,
+      });
+    }
+
+    return { success: true, applicationIds: validApplicationIds };
+  }
+
   async assignGroup(orgId: string, userId: string, groupId: string, actorId: string) {
     await this.orgService.checkPermission(orgId, actorId, [
       OrgRole.SUPER_ADMIN,
@@ -400,7 +506,7 @@ export class UsersService {
   }
 
   private async getOne(orgId: string, userId: string) {
-    const member = await this.prisma.organizationMember.findUnique({
+    const member = await (this.prisma as any).organizationMember.findUnique({
       where: {
         organizationId_userId: {
           organizationId: orgId,
@@ -417,9 +523,25 @@ export class UsersService {
             status: true,
             createdAt: true,
             lastLoginAt: true,
+            mustChangePassword: true,
             groups: {
               where: { group: { organizationId: orgId } },
               include: { group: { select: { id: true, name: true } } },
+            },
+            applicationAssignments: {
+              where: {
+                application: { organizationId: orgId, status: { not: 'ARCHIVED' } },
+              },
+              include: {
+                application: {
+                  select: {
+                    id: true,
+                    name: true,
+                    type: true,
+                    status: true,
+                  },
+                },
+              },
             },
           },
         },
@@ -439,7 +561,9 @@ export class UsersService {
       role: member.role,
       createdAt: member.user.createdAt,
       lastLoginAt: member.user.lastLoginAt,
-      groups: member.user.groups.map((entry) => entry.group),
+      mustChangePassword: member.user.mustChangePassword,
+      groups: member.user.groups.map((entry: any) => entry.group),
+      applications: member.user.applicationAssignments.map((entry: any) => entry.application),
     };
   }
 

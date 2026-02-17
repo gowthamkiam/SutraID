@@ -1,61 +1,88 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { groupsApi, usersApi } from '@/lib/api';
+import { useEffect, useMemo, useState } from 'react';
+import { applicationApi, Application, groupsApi, usersApi } from '@/lib/api';
 
 export default function GroupsPage() {
   const [groups, setGroups] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [error, setError] = useState('');
   const [openCreate, setOpenCreate] = useState(false);
   const [editingGroup, setEditingGroup] = useState<any | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', userIds: [] as string[] });
+  const [form, setForm] = useState({ name: '', description: '', userIds: [] as string[], applicationIds: [] as string[] });
+
+  const applicationOptions = useMemo(
+    () => applications.filter((app) => app.status !== 'ARCHIVED').map((app) => ({ id: app.id, name: app.name })),
+    [applications],
+  );
+
+  useEffect(() => {
+    setOrgId(localStorage.getItem('currentOrgId'));
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
-    const [groupResult, userResult] = await Promise.all([
-      groupsApi.list({ search, page: 1, limit: 100 }),
-      usersApi.list({ page: 1, limit: 500 }),
-    ]);
-    setGroups(groupResult.groups);
-    setUsers(userResult.users);
-    setLoading(false);
+    setError('');
+    try {
+      const [groupResult, userResult, appResult] = await Promise.all([
+        groupsApi.list({ search, page: 1, limit: 100 }),
+        usersApi.list({ page: 1, limit: 500 }),
+        orgId ? applicationApi.list(orgId) : Promise.resolve([] as Application[]),
+      ]);
+      setGroups(groupResult.groups);
+      setUsers(userResult.users);
+      setApplications(appResult);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load groups');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
+    if (!orgId) return;
     loadData();
-  }, []);
+  }, [orgId]);
 
   const startCreate = () => {
     setEditingGroup(null);
-    setForm({ name: '', description: '', userIds: [] });
+    setForm({ name: '', description: '', userIds: [], applicationIds: [] });
     setOpenCreate(true);
   };
 
   const startEdit = (group: any) => {
     setEditingGroup(group);
+    setOpenCreate(false);
     setForm({
       name: group.name,
       description: group.description || '',
       userIds: group.members?.map((m: any) => m.id) || [],
+      applicationIds: group.applications?.map((a: any) => a.id) || [],
     });
   };
 
   const save = async () => {
     if (editingGroup) {
       await groupsApi.update(editingGroup.id, { name: form.name, description: form.description });
-      await groupsApi.setUsers(editingGroup.id, form.userIds);
+      await Promise.all([
+        groupsApi.setUsers(editingGroup.id, form.userIds),
+        groupsApi.setApplications(editingGroup.id, form.applicationIds),
+      ]);
     } else {
       const created = await groupsApi.create({ name: form.name, description: form.description });
-      if (form.userIds.length) {
-        await groupsApi.setUsers(created.id, form.userIds);
-      }
+      await Promise.all([
+        groupsApi.setUsers(created.id, form.userIds),
+        groupsApi.setApplications(created.id, form.applicationIds),
+      ]);
     }
 
     setOpenCreate(false);
     setEditingGroup(null);
-    setForm({ name: '', description: '', userIds: [] });
+    setForm({ name: '', description: '', userIds: [], applicationIds: [] });
     loadData();
   };
 
@@ -65,12 +92,20 @@ export default function GroupsPage() {
     loadData();
   };
 
+  const toggleValue = (key: 'userIds' | 'applicationIds', value: string) => {
+    const exists = form[key].includes(value);
+    setForm({
+      ...form,
+      [key]: exists ? form[key].filter((id) => id !== value) : [...form[key], value],
+    });
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.75rem' }}>Groups</h1>
-          <p style={{ marginTop: 4, color: '#64748b' }}>Manage group membership in your organization</p>
+          <p style={{ marginTop: 4, color: 'var(--text-secondary)' }}>Manage group membership and application access</p>
         </div>
         <button onClick={startCreate} style={btnPrimary}>Create Group</button>
       </div>
@@ -80,6 +115,8 @@ export default function GroupsPage() {
         <button onClick={loadData} style={btnSecondary}>Filter</button>
       </div>
 
+      {error ? <div style={errorStyle}>{error}</div> : null}
+
       <div style={tableWrap}>
         <table style={tableStyle}>
           <thead>
@@ -87,19 +124,21 @@ export default function GroupsPage() {
               <th style={thStyle}>Name</th>
               <th style={thStyle}>Description</th>
               <th style={thStyle}>Members</th>
+              <th style={thStyle}>Applications</th>
               <th style={thStyle}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} style={tdStyle}>Loading...</td></tr>
+              <tr><td colSpan={5} style={tdStyle}>Loading...</td></tr>
             ) : groups.length === 0 ? (
-              <tr><td colSpan={4} style={tdStyle}>No groups found</td></tr>
+              <tr><td colSpan={5} style={tdStyle}>No groups found</td></tr>
             ) : groups.map((group) => (
               <tr key={group.id}>
                 <td style={tdStyle}>{group.name}</td>
                 <td style={tdStyle}>{group.description || '-'}</td>
                 <td style={tdStyle}>{group.members?.map((m: any) => m.email).join(', ') || '-'}</td>
+                <td style={tdStyle}>{group.applications?.map((a: any) => a.name).join(', ') || '-'}</td>
                 <td style={tdStyle}>
                   <button onClick={() => startEdit(group)} style={linkBtn}>Edit</button>
                   <button onClick={() => remove(group.id)} style={dangerBtn}>Delete</button>
@@ -117,25 +156,36 @@ export default function GroupsPage() {
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Group name" style={inputStyle} />
             <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description" style={inputStyle} />
 
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, maxHeight: 220, overflowY: 'auto', padding: '0.75rem' }}>
-              {users.map((user) => {
-                const checked = form.userIds.includes(user.id);
-                return (
-                  <label key={user.id} style={{ display: 'block', marginBottom: 6 }}>
+            <div style={sectionCard}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Members</div>
+              <div style={checkListStyle}>
+                {users.map((user) => (
+                  <label key={user.id} style={checkItemStyle}>
                     <input
                       type="checkbox"
-                      checked={checked}
-                      onChange={() => {
-                        setForm({
-                          ...form,
-                          userIds: checked ? form.userIds.filter((id) => id !== user.id) : [...form.userIds, user.id],
-                        });
-                      }}
+                      checked={form.userIds.includes(user.id)}
+                      onChange={() => toggleValue('userIds', user.id)}
                     />
                     <span style={{ marginLeft: 8 }}>{user.email}</span>
                   </label>
-                );
-              })}
+                ))}
+              </div>
+            </div>
+
+            <div style={sectionCard}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Application Assignments</div>
+              <div style={checkListStyle}>
+                {applicationOptions.map((app) => (
+                  <label key={app.id} style={checkItemStyle}>
+                    <input
+                      type="checkbox"
+                      checked={form.applicationIds.includes(app.id)}
+                      onChange={() => toggleValue('applicationIds', app.id)}
+                    />
+                    <span style={{ marginLeft: 8 }}>{app.name}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -143,7 +193,7 @@ export default function GroupsPage() {
                 onClick={() => {
                   setOpenCreate(false);
                   setEditingGroup(null);
-                  setForm({ name: '', description: '', userIds: [] });
+                  setForm({ name: '', description: '', userIds: [], applicationIds: [] });
                 }}
                 style={btnSecondary}
               >
@@ -159,8 +209,8 @@ export default function GroupsPage() {
 }
 
 const btnPrimary: React.CSSProperties = {
-  background: '#1d4ed8',
-  color: '#fff',
+  background: 'var(--btn-primary-bg, #4f46e5)',
+  color: 'var(--btn-primary-text, #fff)',
   border: 'none',
   borderRadius: 8,
   padding: '0.6rem 1rem',
@@ -168,8 +218,9 @@ const btnPrimary: React.CSSProperties = {
 };
 
 const btnSecondary: React.CSSProperties = {
-  background: '#fff',
-  border: '1px solid #cbd5e1',
+  background: 'var(--btn-secondary-bg, #fff)',
+  color: 'var(--btn-secondary-text, #374151)',
+  border: '1px solid var(--btn-secondary-border, #cbd5e1)',
   borderRadius: 8,
   padding: '0.55rem 0.9rem',
   cursor: 'pointer',
@@ -178,7 +229,7 @@ const btnSecondary: React.CSSProperties = {
 const dangerBtn: React.CSSProperties = {
   background: 'transparent',
   border: 'none',
-  color: '#dc2626',
+  color: '#ef4444',
   cursor: 'pointer',
   marginLeft: 10,
 };
@@ -186,22 +237,24 @@ const dangerBtn: React.CSSProperties = {
 const linkBtn: React.CSSProperties = {
   background: 'transparent',
   border: 'none',
-  color: '#1d4ed8',
+  color: 'var(--accent-primary, #6366f1)',
   cursor: 'pointer',
 };
 
 const inputStyle: React.CSSProperties = {
   padding: '0.55rem 0.7rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-input, #cbd5e1)',
   borderRadius: 8,
   width: '100%',
+  background: 'var(--bg-input, #fff)',
+  color: 'var(--text-primary)',
 };
 
 const tableWrap: React.CSSProperties = {
-  border: '1px solid #e2e8f0',
+  border: '1px solid var(--border-color, #274267)',
   borderRadius: 12,
   overflow: 'hidden',
-  background: '#fff',
+  background: 'var(--bg-card, #0f1d33)',
 };
 
 const tableStyle: React.CSSProperties = {
@@ -212,31 +265,68 @@ const tableStyle: React.CSSProperties = {
 const thStyle: React.CSSProperties = {
   textAlign: 'left',
   padding: '0.8rem',
-  borderBottom: '1px solid #e2e8f0',
-  background: '#f8fafc',
+  borderBottom: '1px solid var(--border-color, #274267)',
+  background: 'color-mix(in srgb, var(--bg-card, #0f1d33) 78%, #1b3f73 22%)',
   fontSize: '0.84rem',
+  color: 'var(--text-secondary)',
 };
 
 const tdStyle: React.CSSProperties = {
   padding: '0.8rem',
-  borderBottom: '1px solid #f1f5f9',
+  borderBottom: '1px solid var(--border-color, #274267)',
   fontSize: '0.9rem',
 };
 
 const modalOverlay: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
-  background: 'rgba(15,23,42,0.45)',
+  background: 'rgba(8, 17, 32, 0.65)',
   display: 'grid',
   placeItems: 'center',
   zIndex: 200,
 };
 
 const modalCard: React.CSSProperties = {
-  width: 'min(560px, 92vw)',
-  background: '#fff',
+  width: 'min(720px, 94vw)',
+  maxHeight: '90vh',
+  overflowY: 'auto',
+  background: 'color-mix(in srgb, var(--bg-card, #0f1d33) 86%, #1a3760 14%)',
+  border: '1px solid var(--border-color, #274267)',
   borderRadius: 12,
   padding: '1rem',
   display: 'grid',
   gap: '0.7rem',
+};
+
+const sectionCard: React.CSSProperties = {
+  border: '1px solid var(--border-color, #274267)',
+  background: 'color-mix(in srgb, var(--bg-card, #0f1d33) 82%, #1d3d69 18%)',
+  borderRadius: 8,
+  padding: '0.75rem',
+};
+
+const checkListStyle: React.CSSProperties = {
+  border: '1px solid var(--border-color, #274267)',
+  borderRadius: 8,
+  maxHeight: 220,
+  overflowY: 'auto',
+  padding: '0.75rem',
+  background: 'var(--bg-input, #132742)',
+  display: 'grid',
+  gap: 4,
+};
+
+const checkItemStyle: React.CSSProperties = {
+  display: 'block',
+  color: 'var(--text-primary)',
+  fontSize: '0.92rem',
+};
+
+const errorStyle: React.CSSProperties = {
+  background: 'var(--error-bg, #fee2e2)',
+  border: '1px solid var(--error-border, #fecaca)',
+  color: 'var(--error-text, #991b1b)',
+  padding: '0.6rem 0.8rem',
+  borderRadius: 8,
+  marginBottom: '0.8rem',
 };

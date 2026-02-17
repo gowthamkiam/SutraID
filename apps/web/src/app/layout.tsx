@@ -66,16 +66,16 @@ export default function RootLayout({
             --nav-border: rgba(0, 0, 0, 0.06);
           }
           html[data-theme="dark"] {
-            --bg-primary: #0f0f0f;
-            --bg-card: #1a1a1a;
-            --bg-input: #252525;
-            --bg-hover: #2a2a2a;
-            --bg-badge: #2a2a2a;
-            --text-primary: #e5e5e5;
-            --text-secondary: #a3a3a3;
-            --text-tertiary: #737373;
-            --border-color: #2e2e2e;
-            --border-input: #404040;
+            --bg-primary: #081120;
+            --bg-card: #0f1d33;
+            --bg-input: #132742;
+            --bg-hover: #19304f;
+            --bg-badge: #1b3252;
+            --text-primary: #e7efff;
+            --text-secondary: #b0c0dd;
+            --text-tertiary: #7f93b9;
+            --border-color: #274267;
+            --border-input: #35567f;
             --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3);
             --shadow-elevated: 0 4px 6px rgba(0, 0, 0, 0.4);
             --success-bg: #052e16;
@@ -87,9 +87,9 @@ export default function RootLayout({
             --btn-primary-bg: #6366f1;
             --btn-primary-text: #fff;
             --btn-primary-hover: #818cf8;
-            --btn-secondary-bg: #1f2937;
-            --btn-secondary-text: #e5e5e5;
-            --btn-secondary-border: #374151;
+            --btn-secondary-bg: #132742;
+            --btn-secondary-text: #d8e4ff;
+            --btn-secondary-border: #35567f;
             --accent-primary: #6366f1;
             --accent-secondary: #a78bfa;
             --accent-light: #1e1b4b;

@@ -33,6 +33,7 @@ model User {
   // Password (nullable — passwordless users don't have one)
   passwordHash      String?
   passwordChangedAt DateTime?
+  mustChangePassword Boolean @default(false)
 
   // Status
   status            UserStatus @default(ACTIVE)
@@ -57,6 +58,7 @@ model User {
   mfaMethods        MfaMethod[]
   groups            GroupMember[]
   userGroups        UserGroup[]
+  applicationAssignments UserApplicationAssignment[]
 
   @@index([email])
   @@index([organizationId])
@@ -121,6 +123,7 @@ model Group {
   // Relations
   members           GroupMember[]
   userGroups        UserGroup[]
+  applicationAssignments GroupApplicationAssignment[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -412,10 +415,40 @@ model Application {
   createdBy         String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  userAssignments   UserApplicationAssignment[]
+  groupAssignments  GroupApplicationAssignment[]
 
   @@index([organizationId])
   @@index([clientId])
   @@map("applications")
+}
+
+model UserApplicationAssignment {
+  id             String      @id @default(uuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId  String
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime    @default(now())
+
+  @@unique([userId, applicationId])
+  @@index([applicationId])
+  @@index([userId])
+  @@map("user_application_assignments")
+}
+
+model GroupApplicationAssignment {
+  id             String      @id @default(uuid())
+  groupId        String
+  group          Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  applicationId  String
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime    @default(now())
+
+  @@unique([groupId, applicationId])
+  @@index([applicationId])
+  @@index([groupId])
+  @@map("group_application_assignments")
 }
 
 enum ApplicationProtocol {

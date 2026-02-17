@@ -22,4 +22,9 @@ export class UpdateUserDto {
   @IsArray()
   @IsUUID(4, { each: true })
   groupIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID(4, { each: true })
+  applicationIds?: string[];
 }
