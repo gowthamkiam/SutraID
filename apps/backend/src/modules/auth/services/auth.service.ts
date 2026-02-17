@@ -401,10 +401,37 @@ export class AuthService {
   }
 
   private buildOrgUserFilter(baseFilter: string | null, email: string) {
+    const localPart = email.split('@')[0] || email;
     const escaped = email.replace(/\\/g, '\\5c').replace(/\*/g, '\\2a').replace(/\(/g, '\\28').replace(/\)/g, '\\29');
-    const defaultFilter = `(|(mail=${escaped})(userPrincipalName=${escaped})(uid=${escaped}))`;
+    const escapedLocal = localPart.replace(/\\/g, '\\5c').replace(/\*/g, '\\2a').replace(/\(/g, '\\28').replace(/\)/g, '\\29');
+    const defaultFilter = `(|(mail=${escaped})(userPrincipalName=${escaped})(uid=${escaped})(uid=${escapedLocal})(sAMAccountName=${escapedLocal})(cn=${escapedLocal}))`;
     if (!baseFilter) return defaultFilter;
     return `(&${baseFilter}${defaultFilter})`;
+  }
+
+  private async tryDirectBindCandidates(
+    ldapUrl: string,
+    baseDn: string,
+    email: string,
+    password: string,
+  ): Promise<boolean> {
+    const localPart = email.split('@')[0] || email;
+    const candidates = [
+      `uid=${localPart},${baseDn}`,
+      `cn=${localPart},${baseDn}`,
+      `mail=${email},${baseDn}`,
+    ];
+
+    for (const dn of candidates) {
+      try {
+        await this.execFileAsync('ldapwhoami', ['-x', '-H', ldapUrl, '-D', dn, '-w', password], { timeout: 12000 });
+        return true;
+      } catch {
+        // Try next candidate
+      }
+    }
+
+    return false;
   }
 
   private async tryLdapAuthForOrganization(
@@ -440,6 +467,10 @@ export class AuthService {
       const { stdout } = await this.execFileAsync('ldapsearch', args, { timeout: 12000 });
       const dnMatch = stdout.match(/^dn:\s*(.+)$/mi);
       if (!dnMatch?.[1]) {
+        const directBindOk = await this.tryDirectBindCandidates(config.ldapUrl, config.ldapBaseDn, email, password);
+        if (directBindOk) {
+          return { ldapEnabled: true, foundInLdap: true, authenticated: true };
+        }
         return { ldapEnabled: true, foundInLdap: false, authenticated: false };
       }
 
@@ -451,6 +482,10 @@ export class AuthService {
         return { ldapEnabled: true, foundInLdap: false, authenticated: false };
       }
       if (typeof error?.cmd === 'string' && error.cmd.includes('ldapsearch')) {
+        const directBindOk = await this.tryDirectBindCandidates(config.ldapUrl, config.ldapBaseDn, email, password);
+        if (directBindOk) {
+          return { ldapEnabled: true, foundInLdap: true, authenticated: true };
+        }
         return { ldapEnabled: true, foundInLdap: false, authenticated: false };
       }
       return { ldapEnabled: true, foundInLdap: true, authenticated: false };
