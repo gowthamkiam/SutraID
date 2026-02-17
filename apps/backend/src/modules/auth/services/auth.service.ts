@@ -1,7 +1,6 @@
 import {
   Injectable,
   BadRequestException,
-  ServiceUnavailableException,
   UnauthorizedException,
   NotFoundException,
 } from '@nestjs/common';
@@ -439,12 +438,7 @@ export class AuthService {
     organizationId: string,
     email: string,
     password: string,
-  ): Promise<{
-    ldapEnabled: boolean;
-    foundInLdap: boolean;
-    authenticated: boolean;
-    infraError?: 'ldap_client_missing' | 'ldap_connection_failed';
-  }> {
+  ): Promise<{ ldapEnabled: boolean; foundInLdap: boolean; authenticated: boolean }> {
     const config = await this.prisma.directoryConfig.findUnique({
       where: { organizationId },
       select: {
@@ -485,24 +479,14 @@ export class AuthService {
       return { ldapEnabled: true, foundInLdap: true, authenticated: true };
     } catch (error: any) {
       if (error?.code === 'ENOENT') {
-        return {
-          ldapEnabled: true,
-          foundInLdap: false,
-          authenticated: false,
-          infraError: 'ldap_client_missing',
-        };
+        return { ldapEnabled: true, foundInLdap: false, authenticated: false };
       }
       if (typeof error?.cmd === 'string' && error.cmd.includes('ldapsearch')) {
         const directBindOk = await this.tryDirectBindCandidates(config.ldapUrl, config.ldapBaseDn, email, password);
         if (directBindOk) {
           return { ldapEnabled: true, foundInLdap: true, authenticated: true };
         }
-        return {
-          ldapEnabled: true,
-          foundInLdap: false,
-          authenticated: false,
-          infraError: 'ldap_connection_failed',
-        };
+        return { ldapEnabled: true, foundInLdap: false, authenticated: false };
       }
       return { ldapEnabled: true, foundInLdap: true, authenticated: false };
     }
@@ -558,16 +542,6 @@ export class AuthService {
     const organizationId = await this.resolveOrganizationId(orgRef);
 
     const ldapResult = await this.tryLdapAuthForOrganization(organizationId, email, password);
-    if (ldapResult.ldapEnabled && ldapResult.infraError === 'ldap_client_missing') {
-      throw new ServiceUnavailableException(
-        'LDAP authentication client is not installed on server runtime',
-      );
-    }
-    if (ldapResult.ldapEnabled && ldapResult.infraError === 'ldap_connection_failed') {
-      throw new ServiceUnavailableException(
-        'Unable to reach LDAP server for this organization',
-      );
-    }
     if (ldapResult.foundInLdap && !ldapResult.authenticated) {
       await this.auditService.log({
         action: 'user.login',
