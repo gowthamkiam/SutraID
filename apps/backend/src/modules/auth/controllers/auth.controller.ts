@@ -70,7 +70,7 @@ export class AuthController {
   async login(
     @Body() dto: LoginPasswordDto,
   ): Promise<AuthResponseDto> {
-    return await this.authService.loginWithPassword(dto.email, dto.password);
+    return await this.authService.loginWithPassword(dto.email, dto.password, dto.organizationId);
   }
 
   /**

@@ -7,4 +7,7 @@ export class LoginPasswordDto {
 
   @IsNotEmpty()
   password: string;
+
+  @IsNotEmpty()
+  organizationId: string;
 }

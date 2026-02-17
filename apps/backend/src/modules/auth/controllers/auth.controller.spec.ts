@@ -95,7 +95,7 @@ describe('AuthController', () => {
 
   describe('login', () => {
     it('should login user with password', async () => {
-      const dto = { email: 'test@example.com', password: 'Password123!' };
+      const dto = { email: 'test@example.com', password: 'Password123!', organizationId: 'org-1' };
       const authResponse = {
         user: { id: 'user-1', email: dto.email },
         accessToken: 'jwt-token',
@@ -109,6 +109,7 @@ describe('AuthController', () => {
       expect(authService.loginWithPassword).toHaveBeenCalledWith(
         dto.email,
         dto.password,
+        dto.organizationId,
       );
     });
   });

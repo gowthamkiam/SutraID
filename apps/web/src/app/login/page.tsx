@@ -48,6 +48,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<AuthMode>('magic-link');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [organizationId, setOrganizationId] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -135,6 +136,7 @@ export default function LoginPage() {
     setError('');
     setMessage('');
     setPassword('');
+    setOrganizationId('');
     setConfirmPassword('');
   };
 
@@ -160,7 +162,7 @@ export default function LoginPage() {
         const response = await fetch(`${apiUrl}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email, password, organizationId }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || 'Invalid email or password');
@@ -433,6 +435,24 @@ export default function LoginPage() {
               onBlur={handleInputBlur}
             />
           </div>
+
+          {/* Password field (password & register modes) */}
+          {mode === 'password' && (
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label htmlFor="organizationId" style={labelStyle}>Organization ID or Slug</label>
+              <input
+                id="organizationId"
+                type="text"
+                value={organizationId}
+                onChange={(e) => setOrganizationId(e.target.value)}
+                required
+                placeholder="org UUID or slug"
+                style={inputStyle}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
+              />
+            </div>
+          )}
 
           {/* Password field (password & register modes) */}
           {(mode === 'password' || mode === 'register') && (

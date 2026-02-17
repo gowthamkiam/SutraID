@@ -11,32 +11,73 @@ export class LDAPService {
         private organizationService: OrganizationService,
     ) { }
 
+    private normalizeConfigInput(data: any) {
+        return {
+            enabled: data.enabled ?? true,
+            ldapUrl: data.ldapUrl ?? data.url ?? null,
+            ldapBaseDn: data.ldapBaseDn ?? data.baseDn ?? null,
+            ldapBindDn: data.ldapBindDn ?? data.bindDn ?? null,
+            ldapBindPassword: data.ldapBindPassword ?? data.bindPassword ?? null,
+            ldapUserFilter: data.ldapUserFilter ?? data.userFilter ?? '(objectClass=user)',
+            ldapGroupFilter: data.ldapGroupFilter ?? data.groupFilter ?? '(objectClass=group)',
+        };
+    }
+
+    async getConfig(organizationId: string, actorId: string) {
+        await this.organizationService.checkPermission(organizationId, actorId, [
+            OrgRole.SUPER_ADMIN,
+            OrgRole.ORG_ADMIN,
+            OrgRole.READ_ONLY_ADMIN,
+            OrgRole.USER_ADMIN,
+            OrgRole.GROUP_MEMBERSHIP_ADMIN,
+            OrgRole.HELP_DESK_ADMIN,
+            OrgRole.API_ACCESS_MANAGEMENT_ADMIN,
+        ]);
+
+        const config = await this.prisma.directoryConfig.findUnique({
+            where: { organizationId },
+        });
+
+        if (!config || config.type !== 'LDAP') {
+            return null;
+        }
+
+        return {
+            enabled: config.enabled,
+            url: config.ldapUrl || '',
+            baseDn: config.ldapBaseDn || '',
+            bindDn: config.ldapBindDn || '',
+            bindPassword: config.ldapBindPassword || '',
+            userFilter: config.ldapUserFilter || '(objectClass=user)',
+            groupFilter: config.ldapGroupFilter || '(objectClass=group)',
+            lastSyncAt: config.lastSyncAt,
+        };
+    }
+
     async updateConfig(organizationId: string, actorId: string, data: any) {
         await this.organizationService.checkPermission(organizationId, actorId, [
-            // @ts-ignore
             OrgRole.SUPER_ADMIN,
-            // @ts-ignore
             OrgRole.ORG_ADMIN,
         ]);
+        const normalized = this.normalizeConfigInput(data);
+
         return this.prisma.directoryConfig.upsert({
             where: { organizationId },
             create: {
                 organizationId,
-                ...data,
                 type: 'LDAP',
+                ...normalized,
             },
             update: {
-                ...data,
                 type: 'LDAP',
+                ...normalized,
             },
         });
     }
 
     async syncOrganization(organizationId: string, actorId: string) {
         await this.organizationService.checkPermission(organizationId, actorId, [
-            // @ts-ignore
             OrgRole.SUPER_ADMIN,
-            // @ts-ignore
             OrgRole.ORG_ADMIN,
         ]);
         const config = await this.prisma.directoryConfig.findUnique({

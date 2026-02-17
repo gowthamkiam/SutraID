@@ -185,6 +185,7 @@ describe('AuthService', () => {
       const result = await service.loginWithPassword(
         'test@example.com',
         'Password123!',
+        'org-1',
       );
 
       expect(result.user).toBeDefined();
@@ -209,7 +210,7 @@ describe('AuthService', () => {
       mockAuditService.log.mockResolvedValue(undefined);
 
       await expect(
-        service.loginWithPassword('test@example.com', 'WrongPassword'),
+        service.loginWithPassword('test@example.com', 'WrongPassword', 'org-1'),
       ).rejects.toThrow(UnauthorizedException);
       
       expect(auditService.log).toHaveBeenCalled();
@@ -220,7 +221,7 @@ describe('AuthService', () => {
       mockAuditService.log.mockResolvedValue(undefined);
 
       await expect(
-        service.loginWithPassword('test@example.com', 'Password123!'),
+        service.loginWithPassword('test@example.com', 'Password123!', 'org-1'),
       ).rejects.toThrow(UnauthorizedException);
       
       expect(auditService.log).toHaveBeenCalled();
@@ -235,7 +236,7 @@ describe('AuthService', () => {
       } as any);
 
       await expect(
-        service.loginWithPassword('test@example.com', 'Password123!'),
+        service.loginWithPassword('test@example.com', 'Password123!', 'org-1'),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -248,7 +249,7 @@ describe('AuthService', () => {
       } as any);
 
       await expect(
-        service.loginWithPassword('test@example.com', 'Password123!'),
+        service.loginWithPassword('test@example.com', 'Password123!', 'org-1'),
       ).rejects.toThrow(BadRequestException);
     });
   });

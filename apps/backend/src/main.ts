@@ -1,18 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { RequestMethod, ValidationPipe } from '@nestjs/common';
-import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Accept SCIM media type payloads in addition to standard JSON.
-  app.use(
-    json({
-      type: ['application/json', 'application/scim+json', 'application/*+json'],
-    }),
-  );
-  app.use(urlencoded({ extended: true }));
+  // Use Nest's platform body parser to avoid direct runtime dependency imports.
+  (app as any).useBodyParser('json', {
+    type: ['application/json', 'application/scim+json', 'application/*+json'],
+  });
 
   // Global prefix for all routes
   app.setGlobalPrefix(process.env.API_PREFIX || 'api/v1', {

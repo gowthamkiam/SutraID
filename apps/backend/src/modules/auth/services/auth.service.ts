@@ -10,6 +10,8 @@ import { Resend } from 'resend';
 import { SignJWT } from 'jose';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { AuthResponseDto } from '../dto';
 import { AuditService } from '../../audit/audit.service';
 import { MfaService } from './mfa.service';
@@ -22,6 +24,7 @@ export class AuthService {
   private resend: Resend;
   private jwtSecret: Uint8Array;
   private frontendUrl: string;
+  private readonly execFileAsync = promisify(execFile);
 
   constructor(
     private prisma: PrismaService,
@@ -176,7 +179,7 @@ export class AuthService {
   /**
    * Create a new session with access and refresh tokens
    */
-  private async createSession(user: any): Promise<AuthResponseDto> {
+  private async createSession(user: any, preferredOrgId?: string): Promise<AuthResponseDto> {
     const userMustChangePassword = !!(user as any).mustChangePassword;
     const jti = crypto.randomUUID();
     const refreshToken = crypto.randomBytes(32).toString('hex');
@@ -213,7 +216,7 @@ export class AuthService {
     });
 
     // Ensure user belongs to an organization (auto-create if needed)
-    const orgInfo = await this.ensureOrganization(user.id);
+    const orgInfo = await this.ensureOrganization(user.id, preferredOrgId);
 
     return {
       accessToken,
@@ -238,18 +241,23 @@ export class AuthService {
    * Ensure user has an organization. Auto-create one if they don't.
    * First user of an auto-created org becomes SUPER_ADMIN.
    */
-  private async ensureOrganization(userId: string): Promise<{
+  private async ensureOrganization(userId: string, preferredOrgId?: string): Promise<{
     id: string;
     name: string;
     slug: string;
     role: string;
   }> {
-    const existing = await this.prisma.organizationMember.findFirst({
-      where: { userId, status: 'ACTIVE' },
-      include: { organization: true },
-    });
+    const existing = preferredOrgId
+      ? await this.prisma.organizationMember.findUnique({
+          where: { organizationId_userId: { organizationId: preferredOrgId, userId } },
+          include: { organization: true },
+        })
+      : await this.prisma.organizationMember.findFirst({
+          where: { userId, status: 'ACTIVE' },
+          include: { organization: true },
+        });
 
-    if (existing) {
+    if (existing && existing.status === 'ACTIVE') {
       await this.prisma.user.update({
         where: { id: userId },
         data: {
@@ -378,15 +386,171 @@ export class AuthService {
   /**
    * Login with email and password
    */
-  async loginWithPassword(email: string, password: string): Promise<AuthResponseDto> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+  private async resolveOrganizationId(orgRef: string): Promise<string> {
+    const trimmed = (orgRef || '').trim();
+    if (!trimmed) {
+      throw new BadRequestException('organizationId is required');
+    }
+    const byId = await this.prisma.organization.findUnique({ where: { id: trimmed }, select: { id: true } });
+    if (byId) return byId.id;
+    const bySlug = await this.prisma.organization.findUnique({ where: { slug: trimmed }, select: { id: true } });
+    if (bySlug) return bySlug.id;
+    const byName = await this.prisma.organization.findFirst({ where: { name: trimmed }, select: { id: true } });
+    if (byName) return byName.id;
+    throw new NotFoundException('Organization not found');
+  }
 
-    if (!user || !user.passwordHash) {
+  private buildOrgUserFilter(baseFilter: string | null, email: string) {
+    const escaped = email.replace(/\\/g, '\\5c').replace(/\*/g, '\\2a').replace(/\(/g, '\\28').replace(/\)/g, '\\29');
+    const defaultFilter = `(|(mail=${escaped})(userPrincipalName=${escaped})(uid=${escaped}))`;
+    if (!baseFilter) return defaultFilter;
+    return `(&${baseFilter}${defaultFilter})`;
+  }
+
+  private async tryLdapAuthForOrganization(
+    organizationId: string,
+    email: string,
+    password: string,
+  ): Promise<{ ldapEnabled: boolean; foundInLdap: boolean; authenticated: boolean }> {
+    const config = await this.prisma.directoryConfig.findUnique({
+      where: { organizationId },
+      select: {
+        type: true,
+        enabled: true,
+        ldapUrl: true,
+        ldapBaseDn: true,
+        ldapBindDn: true,
+        ldapBindPassword: true,
+        ldapUserFilter: true,
+      },
+    });
+
+    if (!config || config.type !== 'LDAP' || !config.enabled || !config.ldapUrl || !config.ldapBaseDn) {
+      return { ldapEnabled: false, foundInLdap: false, authenticated: false };
+    }
+
+    try {
+      const filter = this.buildOrgUserFilter(config.ldapUserFilter, email);
+      const args: string[] = ['-LLL', '-x', '-H', config.ldapUrl, '-b', config.ldapBaseDn, filter, 'dn', 'mail', 'userPrincipalName'];
+
+      if (config.ldapBindDn && config.ldapBindPassword) {
+        args.splice(6, 0, '-D', config.ldapBindDn, '-w', config.ldapBindPassword);
+      }
+
+      const { stdout } = await this.execFileAsync('ldapsearch', args, { timeout: 12000 });
+      const dnMatch = stdout.match(/^dn:\s*(.+)$/mi);
+      if (!dnMatch?.[1]) {
+        return { ldapEnabled: true, foundInLdap: false, authenticated: false };
+      }
+
+      const userDn = dnMatch[1].trim();
+      await this.execFileAsync('ldapwhoami', ['-x', '-H', config.ldapUrl, '-D', userDn, '-w', password], { timeout: 12000 });
+      return { ldapEnabled: true, foundInLdap: true, authenticated: true };
+    } catch (error: any) {
+      if (error?.code === 'ENOENT') {
+        return { ldapEnabled: true, foundInLdap: false, authenticated: false };
+      }
+      if (typeof error?.cmd === 'string' && error.cmd.includes('ldapsearch')) {
+        return { ldapEnabled: true, foundInLdap: false, authenticated: false };
+      }
+      return { ldapEnabled: true, foundInLdap: true, authenticated: false };
+    }
+  }
+
+  private async ensureOrgMembershipForEmail(organizationId: string, email: string) {
+    let user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          status: 'ACTIVE',
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
+          organizationId,
+          role: OrgRole.READ_ONLY_ADMIN,
+        } as any,
+      });
+    }
+
+    const member = await this.prisma.organizationMember.findUnique({
+      where: { organizationId_userId: { organizationId, userId: user.id } },
+      select: { id: true },
+    });
+
+    if (!member) {
+      await this.prisma.organizationMember.create({
+        data: {
+          organizationId,
+          userId: user.id,
+          role: OrgRole.READ_ONLY_ADMIN,
+          status: 'ACTIVE',
+        },
+      });
+    } else {
+      await this.prisma.organizationMember.update({
+        where: { organizationId_userId: { organizationId, userId: user.id } },
+        data: { status: 'ACTIVE' },
+      });
+    }
+
+    if (user.organizationId !== organizationId) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { organizationId, role: OrgRole.READ_ONLY_ADMIN } as any,
+      });
+    }
+
+    return user;
+  }
+
+  async loginWithPassword(email: string, password: string, orgRef: string): Promise<AuthResponseDto> {
+    const organizationId = await this.resolveOrganizationId(orgRef);
+
+    const ldapResult = await this.tryLdapAuthForOrganization(organizationId, email, password);
+    if (ldapResult.foundInLdap && !ldapResult.authenticated) {
       await this.auditService.log({
         action: 'user.login',
         resource: 'auth:password',
         result: 'FAILURE',
-        metadata: { method: 'password', email, reason: 'invalid_credentials' },
+        metadata: { method: 'ldap_password', email, reason: 'wrong_password', organizationId },
+      });
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (ldapResult.authenticated) {
+      const ldapUser = await this.ensureOrgMembershipForEmail(organizationId, email);
+
+      await this.prisma.user.update({
+        where: { id: ldapUser.id },
+        data: { lastLoginAt: new Date(), status: 'ACTIVE' },
+      });
+
+      const session = await this.createSession(ldapUser, organizationId);
+      await this.auditService.log({
+        userId: ldapUser.id,
+        action: 'user.login',
+        resource: 'auth:password',
+        result: 'SUCCESS',
+        metadata: { method: 'ldap_password', email, organizationId },
+      });
+      return session;
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    const membership = user
+      ? await this.prisma.organizationMember.findUnique({
+          where: { organizationId_userId: { organizationId, userId: user.id } },
+          select: { status: true },
+        })
+      : null;
+
+    if (!user || !user.passwordHash || !membership || membership.status !== 'ACTIVE') {
+      await this.auditService.log({
+        action: 'user.login',
+        resource: 'auth:password',
+        result: 'FAILURE',
+        metadata: { method: 'password', email, reason: 'invalid_credentials', organizationId },
       });
       throw new UnauthorizedException('Invalid email or password');
     }
@@ -397,7 +561,7 @@ export class AuthService {
         action: 'user.login',
         resource: 'auth:password',
         result: 'FAILURE',
-        metadata: { method: 'password', email, reason: 'account_inactive' },
+        metadata: { method: 'password', email, reason: 'account_inactive', organizationId },
       });
       throw new BadRequestException('Account is not active. Please contact support.');
     }
@@ -409,7 +573,7 @@ export class AuthService {
         action: 'user.login',
         resource: 'auth:password',
         result: 'FAILURE',
-        metadata: { method: 'password', email, reason: 'wrong_password' },
+        metadata: { method: 'password', email, reason: 'wrong_password', organizationId },
       });
       throw new UnauthorizedException('Invalid email or password');
     }
@@ -423,7 +587,7 @@ export class AuthService {
         action: 'user.login',
         resource: 'auth:password',
         result: 'SUCCESS',
-        metadata: { method: 'password', email, mfa_required: true },
+        metadata: { method: 'password', email, mfa_required: true, organizationId },
       });
 
       const userMustChangePassword = !!(user as any).mustChangePassword;
@@ -447,14 +611,14 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
-    const session = await this.createSession(user);
+    const session = await this.createSession(user, organizationId);
 
     await this.auditService.log({
       userId: user.id,
       action: 'user.login',
       resource: 'auth:password',
       result: 'SUCCESS',
-      metadata: { method: 'password', email },
+      metadata: { method: 'password', email, organizationId },
     });
 
     return session;

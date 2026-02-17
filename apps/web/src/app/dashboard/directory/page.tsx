@@ -53,6 +53,29 @@ export default function DirectoryPage() {
         loadOrg();
     }, []);
 
+    useEffect(() => {
+        const loadLdapConfig = async () => {
+            if (!orgId) return;
+            try {
+                const config = await directoryApi.getConfig(orgId);
+                if (config) {
+                    setLdapConfig({
+                        url: config.url || '',
+                        baseDn: config.baseDn || '',
+                        bindDn: config.bindDn || '',
+                        bindPassword: config.bindPassword || '',
+                        userFilter: config.userFilter || '(objectClass=user)',
+                        groupFilter: config.groupFilter || '(objectClass=group)',
+                    });
+                }
+            } catch {
+                // Keep defaults if config isn't available.
+            }
+        };
+
+        loadLdapConfig();
+    }, [orgId]);
+
     const getPublicApiBaseUrl = () => {
         const configured = process.env.NEXT_PUBLIC_API_URL || 'https://api.sutraid.com/api/v1';
         return configured.replace(/\/api\/v1\/?$/, '');

@@ -1,4 +1,4 @@
-import { Controller, Post, Param, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards, Req } from '@nestjs/common';
 import { LDAPService } from '../services/ldap.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
@@ -6,6 +6,11 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 export class LDAPController {
     constructor(private ldapService: LDAPService) { }
+
+    @Get('config')
+    async getConfig(@Param('orgId') orgId: string, @Req() req: any) {
+        return this.ldapService.getConfig(orgId, req.user.id);
+    }
 
     @Post('sync')
     async triggerSync(@Param('orgId') orgId: string, @Req() req: any) {
