@@ -4,3 +4,9 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+[[redirects]]
+  from = "https://sutraid.netlify.app/*"
+  to = "https://sutraid.com/:splat"
+  status = 301
+  force = true
