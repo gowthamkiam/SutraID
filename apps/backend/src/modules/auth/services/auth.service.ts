@@ -250,6 +250,13 @@ export class AuthService {
     });
 
     if (existing) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          organizationId: existing.organization.id,
+          role: existing.role as any,
+        } as any,
+      });
       return {
         id: existing.organization.id,
         name: existing.organization.name,
@@ -291,6 +298,14 @@ export class AuthService {
           });
 
           return createdOrg;
+        });
+
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: {
+            organizationId: org.id,
+            role: OrgRole.SUPER_ADMIN,
+          } as any,
         });
 
         return {

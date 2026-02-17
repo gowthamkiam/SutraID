@@ -36,7 +36,7 @@ export default function SettingsPage() {
     }
   }, []);
 
-  const canEdit = role !== 'READ_ONLY_ADMIN';
+  const canEdit = role === 'SUPER_ADMIN';
 
   useEffect(() => {
     const load = async () => {
@@ -62,6 +62,10 @@ export default function SettingsPage() {
   };
 
   const save = async () => {
+    if (!canEdit) {
+      setError('Only SUPER_ADMIN can update organization settings.');
+      return;
+    }
     setSaving(true);
     setError('');
     setMessage('');
@@ -88,10 +92,10 @@ export default function SettingsPage() {
     <div style={{ display: 'grid', gap: '1rem' }}>
       <header
         style={{
-          border: '1px solid #e2e8f0',
+          border: '1px solid var(--border-color)',
           borderRadius: 14,
           padding: '1rem 1.2rem',
-          background: '#fff',
+          background: 'var(--bg-card)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -99,7 +103,7 @@ export default function SettingsPage() {
       >
         <div>
           <h1 style={{ margin: 0, fontSize: '1.7rem' }}>Settings</h1>
-          <div style={{ color: '#64748b', marginTop: 4 }}>Enterprise company settings</div>
+          <div style={{ color: 'var(--text-secondary)', marginTop: 4 }}>Enterprise company settings</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {role === 'SUPER_ADMIN' ? <span style={superAdminBadge}>SUPER ADMIN</span> : null}
@@ -113,7 +117,7 @@ export default function SettingsPage() {
       {message ? <div style={successStyle}>{message}</div> : null}
 
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '1rem' }}>
-        <aside style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '0.5rem' }}>
+        <aside style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 14, padding: '0.5rem' }}>
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -124,8 +128,8 @@ export default function SettingsPage() {
                 border: 'none',
                 borderRadius: 10,
                 marginBottom: 4,
-                background: activeTab === tab.key ? '#dbeafe' : 'transparent',
-                color: activeTab === tab.key ? '#1d4ed8' : '#0f172a',
+                background: activeTab === tab.key ? 'color-mix(in srgb, var(--accent-primary) 24%, var(--bg-card))' : 'transparent',
+                color: activeTab === tab.key ? '#bfdbfe' : 'var(--text-primary)',
                 fontWeight: 600,
                 padding: '0.65rem 0.7rem',
                 cursor: 'pointer',
@@ -136,7 +140,7 @@ export default function SettingsPage() {
           ))}
         </aside>
 
-        <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1.1rem' }}>
+        <section style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 14, padding: '1.1rem' }}>
           {activeTab === 'organization_info' ? (
             <div style={sectionGrid}>
               <h2 style={h2}>Organization Info</h2>
@@ -262,8 +266,8 @@ export default function SettingsPage() {
 }
 
 const btnPrimary: React.CSSProperties = {
-  background: '#1d4ed8',
-  color: '#fff',
+  background: 'var(--btn-primary-bg)',
+  color: 'var(--btn-primary-text)',
   border: 'none',
   borderRadius: 10,
   padding: '0.55rem 1rem',
@@ -271,9 +275,9 @@ const btnPrimary: React.CSSProperties = {
 };
 
 const superAdminBadge: React.CSSProperties = {
-  background: '#dbeafe',
-  color: '#1e40af',
-  border: '1px solid #bfdbfe',
+  background: 'rgba(34, 211, 238, 0.18)',
+  color: '#67e8f9',
+  border: '1px solid rgba(34, 211, 238, 0.35)',
   fontWeight: 700,
   borderRadius: 999,
   padding: '0.25rem 0.7rem',
@@ -292,27 +296,29 @@ const h2: React.CSSProperties = {
 
 const label: React.CSSProperties = {
   fontSize: '0.85rem',
-  color: '#475569',
+  color: 'var(--text-secondary)',
 };
 
 const inputStyle: React.CSSProperties = {
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-input)',
   borderRadius: 8,
   padding: '0.55rem 0.7rem',
+  background: 'var(--bg-input)',
+  color: 'var(--text-primary)',
 };
 
 const errorStyle: React.CSSProperties = {
-  background: '#fee2e2',
-  border: '1px solid #fecaca',
-  color: '#991b1b',
+  background: 'var(--error-bg)',
+  border: '1px solid var(--error-border)',
+  color: 'var(--error-text)',
   padding: '0.55rem 0.75rem',
   borderRadius: 8,
 };
 
 const successStyle: React.CSSProperties = {
-  background: '#dcfce7',
-  border: '1px solid #bbf7d0',
-  color: '#166534',
+  background: 'var(--success-bg)',
+  border: '1px solid var(--success-border)',
+  color: 'var(--success-text)',
   padding: '0.55rem 0.75rem',
   borderRadius: 8,
 };

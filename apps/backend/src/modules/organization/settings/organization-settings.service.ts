@@ -29,7 +29,6 @@ export class OrganizationSettingsService {
   async update(orgId: string, actorId: string, key: string, value: string) {
     await this.organizationService.checkPermission(orgId, actorId, [
       OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
     ]);
 
     return this.prisma.organizationSetting.upsert({
@@ -55,7 +54,6 @@ export class OrganizationSettingsService {
   async updateBatch(orgId: string, actorId: string, settings: Record<string, string>) {
     await this.organizationService.checkPermission(orgId, actorId, [
       OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
     ]);
 
     const operations = Object.entries(settings).map(([key, value]) =>
@@ -122,7 +120,6 @@ export class OrganizationSettingsService {
   ) {
     await this.organizationService.checkPermission(orgId, actorId, [
       OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
     ]);
 
     if (!payload.name && !payload.settings) {

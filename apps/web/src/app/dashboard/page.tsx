@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useMemo } from 'react';
+import { OrgRole, roleVisibleTabs } from '@/lib/api';
 
 type StatCard = {
   label: string;
@@ -11,6 +13,7 @@ type StatCard = {
 };
 
 type QuickAction = {
+  key: string;
   title: string;
   description: string;
   icon: string;
@@ -34,6 +37,7 @@ const stats: StatCard[] = [
 
 const quickActions: QuickAction[] = [
   {
+    key: 'api-access',
     title: 'SSO Providers',
     description: 'Manage SAML and OIDC integrations',
     icon: '🔐',
@@ -41,6 +45,7 @@ const quickActions: QuickAction[] = [
     color: '#6366f1',
   },
   {
+    key: 'applications',
     title: 'Applications',
     description: 'Configure your applications',
     icon: '📱',
@@ -48,6 +53,7 @@ const quickActions: QuickAction[] = [
     color: '#8b5cf6',
   },
   {
+    key: 'users',
     title: 'Users',
     description: 'Manage user accounts',
     icon: '👤',
@@ -55,6 +61,7 @@ const quickActions: QuickAction[] = [
     color: '#ec4899',
   },
   {
+    key: 'applications',
     title: 'Authentication',
     description: 'Configure auth methods',
     icon: '🔑',
@@ -62,6 +69,7 @@ const quickActions: QuickAction[] = [
     color: '#f59e0b',
   },
   {
+    key: 'reports',
     title: 'Policies',
     description: 'Authorization rules and access control',
     icon: '📋',
@@ -69,6 +77,7 @@ const quickActions: QuickAction[] = [
     color: '#0ea5e9',
   },
   {
+    key: 'reports',
     title: 'Audit Logs',
     description: 'View security events',
     icon: '📜',
@@ -76,6 +85,7 @@ const quickActions: QuickAction[] = [
     color: '#10b981',
   },
   {
+    key: 'settings',
     title: 'Settings',
     description: 'Organization settings',
     icon: '⚙️',
@@ -92,6 +102,20 @@ const recentActivity: Activity[] = [
 ];
 
 export default function DashboardPage() {
+  const role = useMemo(() => {
+    if (typeof window === 'undefined') return 'READ_ONLY_ADMIN' as OrgRole;
+    try {
+      const raw = localStorage.getItem('user');
+      if (!raw) return 'READ_ONLY_ADMIN' as OrgRole;
+      return (JSON.parse(raw).role || 'READ_ONLY_ADMIN') as OrgRole;
+    } catch {
+      return 'READ_ONLY_ADMIN' as OrgRole;
+    }
+  }, []);
+
+  const visibleKeys = new Set(roleVisibleTabs[role] || roleVisibleTabs.READ_ONLY_ADMIN);
+  const visibleQuickActions = quickActions.filter((action) => visibleKeys.has(action.key));
+
   return (
     <div>
       <div style={{ marginBottom: '2rem' }}>
@@ -150,7 +174,7 @@ export default function DashboardPage() {
             gap: '1rem',
           }}
         >
-          {quickActions.map((action) => (
+          {visibleQuickActions.map((action) => (
             <Link
               key={action.href}
               href={action.href}

@@ -12,29 +12,29 @@ export const PERMISSION_MATRIX: Record<string, string[]> = {
     'policies:*', 'audit:read', 'directory:*', 'settings:*',
   ],
   [OrgRole.APP_ADMIN]: [
-    'apps:*', 'sso:*',
+    'apps:*', 'sso:*', 'org:read', 'settings:read',
   ],
   [OrgRole.USER_ADMIN]: [
-    'users:*', 'groups:read',
+    'users:*', 'groups:read', 'org:read', 'settings:read',
   ],
   [OrgRole.GROUP_MEMBERSHIP_ADMIN]: [
-    'groups:*', 'users:read',
+    'groups:*', 'users:read', 'org:read', 'settings:read',
   ],
   [OrgRole.HELP_DESK_ADMIN]: [
-    'users:read', 'users:update',
+    'users:read', 'users:update', 'org:read', 'settings:read',
   ],
   [OrgRole.MOBILE_ADMIN]: [
-    'apps:read', 'apps:update',
+    'apps:read', 'apps:update', 'org:read', 'settings:read',
   ],
   [OrgRole.READ_ONLY_ADMIN]: [
     'users:read', 'groups:read', 'apps:read', 'org:read',
     'audit:read', 'policies:read', 'settings:read',
   ],
   [OrgRole.REPORT_ADMIN]: [
-    'audit:*', 'users:read', 'apps:read',
+    'audit:*', 'users:read', 'apps:read', 'org:read', 'settings:read',
   ],
   [OrgRole.API_ACCESS_MANAGEMENT_ADMIN]: [
-    'apps:*', 'sso:*', 'directory:*',
+    'apps:*', 'sso:*', 'directory:*', 'org:read', 'settings:read',
   ],
 };
 

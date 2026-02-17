@@ -214,6 +214,14 @@ export class UsersService {
       },
     });
 
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        organizationId: orgId,
+        role: targetRole,
+      } as any,
+    });
+
     if (dto.groupIds?.length) {
       await this.assignGroups(orgId, user.id, dto.groupIds);
     }
