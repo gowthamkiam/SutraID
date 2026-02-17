@@ -353,7 +353,7 @@ model OrganizationMember {
 }
 
 enum OrgRole {
-  SUPER_ADMIN                   // Full control, billing, delete org
+  SUPER_ADMIN                   // Full control, can delete org
   ORG_ADMIN                     // Manage members, apps, policies
   APP_ADMIN                     // Manage apps and integrations
   USER_ADMIN                    // Manage users

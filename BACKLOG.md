@@ -2,6 +2,47 @@
 
 ## Pending
 
+### 0. One-Command Bootstrap Deployment
+**Status:** Planned  
+**Priority:** High  
+**Description:** Provide a single command that bootstraps a full demo/development environment for SutraID, including backend on Railway, database on Neon, and frontend on Netlify, wired together with the correct environment variables.
+
+**Scope:**
+- **Backend (Railway)**:
+  - Create or reuse a Railway project for `apps/backend`
+  - Provision environment variables: `DATABASE_URL`, `DIRECT_DATABASE_URL`, `JWT_SECRET`, `ENCRYPTION_KEY`, `RESEND_API_KEY`, `FRONTEND_URL`, `MAGIC_LINK_BASE_URL`
+  - Run Prisma migrations automatically on first deploy
+- **Database (Neon)**:
+  - Create a Neon project and database
+  - Generate Neon connection strings for `DATABASE_URL` and `DIRECT_DATABASE_URL`
+  - Optionally seed initial demo data
+- **Frontend (Netlify)**:
+  - Create or reuse a Netlify site for `apps/web`
+  - Configure `NEXT_PUBLIC_API_URL` pointing at the Railway backend
+  - Build and deploy the Next.js app
+
+**Design Notes:**
+- Implement as a set of idempotent scripts under `scripts/` (e.g. `bootstrap.sh`) that:
+  - Validate required CLIs (`railway`, `netlify`, optional `neonctl` or manual step prompts)
+  - Guide the user through authentication if needed
+  - Export the final set of environment variables to `.env` and provider-specific dashboards
+- Must avoid storing or echoing secrets into git; all credentials remain in:
+  - Local `.env` (gitignored)
+  - Railway / Netlify / Neon secret management
+
+**High-Level Flow:**
+1. Check for required CLIs and logins.
+2. Provision or select a Neon database and capture connection strings.
+3. Create/attach Railway backend service and inject DB + app secrets.
+4. Deploy backend and wait for a healthy URL.
+5. Create/attach Netlify site, set `NEXT_PUBLIC_API_URL`, and deploy frontend.
+6. Print a summary with:
+   - Backend URL
+   - Frontend URL
+   - Where secrets are stored and how to rotate them.
+
+---
+
 ### 1. Cloud Deployment (Netlify + Railway)
 **Priority:** High
 **Description:** Deploy frontend to Netlify and backend to Railway.
@@ -367,6 +408,43 @@ Epic 7 (Admin Users, parallel with 6) → Epic 8 (Health) → Epic 9 (Testing)
 **New directories to create:**
 - `apps/admin/` — entire new Next.js app
 - `apps/backend/src/modules/admin/` — entire new backend module group
+
+---
+
+### 4. API Developer Documentation Portal
+**Priority:** High (Complete)
+**Description:** Comprehensive, Okta-style API developer documentation portal at `/docs` with full coverage of all 110 backend API endpoints.
+
+**Features:**
+- Data-driven architecture: TypeScript endpoint definitions rendered by reusable components
+- All 110 endpoints documented with tabular parameter descriptions, response fields, and response samples
+- Code samples in 6 languages per endpoint: cURL, Python, Node.js, Java, Go, PHP
+- Two-column layout (Stripe/Okta style): parameters left, sticky code samples right
+- Dark/light theme support using existing CSS variable system
+- Collapsible endpoint blocks for easy navigation
+- Responsive design (two-column collapses to single column on mobile)
+- Dedicated sidebar with collapsible API Reference section
+- Guide pages: Getting Started, Authentication Concepts, Error Handling
+
+**File Structure:**
+- `apps/web/src/app/docs/` — 16 pages (landing, 3 guides, 11 API reference pages)
+- `apps/web/src/app/docs/api-data/` — 12 data files (types + 11 module definitions)
+- `apps/web/src/components/docs/` — 6 reusable components (DocsNavbar, DocsSidebar, EndpointBlock, ParameterTable, CodeBlock, MethodBadge)
+
+**API Sections Covered:**
+1. Authentication & MFA (18 endpoints)
+2. Organizations & Settings (10 endpoints)
+3. Users (6 endpoints)
+4. Groups (6 endpoints)
+5. Applications (15 endpoints)
+6. SSO (12 endpoints)
+7. OIDC Provider (9 endpoints)
+8. SAML Provider (3 endpoints)
+9. Audit Logs (2 endpoints)
+10. Policies (8 endpoints)
+11. Directory — SCIM & LDAP (18+ endpoints)
+
+**Status:** Implementation complete. Navbar "Developers" link and Footer links updated to point to `/docs`.
 
 ---
 

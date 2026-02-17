@@ -1,106 +1,365 @@
 # SutraID
 
-> **The only CIAM platform built for both humans AND AI agents**
+## Overview
 
-**AI-Native Authentication** | **$0/month FREE tier** | **Enterprise-ready Security**
+**SutraID** is an **AI-native Customer Identity and Access Management (CIAM) platform** you can self-host.  
+It is designed to authenticate and authorize both **human users** and **AI agents** with modern protocols and strong security defaults.
 
----
+- **Problem it solves**: Unifies identity for:
+  - Human users (workforce, customers)
+  - AI agents, bots, and service accounts
+  - Modern applications using OAuth 2.1, OIDC, SAML, and API tokens
+- **Who it’s for**: Teams building SaaS products, internal tools, and AI-powered systems that need robust, extensible authentication and authorization.
 
-## What is SutraID?
+### Architecture Overview
 
-SutraID is a next-generation Customer Identity and Access Management (CIAM) platform designed for the AI era. While traditional auth platforms (Auth0, Clerk, Okta) only support human users, **SutraID provides first-class support for both human users AND AI agents**.
-
-
-### Key Features
-
-**For Humans:**
-- Passwordless authentication (magic links, email OTP)
-- Social login (Google, GitHub, Microsoft)
-- Multi-factor authentication (TOTP, SMS)
-- No-code admin dashboard
-
-**For AI Agents (Unique!):**
-- Non-human identity support (MCP servers, bots, service accounts)
-- Token delegation chains (agent -> agent -> service)
-- OAuth 2.1 with PKCE, DCR, and PRM
-- Runtime auditing of agent behavior
-- MCP (Model Context Protocol) server discovery
+- **Backend (`apps/backend`)**
+  - NestJS + TypeScript
+  - Prisma ORM + PostgreSQL
+  - Auth flows: passwordless, passwords, SSO, MFA
+  - Policy engine, audit logging, multi-tenancy
+- **Frontend (`apps/web`)**
+  - Next.js 15 + React
+  - Admin / developer dashboard
+  - API documentation at `/docs`
+- **Shared**
+  - TypeScript types in `packages/shared-types`
+  - Monorepo managed by PNPM + Turbo
 
 ### Tech Stack
 
-- **Backend**: NestJS + TypeScript + Prisma + PostgreSQL
-- **Frontend**: Next.js 15 + React + TypeScript + Tailwind CSS
-- **Infrastructure**: 100% FREE tier (Neon.tech, Upstash, Resend, Netlify, Railway)
+- **Language**: TypeScript
+- **Backend**: NestJS, Prisma, PostgreSQL
+- **Frontend**: Next.js 15, React
+- **Tooling**: PNPM, Turbo, ESLint, Prettier
+- **Optional Infra**: Railway (backend), Neon (Postgres), Netlify (frontend)
 
 ---
 
-## Quick Start
+## Features (non-billing)
 
-### Prerequisites
+- **Authentication**
+  - Passwordless login (magic links, email-based)
+  - Classic username/password with secure hashing (bcrypt)
+  - Session management with short-lived access tokens and refresh tokens
+- **Multi-Factor Authentication (MFA)**
+  - TOTP-based MFA
+  - Backup codes
+- **Single Sign-On (SSO)**
+  - SAML 2.0 and OpenID Connect (OIDC) identity providers
+  - Configurable attribute mapping
+- **Multi-Tenancy**
+  - Organizations with roles and membership
+  - Per-tenant policies and settings
+- **AI Agent Support**
+  - Non-human identities for agents and services
+  - Scopes and policies for agent actions
+- **Policy & Audit**
+  - Policy engine for authorization decisions
+  - Audit logging for auth and policy events
+- **Developer Experience**
+  - REST API with 100+ documented endpoints
+  - Documentation portal at `/docs`
 
-- Node.js 20+
-- pnpm 8+
-- (Optional) Docker Desktop
+> **Note:** All billing, pricing tables, and subscription dashboards have been removed from this open-source version. You are free to add your own billing layer on top if needed.
 
-### Installation
+---
+
+## Architecture Diagram (ASCII)
+
+```text
+                +---------------------------+
+                |        Frontend (web)    |
+                |  Next.js Admin Dashboard |
+                |  - Login / Onboarding    |
+   Browser  --> |  - Org & User Management |
+                |  - API Docs (/docs)      |
+                +------------+-------------+
+                             |
+                             | HTTPS (REST + JSON)
+                             v
+                 +-----------+------------+
+                 |      Backend API       |
+                 |   NestJS + Prisma      |
+                 |                        |
+                 |  Auth Modules:         |
+                 |  - Magic link, MFA     |
+                 |  - SSO (SAML, OIDC)    |
+                 |                        |
+                 |  Domain Modules:       |
+                 |  - Organizations       |
+                 |  - Users & Groups      |
+                 |  - Applications & SSO  |
+                 |  - Policies & Audit    |
+                 +-----------+------------+
+                             |
+                             | Prisma (SQL)
+                             v
+                 +-----------+------------+
+                 |     PostgreSQL (DB)    |
+                 |  Local or Neon-hosted  |
+                 +------------------------+
+```
+
+---
+
+## Prerequisites
+
+- **Node.js**: 20+
+- **PNPM**: 8+
+- **Docker**: 24+ (for Docker-based workflow)
+- **PostgreSQL**: 15+ (if not using Docker)
+- **Railway CLI (optional)**: for backend deployment
+- **Netlify CLI (optional)**: for frontend deployment
+
+---
+
+## Installation (Local Development)
+
+### 1. Clone the Repository
 
 ```bash
-# Clone repository
-git clone https://gitlab.com/sutraid/sutraid_app.git
-cd sutraid_app
+git clone https://github.com/gowthamkiam/SutraID.git
+cd SutraID
+```
 
-# Install dependencies
+### 2. Copy Environment Templates
+
+Root environment (used by Docker and local tools):
+
+```bash
+cp .env.example .env
+```
+
+Backend-specific env (optional; mirrors `.env.example` in `apps/backend`):
+
+```bash
+cp apps/backend/.env.example apps/backend/.env
+```
+
+Frontend-specific env:
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+```
+
+Fill in the placeholders with **non-production** values for local usage.  
+Do **not** commit `.env` or any real secrets.
+
+### 3. Install Dependencies
+
+```bash
 pnpm install
+```
 
-# Start development servers
+### 4. Run Database Migrations
+
+Make sure PostgreSQL is running and `DATABASE_URL` points to it (see `.env.example`).
+
+```bash
+cd apps/backend
+pnpm prisma:migrate
+```
+
+This will create the schema and (optionally) seed initial data.
+
+### 5. Start Backend
+
+From `apps/backend`:
+
+```bash
 pnpm dev
 ```
 
-The backend will run on `http://localhost:3000` and the frontend on `http://localhost:3001`.
+The backend runs on `http://localhost:3000` by default.
 
----
+### 6. Start Frontend
 
-## Project Structure
+In a separate terminal, from `apps/web`:
 
-```
-sutraid/
-├── apps/
-│   ├── backend/          # NestJS API server
-│   └── web/              # Next.js admin dashboard
-├── packages/
-│   └── shared-types/     # Shared TypeScript types
-├── scripts/              # Utility scripts
-└── docs/                 # Documentation
+```bash
+pnpm dev
 ```
 
----
-
-## Development
-
-- `pnpm dev` - Start all apps in development mode
-- `pnpm build` - Build all apps for production
-- `pnpm test` - Run tests across all packages
-- `pnpm lint` - Lint all code
-- `pnpm format` - Format code with Prettier
+The frontend runs on `http://localhost:3001`.
 
 ---
 
-## Cost: $0/month
+## Running with Docker
 
-This demo runs entirely on FREE tiers:
-- **Database**: Neon.tech (0.5GB)
-- **Cache**: Upstash Redis (10K commands/day)
-- **Email**: Resend (3K emails/month)
-- **Hosting**: Netlify (frontend) + Railway (backend)
+The repository includes a **multi-stage `Dockerfile`** and **`docker-compose.yml`** that run:
 
-**Capacity**: 100-500 concurrent users, 10K auth requests/day
+- `db`: PostgreSQL 16
+- `backend`: NestJS API (apps/backend)
+- `web`: Next.js dashboard (apps/web)
+
+### 1. Prepare `.env`
+
+Ensure you have a root `.env` file based on `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+For the default compose setup, these values are commonly used:
+
+- `POSTGRES_DB=sutraid`
+- `POSTGRES_USER=sutraid`
+- `POSTGRES_PASSWORD=change_me`
+- `DATABASE_URL=postgresql://sutraid:change_me@db:5432/sutraid`
+
+### 2. Start the Stack
+
+```bash
+docker-compose up --build
+```
+
+This will:
+
+- Build backend and frontend images from `Dockerfile`
+- Start Postgres as `db`
+- Run `prisma migrate deploy` on the backend container
+
+Services:
+
+- Backend: `http://localhost:3000`
+- Frontend: `http://localhost:3001`
+
+To stop:
+
+```bash
+docker-compose down
+```
+
+---
+
+## Environment Variables Explained
+
+The main template is in `.env.example`. Key variables:
+
+| Variable              | Required | Description                                              | Example                                                          |
+|-----------------------|----------|----------------------------------------------------------|------------------------------------------------------------------|
+| `NODE_ENV`            | Yes      | Node environment (`development`/`production`)           | `development`                                                    |
+| `DATABASE_URL`        | Yes      | Prisma connection string for PostgreSQL                 | `postgresql://sutraid:change_me@localhost:5432/sutraid`         |
+| `DIRECT_DATABASE_URL` | No       | Direct connection string (e.g. Neon primary host)       | `postgresql://user:pass@neon-host.neon.tech/db?sslmode=require` |
+| `JWT_SECRET`          | Yes      | Secret used to sign JWTs                                | `your_jwt_secret_here`                                          |
+| `JWT_EXPIRES_IN`      | Yes      | JWT access token lifetime                               | `15m`                                                            |
+| `JWT_REFRESH_EXPIRES_IN` | Yes   | Refresh token lifetime                                  | `30d`                                                            |
+| `RESEND_API_KEY`      | No       | Email provider API key (for magic links)                | `re_your_api_key_here`                                          |
+| `EMAIL_FROM`          | No       | From address for outbound emails                        | `noreply@example.com`                                           |
+| `FRONTEND_URL`        | Yes      | Base URL for frontend (used for CORS & links)          | `http://localhost:3001`                                         |
+| `ADMIN_DASHBOARD_URL` | No       | Admin dashboard URL (often same as FRONTEND_URL)        | `http://localhost:3001`                                         |
+| `BACKEND_URL`         | No       | Public backend URL (used in email links, etc.)         | `http://localhost:3000`                                         |
+| `MAGIC_LINK_BASE_URL` | No       | Base URL for magic link verification                    | `http://localhost:3001/auth/verify`                             |
+| `ENCRYPTION_KEY`      | Yes      | 32-byte hex key for encrypting sensitive fields         | `your_32_byte_hex_key_here`                                     |
+| `NEXT_PUBLIC_API_URL` | Yes      | Public API URL consumed by the frontend                 | `http://localhost:3000/api/v1`                                  |
+| `POSTGRES_DB`         | No       | Local Docker Postgres database name                     | `sutraid`                                                        |
+| `POSTGRES_USER`       | No       | Local Docker Postgres user                              | `sutraid`                                                        |
+| `POSTGRES_PASSWORD`   | No       | Local Docker Postgres password                          | `change_me`                                                      |
+
+> **Important:** Never commit real values for any of these. Use `.env.example` and platform-specific secret stores (Railway, Netlify, GitHub Actions, etc.).
+
+---
+
+## Deployment Guide
+
+### Railway Deployment (Backend)
+
+1. Install the Railway CLI:
+
+   ```bash
+   npm install -g @railway/cli
+   railway login
+   ```
+
+2. From the repo root, you can use the helper script:
+
+   ```bash
+   ./scripts/deploy-railway.sh
+   ```
+
+   This expects:
+
+   - A Railway project configured for `apps/backend`
+   - Environment variables such as `DATABASE_URL`, `JWT_SECRET`, `ENCRYPTION_KEY` set in Railway
+
+3. Check the Railway dashboard for logs and the deployed backend URL.
+
+### Neon Database Setup
+
+Use `scripts/setup-neon.sh` as a guided checklist:
+
+```bash
+./scripts/setup-neon.sh
+```
+
+You will:
+
+- Create a Neon project and database
+- Copy the connection string(s)
+- Set `DATABASE_URL` and `DIRECT_DATABASE_URL` in `.env` (or Railway)
+- Run Prisma migrations against Neon:
+
+```bash
+cd apps/backend
+pnpm prisma:migrate:prod
+```
+
+### Netlify Deployment (Frontend)
+
+1. Install Netlify CLI:
+
+   ```bash
+   npm install -g netlify-cli
+   netlify login
+   ```
+
+2. From the repo root, run:
+
+   ```bash
+   ./scripts/deploy-netlify.sh
+   ```
+
+3. In the Netlify dashboard, configure:
+
+   - Build command: `pnpm build`
+   - Publish directory: `.next`
+   - Environment variable: `NEXT_PUBLIC_API_URL` pointing at your Railway backend, e.g. `https://your-backend.up.railway.app/api/v1`
+
+---
+
+## Security Notes
+
+- **Secrets management**
+  - Secrets are **never** stored in the repository.
+  - Use `.env` (gitignored) for local development, and platform secret stores in production.
+  - Rotate `JWT_SECRET`, `ENCRYPTION_KEY`, and database credentials if you suspect any exposure.
+- **Transport security**
+  - Always front your deployment with HTTPS (Cloudflare, a load balancer, or your hosting provider).
+- **Hardening**
+  - Set `NODE_ENV=production` in production.
+  - Review CORS and allowed origins before exposing the API publicly.
+  - Keep dependencies up to date and apply OS/DB patches regularly.
+
+For more detailed vulnerability reporting steps, see `SECURITY.md`.
+
+---
+
+## Contributing
+
+Contributions are welcome!
+
+- See **`CONTRIBUTING.md`** for:
+  - Local setup instructions
+  - Coding standards
+  - Testing and linting
+  - Pull request guidelines
+- All contributors are expected to follow the **`CODE_OF_CONDUCT.md`**.
 
 ---
 
 ## License
 
-MIT
+This project is licensed under the **MIT License**.  
+See **`LICENSE`** for details.
 
----
-
-Built with love for the AI-first era

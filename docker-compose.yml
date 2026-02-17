@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: sutraid-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sutraid}
+      POSTGRES_USER: ${POSTGRES_USER:-sutraid}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+    ports:
+      - "5432:5432"
+    volumes:
+      - sutraid-db-data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: .
+      target: backend-runner
+    container_name: sutraid-backend
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      # Ensure DATABASE_URL points at the dockerized Postgres host
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-sutraid}:${POSTGRES_PASSWORD:-change_me}@db:5432/${POSTGRES_DB:-sutraid}}
+      DIRECT_DATABASE_URL: ${DIRECT_DATABASE_URL:-}
+      NODE_ENV: ${NODE_ENV:-development}
+      API_PREFIX: ${API_PREFIX:-api/v1}
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    command: >
+      sh -c "npx prisma migrate deploy && node dist/main.js"
+    working_dir: /app/apps/backend
+
+  web:
+    build:
+      context: .
+      target: web-runner
+    container_name: sutraid-web
+    depends_on:
+      - backend
+    env_file:
+      - .env
+    environment:
+      # From inside the Docker network, backend is reachable by service name
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:3000/api/v1}
+      NODE_ENV: ${NODE_ENV:-production}
+    ports:
+      - "3001:3001"
+    working_dir: /app/apps/web
+
+volumes:
+  sutraid-db-data:
+

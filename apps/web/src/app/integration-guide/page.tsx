@@ -280,7 +280,7 @@ const { decision, reason } = await sutra.policies.evaluate({
                     overflowX: 'auto'
                 }}>
                     {`+-----------------------------------------------------------+
-| [S] SutraID Logo          Product   Docs   Guides   Pricing |
+| [S] SutraID Logo          Product   Docs   Guides          |
 +-----------------------------------------------------------+
 |                                                           |
 |     AUTOMATE IDENTITY FOR THE AI-NATIVE WORKFORCE         |

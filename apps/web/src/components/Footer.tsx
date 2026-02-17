@@ -13,10 +13,10 @@ const footerSections = [
   {
     title: 'Developers',
     links: [
-      { label: 'Documentation', href: '#developers' },
-      { label: 'API Reference', href: '#developers' },
-      { label: 'SDKs', href: '#developers' },
-      { label: 'Quickstart', href: '#developers' },
+      { label: 'Documentation', href: '/docs' },
+      { label: 'API Reference', href: '/docs/api-reference/authentication' },
+      { label: 'SDKs', href: '/docs/getting-started' },
+      { label: 'Quickstart', href: '/docs/getting-started' },
     ],
   },
   {

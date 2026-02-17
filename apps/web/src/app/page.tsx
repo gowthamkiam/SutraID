@@ -100,35 +100,7 @@ const steps = [
   },
 ];
 
-const pricingPlans = [
-  {
-    name: 'Free',
-    price: '$0',
-    period: '/month',
-    description: 'For side projects and experiments',
-    features: ['Up to 1,000 MAU', 'Magic link auth', 'Basic SSO', 'Community support'],
-    cta: 'Get Started Free',
-    highlighted: false,
-  },
-  {
-    name: 'Starter',
-    price: '$49',
-    period: '/month',
-    description: 'For growing teams and products',
-    features: ['Up to 10,000 MAU', 'Enterprise SSO (SAML + OIDC)', 'Multi-tenancy', 'Priority support', 'Custom branding'],
-    cta: 'Start Free Trial',
-    highlighted: true,
-  },
-  {
-    name: 'Enterprise',
-    price: 'Custom',
-    period: '',
-    description: 'For organizations at scale',
-    features: ['Unlimited MAU', 'AI agent authentication', 'Audit logging', 'SLA guarantees', 'Dedicated support', 'On-premise option'],
-    cta: 'Contact Sales',
-    highlighted: false,
-  },
-];
+// Note: Pricing and billing are intentionally excluded from the open-source version.
 
 const codeSnippet = `// Authenticate with SutraID in 3 lines
 import { SutraID } from '@sutraid/sdk';
@@ -794,201 +766,13 @@ export default function HomePage() {
       {/* Bottom Transition (Clean cut to dark) */}
       <div style={{ height: '80px', background: '#ffffff' }} />
 
-      {/* Dark Bottom Sections */}
+      {/* Dark Bottom Section (no pricing UI in OSS version) */}
       <div style={{
         background: '#0a0a0b',
         position: 'relative',
         zIndex: 1,
       }}>
-        {/* Pricing Section (Dark Restore) */}
-        <section id="pricing" style={{
-          padding: '10rem 2rem',
-          background: 'radial-gradient(circle at 50% 100%, #1e1b4b 0%, #0a0a0b 70%)',
-        }}>
-          <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: '5rem' }}>
-              <h2 style={{
-                fontSize: 'clamp(2.5rem, 5vw, 3.5rem)',
-                fontWeight: 950,
-                color: '#fff',
-                margin: '0 0 1.25rem',
-                letterSpacing: '-0.04em',
-              }}>
-                Simple, transparent pricing
-              </h2>
-              <p style={{
-                fontSize: '1.25rem',
-                color: '#9ca3af',
-                maxWidth: '500px',
-                margin: '0 auto',
-                lineHeight: 1.6,
-              }}>
-                Start free, scale as you grow. No hidden fees.
-              </p>
-            </div>
-
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-              gap: '2.5rem',
-              alignItems: 'stretch',
-            }}>
-              {pricingPlans.map((plan) => (
-                <div key={plan.name} style={{
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  backdropFilter: 'blur(10px)',
-                  border: plan.highlighted ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '32px',
-                  padding: '3.5rem 2.5rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  position: 'relative',
-                  transition: 'all 0.4s ease',
-                  boxShadow: plan.highlighted ? '0 20px 50px rgba(99, 102, 241, 0.2)' : '0 10px 40px rgba(0,0,0,0.2)',
-                }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.transform = 'translateY(-10px)';
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
-                  }}
-                >
-                  {plan.highlighted && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '-16px',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      background: '#6366f1',
-                      color: '#fff',
-                      fontSize: '0.75rem',
-                      fontWeight: 800,
-                      padding: '0.5rem 1.5rem',
-                      borderRadius: '100px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      boxShadow: '0 4px 15px rgba(99, 102, 241, 0.4)',
-                    }}>
-                      Most Popular
-                    </div>
-                  )}
-
-                  <div style={{ marginBottom: '2.5rem' }}>
-                    <h3 style={{
-                      fontSize: '1.35rem',
-                      fontWeight: 800,
-                      color: '#fff',
-                      margin: '0 0 0.75rem',
-                    }}>
-                      {plan.name}
-                    </h3>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
-                      <span style={{
-                        fontSize: '3.5rem',
-                        fontWeight: 950,
-                        color: '#fff',
-                        letterSpacing: '-0.04em',
-                      }}>
-                        {plan.price}
-                      </span>
-                      {plan.period && (
-                        <span style={{
-                          fontSize: '1.25rem',
-                          color: '#94a3b8',
-                          fontWeight: 600,
-                        }}>
-                          {plan.period}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <p style={{
-                    fontSize: '1.1rem',
-                    color: '#9ca3af',
-                    margin: '0 0 2.5rem',
-                    lineHeight: 1.6,
-                  }}>
-                    {plan.description}
-                  </p>
-
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '1.25rem',
-                    marginBottom: '3.5rem',
-                    flex: 1,
-                  }}>
-                    {plan.features.map((feature) => (
-                      <div key={feature} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '1rem',
-                      }}>
-                        <div style={{
-                          width: '22px',
-                          height: '22px',
-                          borderRadius: '50%',
-                          background: 'rgba(99, 102, 241, 0.15)',
-                          color: '#818cf8',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '0.75rem',
-                          fontWeight: 900,
-                        }}>
-                          {'\u2713'}
-                        </div>
-                        <span style={{
-                          fontSize: '1rem',
-                          color: '#e5e7eb',
-                          fontWeight: 600,
-                        }}>
-                          {feature}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <a href="/login" style={{
-                    textDecoration: 'none',
-                    textAlign: 'center',
-                    background: plan.highlighted ? '#6366f1' : 'rgba(255,255,255,0.05)',
-                    color: '#fff',
-                    fontSize: '1.1rem',
-                    fontWeight: 800,
-                    padding: '1.25rem 2rem',
-                    borderRadius: '16px',
-                    border: plan.highlighted ? 'none' : '1px solid rgba(255,255,255,0.1)',
-                    transition: 'all 0.3s ease',
-                    boxShadow: plan.highlighted ? '0 10px 25px rgba(99, 102, 241, 0.25)' : 'none',
-                  }}
-                    onMouseEnter={e => {
-                      if (plan.highlighted) {
-                        e.currentTarget.style.background = '#4f46e5';
-                      } else {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      if (plan.highlighted) {
-                        e.currentTarget.style.background = '#6366f1';
-                      } else {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                      }
-                    }}
-                  >
-                    {plan.cta}
-                  </a>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* CTA Section (Dark Restore) */}
+        {/* CTA Section */}
         <section style={{
           padding: '10rem 2rem',
           background: 'radial-gradient(circle at 50% 0%, #17171e 0%, #0a0a0b 100%)',
@@ -1011,8 +795,7 @@ export default function HomePage() {
               lineHeight: 1.6,
               margin: '0 0 3.5rem',
             }}>
-              Join developers building the future of authentication.
-              Free forever for up to 1,000 monthly active users.
+              Join developers building the future of authentication with a fully open-source, self-hostable platform.
             </p>
             <a href="/login" style={{
               textDecoration: 'none',
@@ -1035,7 +818,7 @@ export default function HomePage() {
                 e.currentTarget.style.background = '#6366f1';
               }}
             >
-              Start Building for Free
+              Get Started Self-Hosting
             </a>
           </div>
         </section>

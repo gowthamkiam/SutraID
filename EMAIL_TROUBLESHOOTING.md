@@ -27,16 +27,16 @@ Failed to send magic link email: <some error>
 
 ### 2. Verify Resend API Key
 
-Your `.env` has:
+Your `.env` (or deployment environment) should include a Resend API key:
 ```bash
-RESEND_API_KEY="re_iYcJjd7C_2UpXxvAyk1HwTs6Kn34Z7xm1"
+RESEND_API_KEY="re_your_api_key_here"
 ```
 
-**Test if this key is valid**:
+**Test if your key is valid**:
 
 1. Go to https://resend.com/api-keys
 2. Check if this API key exists and is active
-3. If expired or invalid, create a new one and update `.env`
+3. If expired or invalid, create a new one and update your `.env` (or hosting provider environment variables)
 
 ### 3. Check Email FROM Address
 
