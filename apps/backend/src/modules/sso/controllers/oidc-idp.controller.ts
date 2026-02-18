@@ -14,6 +14,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { ConfigService } from '@nestjs/config';
 import { OidcIdpService } from '../services/oidc-idp.service';
 import { AuthService } from '../../auth/services/auth.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -25,6 +26,7 @@ export class OidcIdpController {
     private oidcIdpService: OidcIdpService,
     private authService: AuthService,
     private prisma: PrismaService,
+    private config: ConfigService,
   ) { }
 
   /**
@@ -57,9 +59,12 @@ export class OidcIdpController {
       const user = await this.getCurrentUser(req);
 
       if (!user) {
-        // User not authenticated - redirect to login with returnUrl
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-        const returnUrl = encodeURIComponent(req.originalUrl);
+        // User not authenticated - redirect to login with full returnUrl
+        // returnUrl must be absolute (backend host + path) so the frontend
+        // can redirect back to the backend after login.
+        const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+        const backendUrl = this.config.get<string>('BACKEND_URL') || 'http://localhost:3000';
+        const returnUrl = encodeURIComponent(`${backendUrl}${req.originalUrl}`);
         const loginUrl = `${frontendUrl}/login?returnUrl=${returnUrl}`;
 
         console.log('⚠️  User not authenticated, redirecting to login');
