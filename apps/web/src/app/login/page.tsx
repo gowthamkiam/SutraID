@@ -64,17 +64,14 @@ export default function LoginPage() {
   const [isBackupCode, setIsBackupCode] = useState(false);
 
   /**
-   * After login, redirect to the returnUrl (if present) with the auth token
-   * appended so the backend authorize endpoint can authenticate the user.
+   * After login, redirect to the returnUrl (if present).
    * Falls back to /dashboard when there is no returnUrl.
    */
-  const redirectAfterLogin = (accessToken: string) => {
+  const redirectAfterLogin = (_accessToken: string) => {
     const params = new URLSearchParams(window.location.search);
     const returnUrl = params.get('returnUrl');
     if (returnUrl) {
-      const decoded = decodeURIComponent(returnUrl);
-      const separator = decoded.includes('?') ? '&' : '?';
-      window.location.href = `${decoded}${separator}auth_token=${encodeURIComponent(accessToken)}`;
+      window.location.href = decodeURIComponent(returnUrl);
       return;
     }
     window.location.href = '/dashboard';

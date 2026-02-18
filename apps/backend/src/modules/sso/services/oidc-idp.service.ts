@@ -317,39 +317,56 @@ export class OidcIdpService {
   }
 
   /**
-   * Handle interaction (consent)
+   * Handle interaction (consent).
+   * Uses interactionResult (not interactionFinished) so the response is NOT
+   * sent by oidc-provider — the caller is responsible for redirecting.
+   * Returns the returnTo URL for the caller to redirect the user to.
    */
   async handleInteraction(
     organizationId: string,
-    uid: string,
+    _uid: string,
     actorId: string,
     consent: boolean,
-  ) {
+    req: any,
+    res: any,
+  ): Promise<string> {
     const provider = await this.getProviderInstance(organizationId);
-    const interaction = await provider.interactionDetails(
-      {} as any,
-      { uid } as any,
-    );
+    const interaction = await provider.interactionDetails(req, res);
 
     if (!consent) {
-      throw new BadRequestException('User denied consent');
+      const returnTo = await provider.interactionResult(req, res, {
+        error: 'access_denied',
+        error_description: 'User denied consent',
+      }, { mergeWithLastSubmission: false });
+      return returnTo;
     }
 
-    // Grant consent
-    const result = {
-      login: {
-        accountId: actorId,
-      },
-      consent: {
-        grantId: interaction.grantId,
-      },
-    };
-
-    await provider.interactionFinished({} as any, {} as any, result, {
-      mergeWithLastSubmission: false,
+    // Build grant
+    const grant = new provider.Grant({
+      accountId: actorId,
+      clientId: interaction.params.client_id as string,
     });
 
-    return interaction;
+    const requestedScopes = interaction.prompt?.details?.missingOIDCScope as string[] | undefined;
+    if (requestedScopes) {
+      grant.addOIDCScope(requestedScopes.join(' '));
+    } else if (interaction.params.scope) {
+      grant.addOIDCScope(interaction.params.scope as string);
+    }
+
+    const requestedClaims = interaction.prompt?.details?.missingOIDCClaims as string[] | undefined;
+    if (requestedClaims) {
+      grant.addOIDCClaims(requestedClaims);
+    }
+
+    const grantId = await grant.save();
+
+    const returnTo = await provider.interactionResult(req, res, {
+      login: { accountId: actorId },
+      consent: { grantId },
+    }, { mergeWithLastSubmission: false });
+
+    return returnTo;
   }
 
   /**

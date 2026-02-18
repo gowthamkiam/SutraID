@@ -3,11 +3,9 @@ import {
   Get,
   Post,
   Param,
-  Query,
   Body,
   Req,
   Res,
-  UseGuards,
   BadRequestException,
   UnauthorizedException,
   HttpCode,
@@ -17,7 +15,6 @@ import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { OidcIdpService } from '../services/oidc-idp.service';
 import { AuthService } from '../../auth/services/auth.service';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Controller('sso/oidc-idp/:orgId')
@@ -55,36 +52,8 @@ export class OidcIdpController {
         organizationId,
       );
 
-      // Check if user is authenticated
-      const user = await this.getCurrentUser(req);
-
-      if (!user) {
-        // User not authenticated - redirect to login with full returnUrl.
-        // FRONTEND_URL / BACKEND_URL may be comma-separated — take the first value.
-        const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
-        // Derive backend URL from the incoming request so it always matches
-        // the host the caller actually reached (works behind any proxy).
-        const proto = req.get('x-forwarded-proto') || req.protocol;
-        const backendUrl = `${proto}://${req.get('host')}`;
-        const returnUrl = encodeURIComponent(`${backendUrl}${req.originalUrl}`);
-        const loginUrl = `${frontendUrl}/login?returnUrl=${returnUrl}`;
-
-        console.log('⚠️  User not authenticated, redirecting to login');
-        return res.redirect(loginUrl);
-      }
-
-      console.log('✅ User authenticated for OIDC authorization');
-
-      // Strip auth_token from the URL before forwarding to oidc-provider
-      // so it doesn't see unknown query parameters.
-      if ((req.query as Record<string, unknown>)?.auth_token) {
-        delete (req.query as Record<string, unknown>).auth_token;
-        const url = new URL(req.url, `${req.protocol}://${req.get('host')}`);
-        url.searchParams.delete('auth_token');
-        req.url = url.pathname + url.search;
-      }
-
-      // Forward to oidc-provider
+      // Forward directly to oidc-provider. It will manage the interaction
+      // lifecycle (redirect to consent URL, generate auth code, etc.).
       return provider.app.callback()(req, res);
     } catch (error: any) {
       console.error('❌ OIDC authorization error:', error);
@@ -174,21 +143,25 @@ export class OidcIdpController {
    * Get interaction details for consent screen
    */
   @Get('interaction/:uid')
-  @UseGuards(JwtAuthGuard)
   async getInteraction(
     @Param('orgId') organizationId: string,
     @Param('uid') uid: string,
     @Req() req: Request,
+    @Res() res: Response,
   ) {
     try {
+      // Verify caller is authenticated via Bearer token
+      const user = await this.getCurrentUser(req);
+      if (!user) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
       const provider = await this.oidcIdpService.getProviderInstance(
         organizationId,
       );
 
-      // oidc-provider requires both req and res for interactionDetails
-      // Create a minimal response object for the interaction
-      const mockRes: any = {};
-      const interaction = await provider.interactionDetails(req, mockRes);
+      const interaction = await provider.interactionDetails(req, res);
 
       // Get application details
       const application = await this.prisma.application.findFirst({
@@ -209,14 +182,14 @@ export class OidcIdpController {
         throw new BadRequestException('Application not found');
       }
 
-      return {
+      return res.json({
         uid,
         application,
         scopes: interaction.params.scope
           ? (interaction.params.scope as string).split(' ')
           : [],
         redirectUri: interaction.params.redirect_uri,
-      };
+      });
     } catch (error: any) {
       console.error('❌ OIDC interaction error:', error);
       throw new BadRequestException(error.message);
@@ -228,36 +201,38 @@ export class OidcIdpController {
    * Confirm or deny consent
    */
   @Post('interaction/:uid/confirm')
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async confirmInteraction(
     @Param('orgId') organizationId: string,
     @Param('uid') uid: string,
     @Body() body: { consent: boolean },
-    @Req() req: any,
+    @Req() req: Request,
+    @Res() res: Response,
   ) {
     try {
-      const user = req.user;
+      const user = await this.getCurrentUser(req);
 
       if (!user) {
         throw new UnauthorizedException('User not authenticated');
       }
 
-      const interaction = await this.oidcIdpService.handleInteraction(
+      const redirectTo = await this.oidcIdpService.handleInteraction(
         organizationId,
         uid,
-        req.user.id,
+        user.id,
         body.consent,
+        req,
+        res,
       );
 
       console.log(
-        `✅ OIDC consent ${body.consent ? 'granted' : 'denied'} by user ${req.user.id}`,
+        `✅ OIDC consent ${body.consent ? 'granted' : 'denied'} by user ${user.id}`,
       );
 
-      return {
+      return res.json({
         success: true,
-        redirectTo: interaction.returnTo,
-      };
+        redirectTo,
+      });
     } catch (error: any) {
       console.error('❌ OIDC consent error:', error);
       throw new BadRequestException(error.message);

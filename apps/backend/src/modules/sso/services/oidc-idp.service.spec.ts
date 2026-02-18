@@ -10,6 +10,7 @@ const mockProviderConstructor = jest.fn().mockImplementation((issuer, config) =>
   config,
   interactionDetails: jest.fn(),
   interactionFinished: jest.fn(),
+  interactionResult: jest.fn(),
 }));
 
 describe('OidcIdpService', () => {
@@ -211,16 +212,26 @@ describe('OidcIdpService', () => {
   });
 
   describe('handleInteraction', () => {
-    it('should throw BadRequestException if consent is denied', async () => {
+    it('should return interactionResult URL when consent is denied', async () => {
       mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
       mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
 
-      await expect(
-        service.handleInteraction('org-1', 'interaction-uid', 'user-1', false),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.handleInteraction('org-1', 'interaction-uid', 'user-1', false),
-      ).rejects.toThrow('User denied consent');
+      const mockProvider = await service.getProviderInstance('org-1');
+      mockProvider.interactionDetails.mockResolvedValue({
+        params: { client_id: 'client-123', scope: 'openid email' },
+        prompt: { details: {} },
+      });
+      mockProvider.interactionResult.mockResolvedValue('https://example.com/callback?error=access_denied');
+
+      const result = await service.handleInteraction('org-1', 'interaction-uid', 'user-1', false, {}, {});
+
+      expect(result).toBe('https://example.com/callback?error=access_denied');
+      expect(mockProvider.interactionResult).toHaveBeenCalledWith(
+        {},
+        {},
+        { error: 'access_denied', error_description: 'User denied consent' },
+        { mergeWithLastSubmission: false },
+      );
     });
   });
 
