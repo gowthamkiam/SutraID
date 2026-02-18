@@ -4,18 +4,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
 
-// Mock oidc-provider module
-jest.mock('oidc-provider', () => {
-  return {
-    __esModule: true,
-    default: jest.fn().mockImplementation((issuer, config) => ({
-      issuer,
-      config,
-      interactionDetails: jest.fn(),
-      interactionFinished: jest.fn(),
-    })),
-  };
-});
+// Mock provider constructor — returned by spying on loadProvider()
+const mockProviderConstructor = jest.fn().mockImplementation((issuer, config) => ({
+  issuer,
+  config,
+  interactionDetails: jest.fn(),
+  interactionFinished: jest.fn(),
+}));
 
 describe('OidcIdpService', () => {
   let service: OidcIdpService;
@@ -100,6 +95,9 @@ describe('OidcIdpService', () => {
     service = module.get<OidcIdpService>(OidcIdpService);
     prismaService = module.get(PrismaService);
     configService = module.get(ConfigService);
+
+    // Mock loadProvider to return our mock constructor instead of dynamically importing oidc-provider
+    jest.spyOn(service as any, 'loadProvider').mockResolvedValue(mockProviderConstructor);
   });
 
   describe('getProviderInstance', () => {

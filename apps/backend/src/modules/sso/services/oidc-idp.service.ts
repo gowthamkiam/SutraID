@@ -1,21 +1,25 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-// oidc-provider v9 is ESM-only, use dynamic import
-let Provider: any;
-const loadProvider = async () => {
-  if (!Provider) {
-    const mod = await import('oidc-provider');
-    Provider = mod.default;
-  }
-  return Provider;
-};
+// oidc-provider v9 is ESM-only — must use dynamic import().
+// TypeScript with "module": "commonjs" compiles import() to require(),
+// so we use new Function() to prevent the transformation.
+const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
 import { User } from '@prisma/client';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class OidcIdpService {
   private providerInstances: Map<string, any> = new Map();
+  private ProviderClass: any;
+
+  protected async loadProvider() {
+    if (!this.ProviderClass) {
+      const mod = await dynamicImport('oidc-provider');
+      this.ProviderClass = mod.default;
+    }
+    return this.ProviderClass;
+  }
 
   constructor(
     private prisma: PrismaService,
@@ -44,7 +48,7 @@ export class OidcIdpService {
     const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}`;
 
     // Create OIDC Provider instance
-    const ProviderClass = await loadProvider();
+    const ProviderClass = await this.loadProvider();
     const provider = new ProviderClass(issuer, {
       // Adapter for storing authorization codes, tokens, etc.
       adapter: this.createAdapter(organizationId),
