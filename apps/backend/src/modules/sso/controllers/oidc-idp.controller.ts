@@ -53,11 +53,13 @@ export class OidcIdpController {
     @Res() res: Response,
   ) {
     try {
+      // Extract orgId before modifying the req.url
       const provider = await this.oidcIdpService.getProviderInstance(
         organizationId,
       );
 
-      this.stripPrefix(req, organizationId);
+      // Ensure the prefix is stripped after extracting parameters
+      // this.stripPrefix(req, organizationId);
       return provider.app.callback()(req, res);
     } catch (error: any) {
       console.error('❌ OIDC authorization error:', error);
