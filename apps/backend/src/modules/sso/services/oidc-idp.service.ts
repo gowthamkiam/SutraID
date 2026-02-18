@@ -109,7 +109,7 @@ export class OidcIdpService {
       interactions: {
         url: async (ctx: any, interaction: any): Promise<string> => {
           const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
-          return `${frontendUrl}/auth/consent?uid=${interaction.uid}`;
+          return `${frontendUrl}/auth/consent?uid=${interaction.uid}&orgId=${organizationId}`;
         },
       },
 

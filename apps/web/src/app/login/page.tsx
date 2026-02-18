@@ -63,6 +63,23 @@ export default function LoginPage() {
   const [mfaCode, setMfaCode] = useState('');
   const [isBackupCode, setIsBackupCode] = useState(false);
 
+  /**
+   * After login, redirect to the returnUrl (if present) with the auth token
+   * appended so the backend authorize endpoint can authenticate the user.
+   * Falls back to /dashboard when there is no returnUrl.
+   */
+  const redirectAfterLogin = (accessToken: string) => {
+    const params = new URLSearchParams(window.location.search);
+    const returnUrl = params.get('returnUrl');
+    if (returnUrl) {
+      const decoded = decodeURIComponent(returnUrl);
+      const separator = decoded.includes('?') ? '&' : '?';
+      window.location.href = `${decoded}${separator}auth_token=${encodeURIComponent(accessToken)}`;
+      return;
+    }
+    window.location.href = '/dashboard';
+  };
+
   const getProviderIcon = (type: string) => {
     const icons: Record<string, string> = {
       OKTA: 'O',
@@ -185,7 +202,7 @@ export default function LoginPage() {
           window.location.href = '/auth/change-password';
           return;
         }
-        window.location.href = '/dashboard';
+        redirectAfterLogin(data.accessToken);
         return;
       } else if (mode === 'register') {
         if (password !== confirmPassword) {
@@ -206,7 +223,7 @@ export default function LoginPage() {
         localStorage.setItem('user', JSON.stringify(data.user));
         const orgId = data.organization?.id || data.user?.organizationId;
         if (orgId) localStorage.setItem('currentOrgId', orgId);
-        window.location.href = '/dashboard';
+        redirectAfterLogin(data.accessToken);
         return;
       }
     } catch (err: any) {
@@ -245,7 +262,7 @@ export default function LoginPage() {
         window.location.href = '/auth/change-password';
         return;
       }
-      window.location.href = '/dashboard';
+      redirectAfterLogin(data.accessToken);
     } catch (err: any) {
       setError(err.message || 'Invalid code. Please try again.');
     } finally {
