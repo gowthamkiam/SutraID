@@ -15,6 +15,7 @@ import { Request, Response } from 'express';
 import { OidcIdpService } from '../services/oidc-idp.service';
 import { AuthService } from '../../auth/services/auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 
 @Controller('sso/oidc-idp/:orgId')
 export class OidcIdpController {
@@ -22,6 +23,7 @@ export class OidcIdpController {
     private oidcIdpService: OidcIdpService,
     private authService: AuthService,
     private prisma: PrismaService,
+    private config: ConfigService
   ) { }
 
   private stripPrefix(req: Request, organizationId: string): void {
@@ -52,11 +54,41 @@ export class OidcIdpController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
+    console.log('📥 OIDC authorization request received');
     try {
       // Extract orgId before modifying the req.url
       const provider = await this.oidcIdpService.getProviderInstance(
         organizationId,
       );
+
+       // Check if user is authenticated
+       const user = await this.getCurrentUser(req);
+
+       if (!user) {
+         // User not authenticated - redirect to login with full returnUrl.
+         // FRONTEND_URL / BACKEND_URL may be comma-separated — take the first value.
+         const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
+         // Derive backend URL from the incoming request so it always matches
+         // the host the caller actually reached (works behind any proxy).
+         const proto = req.get('x-forwarded-proto') || req.protocol;
+         const backendUrl = `${proto}://${req.get('host')}`;
+         const returnUrl = encodeURIComponent(`${backendUrl}${req.originalUrl}`);
+         const loginUrl = `${frontendUrl}/login?returnUrl=${returnUrl}`;
+ 
+         console.log('⚠️  User not authenticated, redirecting to login');
+         return res.redirect(loginUrl);
+       }
+ 
+       console.log('✅ User authenticated for OIDC authorization');
+ 
+       // Strip auth_token from the URL before forwarding to oidc-provider
+       // so it doesn't see unknown query parameters.
+       if ((req.query as Record<string, unknown>)?.auth_token) {
+         delete (req.query as Record<string, unknown>).auth_token;
+         const url = new URL(req.url, `${req.protocol}://${req.get('host')}`);
+         url.searchParams.delete('auth_token');
+         req.url = url.pathname + url.search;
+       }
 
       // Ensure the prefix is stripped after extracting parameters
       // this.stripPrefix(req, organizationId);
