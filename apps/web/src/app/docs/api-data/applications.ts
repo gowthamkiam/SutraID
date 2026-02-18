@@ -415,26 +415,28 @@ echo $response;`,
         { name: 'organizationId', type: 'string', description: 'Owning organization ID.', example: 'org_01hxyz' },
         { name: 'createdAt', type: 'string', description: 'ISO 8601 creation timestamp.', example: '2025-01-15T10:30:00Z' },
       ],
-      responseSample: [
-        {
-          id: 'app_01hxyz',
-          name: 'My Web App',
-          type: 'OIDC',
-          clientId: 'cid_abc123',
-          organizationId: 'org_01hxyz',
-          createdAt: '2025-01-15T10:30:00Z',
-          updatedAt: '2025-01-15T10:30:00Z',
-        },
-        {
-          id: 'app_02abcd',
-          name: 'Enterprise SAML App',
-          type: 'SAML',
-          clientId: 'cid_def456',
-          organizationId: 'org_01hxyz',
-          createdAt: '2025-01-20T09:00:00Z',
-          updatedAt: '2025-01-20T09:00:00Z',
-        },
-      ],
+      responseSample: {
+        data: [
+          {
+            id: 'app_01hxyz',
+            name: 'My Web App',
+            type: 'OIDC',
+            clientId: 'cid_abc123',
+            organizationId: 'org_01hxyz',
+            createdAt: '2025-01-15T10:30:00Z',
+            updatedAt: '2025-01-15T10:30:00Z',
+          },
+          {
+            id: 'app_02abcd',
+            name: 'Enterprise SAML App',
+            type: 'SAML',
+            clientId: 'cid_def456',
+            organizationId: 'org_01hxyz',
+            createdAt: '2025-01-20T09:00:00Z',
+            updatedAt: '2025-01-20T09:00:00Z',
+          },
+        ],
+      },
       codeSamples: {
         curl: `curl -X GET https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications \\
   -H "Authorization: Bearer <token>"`,

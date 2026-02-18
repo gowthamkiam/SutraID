@@ -16,6 +16,7 @@ async function bootstrap() {
     exclude: [
       { path: 'scim/v2/:orgRef', method: RequestMethod.ALL },
       { path: 'scim/v2/:orgRef/(.*)', method: RequestMethod.ALL },
+      { path: '.well-known/(.*)', method: RequestMethod.ALL },
     ],
   });
 

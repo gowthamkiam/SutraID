@@ -236,23 +236,25 @@ echo $response->getBody();`,
       responseFields: [
         { name: '[]', type: 'Organization[]', description: 'Array of organization records the user is a member of.' },
       ],
-      responseSample: [
-        {
-          id: 'org_01HZ3K8VPNQ4RJXEMYVWCT9BS1',
-          name: 'Acme Corp',
-          slug: 'acme-corp',
-          domain: 'acme.com',
-          plan: 'FREE',
-          status: 'ACTIVE',
-          logoUrl: 'https://cdn.acme.com/logo.png',
-          primaryColor: '#0057FF',
-          allowedDomains: ['acme.com'],
-          maxMembers: 50,
-          maxApplications: 10,
-          createdAt: '2024-01-15T10:30:00.000Z',
-          updatedAt: '2024-01-15T10:30:00.000Z',
-        },
-      ],
+      responseSample: {
+        data: [
+          {
+            id: 'org_01HZ3K8VPNQ4RJXEMYVWCT9BS1',
+            name: 'Acme Corp',
+            slug: 'acme-corp',
+            domain: 'acme.com',
+            plan: 'FREE',
+            status: 'ACTIVE',
+            logoUrl: 'https://cdn.acme.com/logo.png',
+            primaryColor: '#0057FF',
+            allowedDomains: ['acme.com'],
+            maxMembers: 50,
+            maxApplications: 10,
+            createdAt: '2024-01-15T10:30:00.000Z',
+            updatedAt: '2024-01-15T10:30:00.000Z',
+          },
+        ],
+      },
       codeSamples: {
         curl: `curl -X GET https://api.sutraid.com/api/v1/organizations \\
   -H "Authorization: Bearer eyJhbGciOiJSUzI1NiJ9..."`,

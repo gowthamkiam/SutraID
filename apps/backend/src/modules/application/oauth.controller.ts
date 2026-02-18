@@ -10,6 +10,7 @@ import {
     UseGuards,
     Req,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApplicationService } from './application.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -133,21 +134,50 @@ export class OauthController {
 
 @Controller('.well-known/openid-configuration')
 export class OpenidConfigurationController {
+    constructor(private config: ConfigService) {}
+
     @Get(':orgId')
     async getConfiguration(@Param('orgId') orgId: string) {
-        const baseUrl = `https://api.sutraid.com`; // In prod use dynamic host
+        const baseUrl = this.config.get<string>('BACKEND_URL') || 'http://localhost:3000';
+        const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${orgId}`;
         return {
-            issuer: `${baseUrl}/${orgId}`,
-            authorization_endpoint: `${baseUrl}/oauth/authorize`,
-            token_endpoint: `${baseUrl}/oauth/token`,
-            jwks_uri: `${baseUrl}/oauth/${orgId}/jwks`,
-            response_types_supported: ['code', 'none', 'id_token', 'token', 'id_token token', 'code id_token', 'code token', 'code id_token token'],
+            issuer,
+            authorization_endpoint: `${issuer}/authorize`,
+            token_endpoint: `${issuer}/token`,
+            userinfo_endpoint: `${issuer}/userinfo`,
+            jwks_uri: `${issuer}/jwks`,
+            registration_endpoint: `${issuer}/register`,
+            response_types_supported: [
+                'code',
+                'id_token',
+                'code id_token',
+                'id_token token',
+                'code id_token token',
+            ],
             subject_types_supported: ['public'],
             id_token_signing_alg_values_supported: ['RS256'],
             scopes_supported: ['openid', 'profile', 'email', 'offline_access'],
-            token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic', 'private_key_jwt'],
-            grant_types_supported: ['authorization_code', 'refresh_token', 'client_credentials'],
+            token_endpoint_auth_methods_supported: [
+                'client_secret_post',
+                'client_secret_basic',
+                'private_key_jwt',
+            ],
+            grant_types_supported: [
+                'authorization_code',
+                'refresh_token',
+                'client_credentials',
+            ],
+            code_challenge_methods_supported: ['S256'],
             dpop_signing_alg_values_supported: ['RS256', 'ES256'],
+            claims_supported: [
+                'sub',
+                'email',
+                'email_verified',
+                'name',
+                'given_name',
+                'family_name',
+                'updated_at',
+            ],
         };
     }
 }
