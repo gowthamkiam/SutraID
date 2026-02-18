@@ -1,6 +1,5 @@
 FROM node:20-slim AS base
 
-ENV NODE_ENV=production
 WORKDIR /app
 
 # Install pnpm via corepack
@@ -40,6 +39,8 @@ FROM node:20-slim AS backend-runner
 ENV NODE_ENV=production
 WORKDIR /app
 
+RUN corepack enable && corepack prepare pnpm@8.15.1 --activate
+
 COPY --from=build /app /app
 
 WORKDIR /app/apps/backend
@@ -57,6 +58,8 @@ FROM node:20-slim AS web-runner
 
 ENV NODE_ENV=production
 WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@8.15.1 --activate
 
 COPY --from=build /app /app
 
