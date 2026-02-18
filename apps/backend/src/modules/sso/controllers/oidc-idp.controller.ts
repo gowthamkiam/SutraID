@@ -12,7 +12,6 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { ConfigService } from '@nestjs/config';
 import { OidcIdpService } from '../services/oidc-idp.service';
 import { AuthService } from '../../auth/services/auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -23,8 +22,14 @@ export class OidcIdpController {
     private oidcIdpService: OidcIdpService,
     private authService: AuthService,
     private prisma: PrismaService,
-    private config: ConfigService,
   ) { }
+
+  private stripPrefix(req: Request, organizationId: string): void {
+    const prefix = `/api/v1/sso/oidc-idp/${organizationId}`;
+    if (req.url.startsWith(prefix)) {
+      req.url = req.url.slice(prefix.length) || '/';
+    }
+  }
 
   /**
    * GET /.well-known/openid-configuration
@@ -52,8 +57,7 @@ export class OidcIdpController {
         organizationId,
       );
 
-      // Forward directly to oidc-provider. It will manage the interaction
-      // lifecycle (redirect to consent URL, generate auth code, etc.).
+      this.stripPrefix(req, organizationId);
       return provider.app.callback()(req, res);
     } catch (error: any) {
       console.error('❌ OIDC authorization error:', error);
@@ -80,7 +84,7 @@ export class OidcIdpController {
 
       console.log('📥 OIDC token request received');
 
-      // Forward to oidc-provider
+      this.stripPrefix(req, organizationId);
       return provider.app.callback()(req, res);
     } catch (error: any) {
       console.error('❌ OIDC token error:', error);
@@ -105,7 +109,7 @@ export class OidcIdpController {
         organizationId,
       );
 
-      // Forward to oidc-provider
+      this.stripPrefix(req, organizationId);
       return provider.app.callback()(req, res);
     } catch (error: any) {
       console.error('❌ OIDC userinfo error:', error);
@@ -130,7 +134,7 @@ export class OidcIdpController {
         organizationId,
       );
 
-      // Forward to oidc-provider
+      this.stripPrefix(req, organizationId);
       return provider.app.callback()(req, res);
     } catch (error: any) {
       console.error('❌ OIDC jwks error:', error);
@@ -255,7 +259,7 @@ export class OidcIdpController {
         organizationId,
       );
 
-      // Forward all other routes to oidc-provider
+      this.stripPrefix(req, organizationId);
       return provider.app.callback()(req, res);
     } catch (error: any) {
       console.error('❌ OIDC callback error:', error);
