@@ -6,7 +6,7 @@ cmds = ["npm install -g pnpm@8.15.1"]
 cmds = ["pnpm install --no-frozen-lockfile"]
 
 [phases.build]
-cmds = ["cd apps/backend && npx prisma generate && npx nest build"]
+cmds = ["sh -c 'cd apps/backend && npx prisma generate && npx nest build'"]
 
 [start]
-cmd = "cd apps/backend && npx prisma migrate deploy && node dist/main"
+cmd = "sh -c 'cd apps/backend && npx prisma migrate deploy && node dist/main'"
