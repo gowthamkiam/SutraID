@@ -59,11 +59,13 @@ export class OidcIdpController {
       const user = await this.getCurrentUser(req);
 
       if (!user) {
-        // User not authenticated - redirect to login with full returnUrl
-        // returnUrl must be absolute (backend host + path) so the frontend
-        // can redirect back to the backend after login.
-        const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
-        const backendUrl = this.config.get<string>('BACKEND_URL') || 'http://localhost:3000';
+        // User not authenticated - redirect to login with full returnUrl.
+        // FRONTEND_URL / BACKEND_URL may be comma-separated — take the first value.
+        const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
+        // Derive backend URL from the incoming request so it always matches
+        // the host the caller actually reached (works behind any proxy).
+        const proto = req.get('x-forwarded-proto') || req.protocol;
+        const backendUrl = `${proto}://${req.get('host')}`;
         const returnUrl = encodeURIComponent(`${backendUrl}${req.originalUrl}`);
         const loginUrl = `${frontendUrl}/login?returnUrl=${returnUrl}`;
 

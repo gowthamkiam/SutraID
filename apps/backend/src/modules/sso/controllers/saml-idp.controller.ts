@@ -82,8 +82,10 @@ export class SamlIdpController {
 
       if (!user) {
         // User not authenticated - redirect to login page
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-        const returnUrl = encodeURIComponent(req.originalUrl);
+        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3001').split(',')[0].trim();
+        const proto = req.get('x-forwarded-proto') || req.protocol;
+        const backendUrl = `${proto}://${req.get('host')}`;
+        const returnUrl = encodeURIComponent(`${backendUrl}${req.originalUrl}`);
         const loginUrl = `${frontendUrl}/login?returnUrl=${returnUrl}`;
 
         console.log('⚠️  User not authenticated, redirecting to login');
@@ -166,8 +168,10 @@ export class SamlIdpController {
 
       if (!user) {
         // User not authenticated - redirect to login page
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-        const returnUrl = encodeURIComponent(req.originalUrl);
+        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3001').split(',')[0].trim();
+        const proto = req.get('x-forwarded-proto') || req.protocol;
+        const backendUrl = `${proto}://${req.get('host')}`;
+        const returnUrl = encodeURIComponent(`${backendUrl}${req.originalUrl}`);
         const loginUrl = `${frontendUrl}/login?returnUrl=${returnUrl}`;
 
         console.log('⚠️  User not authenticated, redirecting to login');

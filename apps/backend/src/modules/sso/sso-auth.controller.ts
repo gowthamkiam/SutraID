@@ -112,12 +112,12 @@ export class SsoAuthController {
 
       // TODO: Create session and JWT tokens
       // For now, redirect with user info
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3001').split(',')[0].trim();
       res.redirect(
         `${frontendUrl}/auth/callback?userId=${user.id}&email=${user.email}`,
       );
     } catch (error: any) {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3001').split(',')[0].trim();
       res.redirect(
         `${frontendUrl}/auth/error?message=${encodeURIComponent(error.message)}`,
       );
@@ -209,12 +209,12 @@ export class SsoAuthController {
 
       // TODO: Create session and JWT tokens
       // For now, redirect with user info
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3001').split(',')[0].trim();
       res.redirect(
         `${frontendUrl}/auth/callback?userId=${user.id}&email=${user.email}`,
       );
     } catch (error: any) {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3001').split(',')[0].trim();
       res.redirect(
         `${frontendUrl}/auth/error?message=${encodeURIComponent(error.message)}`,
       );

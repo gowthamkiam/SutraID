@@ -44,7 +44,7 @@ export class OidcIdpService {
       throw new BadRequestException('Organization not found');
     }
 
-    const baseUrl = this.config.get<string>('BACKEND_URL') || 'http://localhost:3000';
+    const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
     const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}`;
 
     // Create OIDC Provider instance
@@ -108,7 +108,7 @@ export class OidcIdpService {
       // Interaction URL (custom consent screen)
       interactions: {
         url: async (ctx: any, interaction: any): Promise<string> => {
-          const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+          const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
           return `${frontendUrl}/auth/consent?uid=${interaction.uid}`;
         },
       },
@@ -356,7 +356,7 @@ export class OidcIdpService {
    * Get OIDC discovery metadata
    */
   async getDiscoveryMetadata(organizationId: string) {
-    const baseUrl = this.config.get<string>('BACKEND_URL') || 'http://localhost:3000';
+    const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
     const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}`;
 
     return {
