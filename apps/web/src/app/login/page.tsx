@@ -67,11 +67,18 @@ export default function LoginPage() {
    * After login, redirect to the returnUrl (if present).
    * Falls back to /dashboard when there is no returnUrl.
    */
-  const redirectAfterLogin = (_accessToken: string) => {
+  const redirectAfterLogin = (accessToken: string) => {
     const params = new URLSearchParams(window.location.search);
     const returnUrl = params.get('returnUrl');
     if (returnUrl) {
-      window.location.href = decodeURIComponent(returnUrl);
+      const decoded = decodeURIComponent(returnUrl);
+      try {
+        const url = new URL(decoded);
+        url.searchParams.set('auth_token', accessToken);
+        window.location.href = url.toString();
+      } catch {
+        window.location.href = decoded;
+      }
       return;
     }
     window.location.href = '/dashboard';

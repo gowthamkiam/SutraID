@@ -56,13 +56,7 @@ export class OidcIdpController {
   ) {
     console.log('📥 OIDC authorization request received');
     try {
-      // Extract orgId before modifying the req.url
-      const provider = await this.oidcIdpService.getProviderInstance(
-        organizationId,
-      );
-
-       // Check if user is authenticated
-       const user = await this.getCurrentUser(req);
+      const user = await this.getCurrentUser(req);
 
        if (!user) {
          // User not authenticated - redirect to login with full returnUrl.
@@ -80,7 +74,7 @@ export class OidcIdpController {
        }
  
        console.log('✅ User authenticated for OIDC authorization');
- 
+
        // Strip auth_token from the URL before forwarding to oidc-provider
        // so it doesn't see unknown query parameters.
        if ((req.query as Record<string, unknown>)?.auth_token) {
@@ -90,9 +84,14 @@ export class OidcIdpController {
          req.url = url.pathname + url.search;
        }
 
-      // Ensure the prefix is stripped after extracting parameters
-      // this.stripPrefix(req, organizationId);
-      return provider.app.callback()(req, res);
+       // Strip the issuer prefix so oidc-provider's Koa router sees /authorize
+       this.stripPrefix(req, organizationId);
+
+       // User is authenticated — let oidc-provider create the interaction
+       // then immediately auto-confirm it (skip the consent screen).
+       return this.oidcIdpService.handleAuthorizeAsAuthenticated(
+         organizationId, user.id, req, res,
+       );
     } catch (error: any) {
       console.error('❌ OIDC authorization error:', error);
       throw new BadRequestException(error.message);

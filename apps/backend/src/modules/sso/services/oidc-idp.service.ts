@@ -317,6 +317,91 @@ export class OidcIdpService {
   }
 
   /**
+   * Full authorize flow for an already-authenticated user.
+   *
+   * Strategy:
+   *  1. Forward the (prefix-stripped) request to oidc-provider so it creates
+   *     the Interaction record and sets the interaction session cookies on res.
+   *  2. Intercept the redirect to the consent URL by overriding res.end —
+   *     this prevents the response from being flushed to the socket.
+   *  3. Inject the Set-Cookie values oidc-provider wrote into req.headers.cookie
+   *     so that interactionDetails() can verify them.
+   *  4. Auto-confirm the interaction (consent = true).
+   *  5. Redirect the browser to the returnTo (resume) URL, forwarding the
+   *     interaction cookies so oidc-provider can read the session on resume.
+   */
+  async handleAuthorizeAsAuthenticated(
+    organizationId: string,
+    userId: string,
+    req: any,
+    res: any,
+  ): Promise<void> {
+    const provider = await this.getProviderInstance(organizationId);
+    const origEnd = (res.end as Function).bind(res);
+    let intercepted = false;
+
+    // Override res.end to intercept oidc-provider's redirect to the interaction URL.
+    // All res.setHeader() calls (cookies, Location) have already been recorded on res
+    // but nothing has been written to the socket yet.
+    res.end = (...args: any[]) => {
+      const location = res.getHeader('location') as string | undefined;
+      if (location?.includes('uid=')) {
+        intercepted = true;
+        return res; // block — we will send the final redirect ourselves
+      }
+      // Error / non-interaction response — let oidc-provider handle it normally
+      return origEnd(...args);
+    };
+
+    await provider.app.callback()(req, res);
+    res.end = origEnd; // restore
+
+    if (!intercepted) {
+      // oidc-provider already sent its own response (e.g. an error) — nothing to do
+      return;
+    }
+
+    const interactionLocation = res.getHeader('location') as string;
+    let uid: string | null = null;
+    try {
+      uid = new URL(interactionLocation).searchParams.get('uid');
+    } catch {
+      uid = new URLSearchParams(interactionLocation.split('?')[1] ?? '').get('uid');
+    }
+
+    if (!uid) {
+      // Cannot determine UID — fall back to the original redirect
+      res.statusCode = 302;
+      origEnd('');
+      return;
+    }
+
+    // Inject the interaction session cookies oidc-provider wrote to res
+    // into req.headers.cookie so that interactionDetails() can find them.
+    const setCookies = res.getHeader('set-cookie');
+    if (setCookies) {
+      const cookieStrings: string[] = Array.isArray(setCookies)
+        ? (setCookies as string[])
+        : [String(setCookies)];
+      const pairs = cookieStrings
+        .map((c) => c.split(';')[0].trim())
+        .filter(Boolean);
+      const existing: string = req.headers?.cookie ?? '';
+      req.headers.cookie = existing ? `${existing}; ${pairs.join('; ')}` : pairs.join('; ');
+    }
+
+    // Auto-confirm the interaction — calls interactionResult internally
+    const returnTo = await this.handleInteraction(organizationId, uid, userId, true, req, res);
+
+    // Send the redirect. The Set-Cookie headers oidc-provider wrote are still
+    // queued in res (via setHeader) — origEnd() will flush them together with
+    // the new Location so the browser receives the interaction cookies.
+    res.statusCode = 302;
+    res.setHeader('Location', returnTo);
+    origEnd('');
+  }
+
+  /**
    * Handle interaction (consent).
    * Uses interactionResult (not interactionFinished) so the response is NOT
    * sent by oidc-provider — the caller is responsible for redirecting.
