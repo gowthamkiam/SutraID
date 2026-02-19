@@ -67,14 +67,6 @@ export class OidcIdpService {
         introspection: { enabled: true },
       },
 
-      // Token TTLs
-      ttl: {
-        AccessToken: 3600, // 1 hour
-        AuthorizationCode: 600, // 10 minutes
-        IdToken: 3600, // 1 hour
-        RefreshToken: 86400 * 30, // 30 days
-      },
-
       // Claims
       claims: {
         openid: ['sub'],
@@ -130,6 +122,27 @@ export class OidcIdpService {
         keys: [this.config.get<string>('ENCRYPTION_KEY') || 'fallback-secret'],
         long: { signed: true, maxAge: 86400 * 30 * 1000 }, // 30 days
         short: { signed: true, maxAge: 600 * 1000 }, // 10 minutes
+      },
+
+      // TTLs
+      ttl: {
+        AccessToken: 3600,
+        AuthorizationCode: 600,
+        IdToken: 3600,
+        RefreshToken: 86400 * 30,
+        Session: 86400 * 14,
+        Grant: 86400 * 14,
+        Interaction: 3600,
+      },
+
+      // Custom renderError: log actual error to Railway console and redirect to frontend
+      renderError: async (ctx: any, out: any, error: any) => {
+        const errCode = out?.error || error?.name || 'server_error';
+        const errMsg = error?.message || out?.error_description || errCode;
+        console.error(`❌ OIDC renderError [${errCode}]: ${errMsg}`, { error, out });
+        const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
+        ctx.status = 302;
+        ctx.redirect(`${frontendUrl}/auth/error?error=${encodeURIComponent(errCode)}&error_description=${encodeURIComponent(errMsg)}`);
       },
     });
 
