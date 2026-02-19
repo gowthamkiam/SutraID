@@ -17,6 +17,7 @@ services:
   backend:
     build:
       context: .
+      dockerfile: Dockerfile.dev
       target: backend-runner
     container_name: sutraid-backend
     depends_on:
@@ -39,6 +40,7 @@ services:
   web:
     build:
       context: .
+      dockerfile: Dockerfile.dev
       target: web-runner
     container_name: sutraid-web
     depends_on:

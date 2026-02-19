@@ -1,9 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { RequestMethod, ValidationPipe } from '@nestjs/common';
+import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.use(cookieParser());
 
   // Accept SCIM media type payloads in addition to standard JSON.
   // Use Nest's platform body parser to avoid direct runtime dependency imports.
@@ -16,6 +18,7 @@ async function bootstrap() {
     exclude: [
       { path: 'scim/v2/:orgRef', method: RequestMethod.ALL },
       { path: 'scim/v2/:orgRef/(.*)', method: RequestMethod.ALL },
+      { path: '.well-known/(.*)', method: RequestMethod.ALL },
     ],
   });
 

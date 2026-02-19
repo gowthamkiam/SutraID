@@ -5,10 +5,12 @@ import {
   Body,
   UseGuards,
   Request,
+  Res,
   HttpCode,
   HttpStatus,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { MfaService } from '../services/mfa.service';
 import { AuthService } from '../services/auth.service';
 import {
@@ -65,7 +67,10 @@ export class MfaController {
    */
   @Post('verify-challenge')
   @HttpCode(HttpStatus.OK)
-  async verifyChallenge(@Body() dto: VerifyMfaChallengeDto) {
+  async verifyChallenge(
+    @Body() dto: VerifyMfaChallengeDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     // Verify the temporary MFA token
     const { userId } = await this.mfaService.verifyMfaToken(dto.mfaToken);
 
@@ -83,8 +88,17 @@ export class MfaController {
 
     // MFA verified — create full session
     const user = await this.authService.getUserById(userId);
-    // Use the internal createSession method via a public wrapper
-    return this.authService.createSessionForUser(user);
+    const session = await this.authService.createSessionForUser(user);
+    if (session.accessToken) {
+      res.cookie('access_token', session.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000,
+        path: '/',
+      });
+    }
+    return session;
   }
 
   /**

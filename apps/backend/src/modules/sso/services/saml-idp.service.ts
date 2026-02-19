@@ -39,7 +39,7 @@ export class SamlIdpService {
       organizationId,
     );
 
-    const baseUrl = this.config.get<string>('BACKEND_URL') || 'http://localhost:3000';
+    const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
     const entityId = `${baseUrl}/api/v1/sso/saml-idp/${organizationId}/metadata`;
     const ssoUrl = `${baseUrl}/api/v1/sso/saml-idp/${organizationId}/sso`;
 
@@ -260,7 +260,7 @@ export class SamlIdpService {
   ): Promise<{ samlResponse: string; relayState?: string }> {
     const idp = await this.getIdpInstance(organizationId);
 
-    const baseUrl = this.config.get<string>('BACKEND_URL') || 'http://localhost:3000';
+    const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
     const issuer = `${baseUrl}/api/v1/sso/saml-idp/${organizationId}/metadata`;
 
     // Get application configuration for attribute mapping

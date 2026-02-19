@@ -21,7 +21,7 @@ export class SamlSpService {
       throw new BadRequestException('Invalid SAML configuration');
     }
 
-    const baseUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+    const baseUrl = (process.env.BACKEND_URL || 'http://localhost:3000').split(',')[0].trim();
     const acsUrl = `${baseUrl}/api/v1/sso/saml/${provider.organizationId}/acs`;
 
     return {
@@ -215,7 +215,7 @@ export class SamlSpService {
    * Generate SAML metadata XML
    */
   async getMetadata(organizationId: string): Promise<string> {
-    const baseUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+    const baseUrl = (process.env.BACKEND_URL || 'http://localhost:3000').split(',')[0].trim();
     const acsUrl = `${baseUrl}/api/v1/sso/saml/${organizationId}/acs`;
     const entityId = `${baseUrl}/api/v1/sso/saml/${organizationId}/metadata`;
 

@@ -340,6 +340,10 @@ export const applicationApi = {
     return `${API_URL.replace('/api/v1', '')}/oauth/register`;
   },
 
+  getAuthorizeUrl(orgId: string): string {
+    return `${API_URL}/sso/oidc-idp/${orgId}/authorize`;
+  },
+
   // Guide
   getGuideUrl(orgSlug: string, appId: string): string {
     return `${API_URL.replace('/api/v1', '')}/guide/${orgSlug}/${appId}`;

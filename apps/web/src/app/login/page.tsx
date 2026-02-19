@@ -63,6 +63,16 @@ export default function LoginPage() {
   const [mfaCode, setMfaCode] = useState('');
   const [isBackupCode, setIsBackupCode] = useState(false);
 
+  const redirectAfterLogin = (_accessToken: string) => {
+    const params = new URLSearchParams(window.location.search);
+    const returnUrl = params.get('returnUrl');
+    if (returnUrl) {
+      window.location.href = decodeURIComponent(returnUrl);
+      return;
+    }
+    window.location.href = '/dashboard';
+  };
+
   const getProviderIcon = (type: string) => {
     const icons: Record<string, string> = {
       OKTA: 'O',
@@ -162,6 +172,7 @@ export default function LoginPage() {
         const response = await fetch(`${apiUrl}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ email, password, organizationId }),
         });
         const data = await response.json();
@@ -185,7 +196,7 @@ export default function LoginPage() {
           window.location.href = '/auth/change-password';
           return;
         }
-        window.location.href = '/dashboard';
+        redirectAfterLogin(data.accessToken);
         return;
       } else if (mode === 'register') {
         if (password !== confirmPassword) {
@@ -206,7 +217,7 @@ export default function LoginPage() {
         localStorage.setItem('user', JSON.stringify(data.user));
         const orgId = data.organization?.id || data.user?.organizationId;
         if (orgId) localStorage.setItem('currentOrgId', orgId);
-        window.location.href = '/dashboard';
+        redirectAfterLogin(data.accessToken);
         return;
       }
     } catch (err: any) {
@@ -227,6 +238,7 @@ export default function LoginPage() {
       const response = await fetch(`${apiUrl}/auth/mfa/verify-challenge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           mfaToken,
           code: mfaCode,
@@ -245,7 +257,7 @@ export default function LoginPage() {
         window.location.href = '/auth/change-password';
         return;
       }
-      window.location.href = '/dashboard';
+      redirectAfterLogin(data.accessToken);
     } catch (err: any) {
       setError(err.message || 'Invalid code. Please try again.');
     } finally {

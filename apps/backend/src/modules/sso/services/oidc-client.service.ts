@@ -21,7 +21,7 @@ export class OidcClientService {
       throw new BadRequestException('Invalid OIDC configuration');
     }
 
-    const baseUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+    const baseUrl = (process.env.BACKEND_URL || 'http://localhost:3000').split(',')[0].trim();
     const redirectUri = `${baseUrl}/api/v1/sso/oidc/${providerId}/callback`;
 
     try {

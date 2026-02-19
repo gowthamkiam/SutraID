@@ -1,21 +1,25 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-// oidc-provider v9 is ESM-only, use dynamic import
-let Provider: any;
-const loadProvider = async () => {
-  if (!Provider) {
-    const mod = await import('oidc-provider');
-    Provider = mod.default;
-  }
-  return Provider;
-};
+// oidc-provider v9 is ESM-only — must use dynamic import().
+// TypeScript with "module": "commonjs" compiles import() to require(),
+// so we use new Function() to prevent the transformation.
+const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
 import { User } from '@prisma/client';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class OidcIdpService {
   private providerInstances: Map<string, any> = new Map();
+  private ProviderClass: any;
+
+  protected async loadProvider() {
+    if (!this.ProviderClass) {
+      const mod = await dynamicImport('oidc-provider');
+      this.ProviderClass = mod.default;
+    }
+    return this.ProviderClass;
+  }
 
   constructor(
     private prisma: PrismaService,
@@ -40,11 +44,11 @@ export class OidcIdpService {
       throw new BadRequestException('Organization not found');
     }
 
-    const baseUrl = this.config.get<string>('BACKEND_URL') || 'http://localhost:3000';
+    const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
     const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}`;
 
     // Create OIDC Provider instance
-    const ProviderClass = await loadProvider();
+    const ProviderClass = await this.loadProvider();
     const provider = new ProviderClass(issuer, {
       // Adapter for storing authorization codes, tokens, etc.
       adapter: this.createAdapter(organizationId),
@@ -104,8 +108,8 @@ export class OidcIdpService {
       // Interaction URL (custom consent screen)
       interactions: {
         url: async (ctx: any, interaction: any): Promise<string> => {
-          const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
-          return `${frontendUrl}/auth/consent?uid=${interaction.uid}`;
+          const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
+          return `${frontendUrl}/auth/consent?uid=${interaction.uid}&orgId=${organizationId}`;
         },
       },
 
@@ -313,46 +317,148 @@ export class OidcIdpService {
   }
 
   /**
-   * Handle interaction (consent)
+   * Full authorize flow for an already-authenticated user.
+   *
+   * Strategy:
+   *  1. Forward the (prefix-stripped) request to oidc-provider so it creates
+   *     the Interaction record and sets the interaction session cookies on res.
+   *  2. Intercept the redirect to the consent URL by overriding res.end —
+   *     this prevents the response from being flushed to the socket.
+   *  3. Inject the Set-Cookie values oidc-provider wrote into req.headers.cookie
+   *     so that interactionDetails() can verify them.
+   *  4. Auto-confirm the interaction (consent = true).
+   *  5. Redirect the browser to the returnTo (resume) URL, forwarding the
+   *     interaction cookies so oidc-provider can read the session on resume.
+   */
+  async handleAuthorizeAsAuthenticated(
+    organizationId: string,
+    userId: string,
+    req: any,
+    res: any,
+  ): Promise<void> {
+    const provider = await this.getProviderInstance(organizationId);
+    const origEnd = (res.end as Function).bind(res);
+    let intercepted = false;
+
+    // Override res.end to intercept oidc-provider's redirect to the interaction URL.
+    // All res.setHeader() calls (cookies, Location) have already been recorded on res
+    // but nothing has been written to the socket yet.
+    res.end = (...args: any[]) => {
+      const location = res.getHeader('location') as string | undefined;
+      if (location?.includes('uid=')) {
+        intercepted = true;
+        return res; // block — we will send the final redirect ourselves
+      }
+      // Error / non-interaction response — let oidc-provider handle it normally
+      return origEnd(...args);
+    };
+
+    await provider.app.callback()(req, res);
+    res.end = origEnd; // restore
+
+    if (!intercepted) {
+      // oidc-provider already sent its own response (e.g. an error) — nothing to do
+      return;
+    }
+
+    const interactionLocation = res.getHeader('location') as string;
+    let uid: string | null = null;
+    try {
+      uid = new URL(interactionLocation).searchParams.get('uid');
+    } catch {
+      uid = new URLSearchParams(interactionLocation.split('?')[1] ?? '').get('uid');
+    }
+
+    if (!uid) {
+      // Cannot determine UID — fall back to the original redirect
+      res.statusCode = 302;
+      origEnd('');
+      return;
+    }
+
+    // Inject the interaction session cookies oidc-provider wrote to res
+    // into req.headers.cookie so that interactionDetails() can find them.
+    const setCookies = res.getHeader('set-cookie');
+    if (setCookies) {
+      const cookieStrings: string[] = Array.isArray(setCookies)
+        ? (setCookies as string[])
+        : [String(setCookies)];
+      const pairs = cookieStrings
+        .map((c) => c.split(';')[0].trim())
+        .filter(Boolean);
+      const existing: string = req.headers?.cookie ?? '';
+      req.headers.cookie = existing ? `${existing}; ${pairs.join('; ')}` : pairs.join('; ');
+    }
+
+    // Auto-confirm the interaction — calls interactionResult internally
+    const returnTo = await this.handleInteraction(organizationId, uid, userId, true, req, res);
+
+    // Send the redirect. The Set-Cookie headers oidc-provider wrote are still
+    // queued in res (via setHeader) — origEnd() will flush them together with
+    // the new Location so the browser receives the interaction cookies.
+    res.statusCode = 302;
+    res.setHeader('Location', returnTo);
+    origEnd('');
+  }
+
+  /**
+   * Handle interaction (consent).
+   * Uses interactionResult (not interactionFinished) so the response is NOT
+   * sent by oidc-provider — the caller is responsible for redirecting.
+   * Returns the returnTo URL for the caller to redirect the user to.
    */
   async handleInteraction(
     organizationId: string,
-    uid: string,
+    _uid: string,
     actorId: string,
     consent: boolean,
-  ) {
+    req: any,
+    res: any,
+  ): Promise<string> {
     const provider = await this.getProviderInstance(organizationId);
-    const interaction = await provider.interactionDetails(
-      {} as any,
-      { uid } as any,
-    );
+    const interaction = await provider.interactionDetails(req, res);
 
     if (!consent) {
-      throw new BadRequestException('User denied consent');
+      const returnTo = await provider.interactionResult(req, res, {
+        error: 'access_denied',
+        error_description: 'User denied consent',
+      }, { mergeWithLastSubmission: false });
+      return returnTo;
     }
 
-    // Grant consent
-    const result = {
-      login: {
-        accountId: actorId,
-      },
-      consent: {
-        grantId: interaction.grantId,
-      },
-    };
-
-    await provider.interactionFinished({} as any, {} as any, result, {
-      mergeWithLastSubmission: false,
+    // Build grant
+    const grant = new provider.Grant({
+      accountId: actorId,
+      clientId: interaction.params.client_id as string,
     });
 
-    return interaction;
+    const requestedScopes = interaction.prompt?.details?.missingOIDCScope as string[] | undefined;
+    if (requestedScopes) {
+      grant.addOIDCScope(requestedScopes.join(' '));
+    } else if (interaction.params.scope) {
+      grant.addOIDCScope(interaction.params.scope as string);
+    }
+
+    const requestedClaims = interaction.prompt?.details?.missingOIDCClaims as string[] | undefined;
+    if (requestedClaims) {
+      grant.addOIDCClaims(requestedClaims);
+    }
+
+    const grantId = await grant.save();
+
+    const returnTo = await provider.interactionResult(req, res, {
+      login: { accountId: actorId },
+      consent: { grantId },
+    }, { mergeWithLastSubmission: false });
+
+    return returnTo;
   }
 
   /**
    * Get OIDC discovery metadata
    */
   async getDiscoveryMetadata(organizationId: string) {
-    const baseUrl = this.config.get<string>('BACKEND_URL') || 'http://localhost:3000';
+    const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
     const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}`;
 
     return {
