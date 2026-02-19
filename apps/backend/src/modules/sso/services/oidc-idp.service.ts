@@ -279,15 +279,22 @@ export class OidcIdpService {
       },
     });
 
-    return applications.map((app) => ({
-      client_id: app.clientId,
-      client_secret: app.clientSecretHash || undefined, // Stored as hash
-      grant_types: ['authorization_code', 'refresh_token'],
-      redirect_uris: app.redirectUris,
-      post_logout_redirect_uris: app.redirectUris,
-      response_types: ['code'],
-      token_endpoint_auth_method: 'client_secret_post',
-    }));
+    return applications.map((app) => {
+      // Public clients (no secret stored) use PKCE-only auth.
+      // Confidential clients pass the stored hash; oidc-provider stores it
+      // verbatim — token-endpoint verification is handled by the custom
+      // client_secret_verify callback below.
+      const isPublic = !app.clientSecretHash;
+      return {
+        client_id: app.clientId,
+        ...(!isPublic ? { client_secret: app.clientSecretHash } : {}),
+        grant_types: ['authorization_code', 'refresh_token'],
+        redirect_uris: app.redirectUris as string[],
+        post_logout_redirect_uris: app.redirectUris as string[],
+        response_types: ['code'],
+        token_endpoint_auth_method: isPublic ? 'none' : 'client_secret_post',
+      };
+    });
   }
 
   /**
