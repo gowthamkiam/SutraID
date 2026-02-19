@@ -363,7 +363,18 @@ export class OidcIdpService {
       return origEnd(...args);
     };
 
+    // oidc-provider's Koa router registers routes WITHOUT the issuer path prefix
+    // (e.g. just '/authorize', not '/api/v1/sso/oidc-idp/:orgId/authorize').
+    // Strip the prefix so Koa can match its routes, then restore afterwards.
+    const issuerPath = this.getIssuerPath(organizationId);
+    const originalUrl: string = req.url;
+    req.url = originalUrl.startsWith(issuerPath)
+      ? originalUrl.slice(issuerPath.length) || '/'
+      : originalUrl;
+
     await provider.app.callback()(req, res);
+
+    req.url = originalUrl; // restore before anything reads req.url again
     res.end = origEnd; // restore
 
     if (!intercepted) {
@@ -508,6 +519,33 @@ export class OidcIdpService {
       ],
       code_challenge_methods_supported: ['S256'],
     };
+  }
+
+  /**
+   * Returns the URL pathname component of the issuer, e.g.
+   * '/api/v1/sso/oidc-idp/:orgId'. Used to strip the prefix from req.url
+   * before forwarding to oidc-provider's Koa app (which registers routes
+   * without this prefix).
+   */
+  private getIssuerPath(organizationId: string): string {
+    const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
+    return new URL(`${baseUrl}/api/v1/sso/oidc-idp/${organizationId}`).pathname;
+  }
+
+  /**
+   * Forward an Express req/res to oidc-provider's Koa app, stripping the
+   * issuer path prefix from req.url first so Koa's router can match routes.
+   * Use this in every controller handler that delegates to oidc-provider.
+   */
+  async dispatchToProvider(organizationId: string, req: any, res: any): Promise<void> {
+    const provider = await this.getProviderInstance(organizationId);
+    const issuerPath = this.getIssuerPath(organizationId);
+    const originalUrl: string = req.url;
+    req.url = originalUrl.startsWith(issuerPath)
+      ? originalUrl.slice(issuerPath.length) || '/'
+      : originalUrl;
+    await (provider.app.callback())(req, res);
+    req.url = originalUrl;
   }
 
   /**

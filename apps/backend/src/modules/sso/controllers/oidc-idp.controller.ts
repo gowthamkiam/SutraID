@@ -92,13 +92,8 @@ export class OidcIdpController {
     @Res() res: Response,
   ) {
     try {
-      const provider = await this.oidcIdpService.getProviderInstance(
-        organizationId,
-      );
-
       console.log('📥 OIDC token request received');
-
-      return provider.app.callback()(req, res);
+      return this.oidcIdpService.dispatchToProvider(organizationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC token error:', error);
       throw new BadRequestException(error.message);
@@ -118,11 +113,7 @@ export class OidcIdpController {
     @Res() res: Response,
   ) {
     try {
-      const provider = await this.oidcIdpService.getProviderInstance(
-        organizationId,
-      );
-
-      return provider.app.callback()(req, res);
+      return this.oidcIdpService.dispatchToProvider(organizationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC userinfo error:', error);
       throw new UnauthorizedException(error.message);
@@ -142,11 +133,7 @@ export class OidcIdpController {
     @Res() res: Response,
   ) {
     try {
-      const provider = await this.oidcIdpService.getProviderInstance(
-        organizationId,
-      );
-
-      return provider.app.callback()(req, res);
+      return this.oidcIdpService.dispatchToProvider(organizationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC jwks error:', error);
       throw new BadRequestException(error.message);
@@ -266,11 +253,7 @@ export class OidcIdpController {
     @Res() res: Response,
   ) {
     try {
-      const provider = await this.oidcIdpService.getProviderInstance(
-        organizationId,
-      );
-
-      return provider.app.callback()(req, res);
+      return this.oidcIdpService.dispatchToProvider(organizationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC callback error:', error);
       throw new BadRequestException(error.message);
