@@ -103,6 +103,13 @@ export class OidcIdpService {
         'client_credentials',
       ],
 
+      // Route paths — must match what NestJS exposes under /:orgId/
+      routes: {
+        authorization: '/authorize',
+        resume: '/authorize/:uid',
+        userinfo: '/userinfo',
+      },
+
       // PKCE
       pkce: {
         required: () => true, // Always require PKCE
