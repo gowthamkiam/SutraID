@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Param,
+  Query,
   Body,
   Req,
   Res,
@@ -39,7 +40,6 @@ export class OidcIdpController {
   /**
    * GET /authorize
    * OAuth 2.0 Authorization endpoint
-   * Handles authorization requests from external applications
    */
   @Get('authorize')
   async authorize(
@@ -51,30 +51,52 @@ export class OidcIdpController {
     try {
       const user = await this.getCurrentUser(req);
 
-       if (!user) {
-         // User not authenticated - redirect to login with full returnUrl.
-         // FRONTEND_URL / BACKEND_URL may be comma-separated — take the first value.
-         const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
-         // Derive backend URL from the incoming request so it always matches
-         // the host the caller actually reached (works behind any proxy).
-         const proto = req.get('x-forwarded-proto') || req.protocol;
-         const backendUrl = `${proto}://${req.get('host')}`;
-         const returnUrl = encodeURIComponent(`${backendUrl}${req.originalUrl}`);
-         const loginUrl = `${frontendUrl}/login?returnUrl=${returnUrl}`;
- 
-         console.log('⚠️  User not authenticated, redirecting to login');
-         return res.redirect(loginUrl);
-       }
- 
-       console.log('✅ User authenticated for OIDC authorization');
+      if (!user) {
+        const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
+        const proto = req.get('x-forwarded-proto') || req.protocol;
+        const backendUrl = `${proto}://${req.get('host')}`;
+        const returnUrl = encodeURIComponent(`${backendUrl}${req.originalUrl}`);
+        console.log('⚠️  User not authenticated, redirecting to login');
+        return res.redirect(`${frontendUrl}/login?returnUrl=${returnUrl}`);
+      }
 
-       // User is authenticated — let oidc-provider create the interaction
-       // then immediately auto-confirm it (skip the consent screen).
-       return this.oidcIdpService.handleAuthorizeAsAuthenticated(
-         organizationId, user.id, req, res,
-       );
+      console.log('✅ User authenticated, forwarding to oidc-provider');
+      return this.oidcIdpService.dispatchToProvider(organizationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC authorization error:', error);
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  /**
+   * GET /auto-confirm
+   * Backend interaction endpoint — auto-confirms consent for authenticated users.
+   * oidc-provider redirects here so signed interaction cookies arrive naturally.
+   */
+  @Get('auto-confirm')
+  async autoConfirm(
+    @Param('orgId') organizationId: string,
+    @Query('uid') uid: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    console.log('📥 OIDC auto-confirm interaction request');
+    try {
+      const user = await this.getCurrentUser(req);
+
+      if (!user) {
+        const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
+        return res.redirect(`${frontendUrl}/login`);
+      }
+
+      const returnTo = await this.oidcIdpService.handleInteraction(
+        organizationId, uid, user.id, true, req, res,
+      );
+
+      console.log(`✅ Interaction auto-confirmed, resuming at ${returnTo}`);
+      return res.redirect(returnTo);
+    } catch (error: any) {
+      console.error('❌ OIDC auto-confirm error:', error);
       throw new BadRequestException(error.message);
     }
   }
