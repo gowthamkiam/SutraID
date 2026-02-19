@@ -104,9 +104,10 @@ describe('AuthController', () => {
       mockAuthService.loginWithPassword.mockResolvedValue(authResponse as any);
 
       const res = {
+        cookie: jest.fn(),
         status: jest.fn().mockReturnThis(),
         send: jest.fn(),
-      } as any; // Mock response object
+      } as any;
       const result = await controller.login(dto, res);
 
       expect(result).toEqual(authResponse);
