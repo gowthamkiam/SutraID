@@ -75,15 +75,6 @@ export class OidcIdpController {
  
        console.log('✅ User authenticated for OIDC authorization');
 
-       // Strip auth_token from the URL before forwarding to oidc-provider
-       // so it doesn't see unknown query parameters.
-       if ((req.query as Record<string, unknown>)?.auth_token) {
-         delete (req.query as Record<string, unknown>).auth_token;
-         const url = new URL(req.url, `${req.protocol}://${req.get('host')}`);
-         url.searchParams.delete('auth_token');
-         req.url = url.pathname + url.search;
-       }
-
        // Strip the issuer prefix so oidc-provider's Koa router sees /authorize
        this.stripPrefix(req, organizationId);
 
@@ -305,14 +296,10 @@ export class OidcIdpController {
    */
   private async getCurrentUser(req: Request): Promise<any | null> {
     try {
-      // Try to extract JWT from Authorization header, cookie, or query param.
-      // The query-param path is used when the frontend redirects back after
-      // login — browser navigations can't carry Authorization headers.
       const authHeader = req.headers.authorization;
-      const queryToken = (req.query as Record<string, unknown>)?.auth_token as string | undefined;
       const token = authHeader?.startsWith('Bearer ')
         ? authHeader.substring(7)
-        : req.cookies?.access_token || queryToken;
+        : req.cookies?.access_token;
 
       if (!token) {
         return null;

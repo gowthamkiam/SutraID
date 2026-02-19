@@ -5,9 +5,11 @@ import {
   Body,
   UseGuards,
   Request,
+  Res,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { AuthService } from '../services/auth.service';
 import {
   MagicLinkRequestDto,
@@ -69,8 +71,19 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginPasswordDto,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
-    return await this.authService.loginWithPassword(dto.email, dto.password, dto.organizationId);
+    const result = await this.authService.loginWithPassword(dto.email, dto.password, dto.organizationId);
+    if (result.accessToken && !result.mfaRequired) {
+      res.cookie('access_token', result.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000,
+        path: '/',
+      });
+    }
+    return result;
   }
 
   /**
@@ -130,8 +143,12 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async logout(@Request() req: any): Promise<{ message: string }> {
+  async logout(
+    @Request() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ message: string }> {
     await this.authService.revokeSession(req.user.jti);
+    res.clearCookie('access_token', { path: '/' });
     return { message: 'Logged out successfully' };
   }
 }

@@ -63,22 +63,11 @@ export default function LoginPage() {
   const [mfaCode, setMfaCode] = useState('');
   const [isBackupCode, setIsBackupCode] = useState(false);
 
-  /**
-   * After login, redirect to the returnUrl (if present).
-   * Falls back to /dashboard when there is no returnUrl.
-   */
-  const redirectAfterLogin = (accessToken: string) => {
+  const redirectAfterLogin = (_accessToken: string) => {
     const params = new URLSearchParams(window.location.search);
     const returnUrl = params.get('returnUrl');
     if (returnUrl) {
-      const decoded = decodeURIComponent(returnUrl);
-      try {
-        const url = new URL(decoded);
-        url.searchParams.set('auth_token', accessToken);
-        window.location.href = url.toString();
-      } catch {
-        window.location.href = decoded;
-      }
+      window.location.href = decodeURIComponent(returnUrl);
       return;
     }
     window.location.href = '/dashboard';
@@ -183,6 +172,7 @@ export default function LoginPage() {
         const response = await fetch(`${apiUrl}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ email, password, organizationId }),
         });
         const data = await response.json();
@@ -248,6 +238,7 @@ export default function LoginPage() {
       const response = await fetch(`${apiUrl}/auth/mfa/verify-challenge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           mfaToken,
           code: mfaCode,
