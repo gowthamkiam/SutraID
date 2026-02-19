@@ -103,7 +103,11 @@ describe('AuthController', () => {
 
       mockAuthService.loginWithPassword.mockResolvedValue(authResponse as any);
 
-      const result = await controller.login(dto);
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        send: jest.fn(),
+      } as any; // Mock response object
+      const result = await controller.login(dto, res);
 
       expect(result).toEqual(authResponse);
       expect(authService.loginWithPassword).toHaveBeenCalledWith(
@@ -188,10 +192,16 @@ describe('AuthController', () => {
       const req = { user: { id: 'user-1', jti: 'jti-1' } };
       mockAuthService.revokeSession.mockResolvedValue(undefined);
 
-      const result = await controller.logout(req);
+      const res = {
+        clearCookie: jest.fn(),
+        status: jest.fn().mockReturnThis(),
+        send: jest.fn(),
+      } as any; // Mock response object
+      const result = await controller.logout(req, res);
 
       expect(result.message).toContain('Logged out successfully');
       expect(authService.revokeSession).toHaveBeenCalledWith('jti-1');
+      expect(res.clearCookie).toHaveBeenCalledWith('access_token', { path: '/' });
     });
   });
 });
