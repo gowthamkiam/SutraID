@@ -26,13 +26,6 @@ export class OidcIdpController {
     private config: ConfigService
   ) { }
 
-  private stripPrefix(req: Request, organizationId: string): void {
-    const prefix = `/api/v1/sso/oidc-idp/${organizationId}`;
-    if (req.url.startsWith(prefix)) {
-      req.url = req.url.slice(prefix.length) || '/';
-    }
-  }
-
   /**
    * GET /.well-known/openid-configuration
    * OIDC Discovery endpoint
@@ -75,9 +68,6 @@ export class OidcIdpController {
  
        console.log('✅ User authenticated for OIDC authorization');
 
-       // Strip the issuer prefix so oidc-provider's Koa router sees /authorize
-       this.stripPrefix(req, organizationId);
-
        // User is authenticated — let oidc-provider create the interaction
        // then immediately auto-confirm it (skip the consent screen).
        return this.oidcIdpService.handleAuthorizeAsAuthenticated(
@@ -108,7 +98,6 @@ export class OidcIdpController {
 
       console.log('📥 OIDC token request received');
 
-      this.stripPrefix(req, organizationId);
       return provider.app.callback()(req, res);
     } catch (error: any) {
       console.error('❌ OIDC token error:', error);
@@ -133,7 +122,6 @@ export class OidcIdpController {
         organizationId,
       );
 
-      this.stripPrefix(req, organizationId);
       return provider.app.callback()(req, res);
     } catch (error: any) {
       console.error('❌ OIDC userinfo error:', error);
@@ -158,7 +146,6 @@ export class OidcIdpController {
         organizationId,
       );
 
-      this.stripPrefix(req, organizationId);
       return provider.app.callback()(req, res);
     } catch (error: any) {
       console.error('❌ OIDC jwks error:', error);
@@ -283,7 +270,6 @@ export class OidcIdpController {
         organizationId,
       );
 
-      this.stripPrefix(req, organizationId);
       return provider.app.callback()(req, res);
     } catch (error: any) {
       console.error('❌ OIDC callback error:', error);

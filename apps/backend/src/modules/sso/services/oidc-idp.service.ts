@@ -50,6 +50,9 @@ export class OidcIdpService {
     // Create OIDC Provider instance
     const ProviderClass = await this.loadProvider();
     const provider = new ProviderClass(issuer, {
+      // Trust X-Forwarded-Proto / X-Forwarded-Host from reverse proxies (Railway, Netlify).
+      proxy: true,
+
       // Adapter for storing authorization codes, tokens, etc.
       adapter: this.createAdapter(organizationId),
 
