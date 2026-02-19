@@ -1,0 +1,45 @@
+name: Node.js CI (Backend)
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [24.x]  # Current/recent versions in 2026; adjust if needed
+
+    defaults:
+      run:
+        working-directory: apps/backend   # All commands run here
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        # No 'version:' here → respects "packageManager": "pnpm@8.15.1" from package.json
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"                    # Caches the pnpm store automatically
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client & Build
+        run: pnpm run build
+
+      - name: Run tests
+        run: pnpm test
