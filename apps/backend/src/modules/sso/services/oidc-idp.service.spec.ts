@@ -4,6 +4,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
 
+// Mock Grant for consent flow
+const mockGrant = {
+  addOIDCScope: jest.fn(),
+  addOIDCClaims: jest.fn(),
+  save: jest.fn().mockResolvedValue('grant-id-123'),
+};
+
 // Mock provider constructor — returned by spying on loadProvider()
 const mockProviderConstructor = jest.fn().mockImplementation((issuer, config) => ({
   issuer,
@@ -11,6 +18,10 @@ const mockProviderConstructor = jest.fn().mockImplementation((issuer, config) =>
   interactionDetails: jest.fn(),
   interactionFinished: jest.fn(),
   interactionResult: jest.fn(),
+  Grant: jest.fn().mockImplementation(() => mockGrant),
+  app: {
+    callback: jest.fn().mockReturnValue(jest.fn().mockResolvedValue(undefined)),
+  },
 }));
 
 describe('OidcIdpService', () => {
@@ -145,7 +156,7 @@ describe('OidcIdpService', () => {
         'http://localhost:3000/api/v1/sso/oidc-idp/org-1/authorize',
       );
       expect(metadata.token_endpoint).toBe(
-        'http://localhost:3000/api/v1/sso/oidc-idp/org-1/token',
+        'http://localhost:3000/oauth/token',
       );
       expect(metadata.userinfo_endpoint).toBe(
         'http://localhost:3000/api/v1/sso/oidc-idp/org-1/userinfo',
@@ -452,6 +463,248 @@ describe('OidcIdpService', () => {
           status: 'ACTIVE',
         },
       });
+    });
+
+    it('should configure public client with token_endpoint_auth_method "none" when no clientSecretHash', async () => {
+      const publicApp = { ...mockApplication, clientSecretHash: null };
+      mockPrismaService.application.findMany.mockResolvedValue([publicApp]);
+
+      const clients = await (service as any).getClients('org-1');
+
+      expect(clients[0].token_endpoint_auth_method).toBe('none');
+      expect(clients[0].client_secret).toBeUndefined();
+    });
+
+    it('should configure confidential client with client_secret_post when clientSecretHash present', async () => {
+      mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
+
+      const clients = await (service as any).getClients('org-1');
+
+      expect(clients[0].token_endpoint_auth_method).toBe('client_secret_post');
+      expect(clients[0].client_secret).toBe('secret-456');
+    });
+  });
+
+  // ── handleInteraction — consent granted ───────────────────────────────
+
+  describe('handleInteraction - consent granted', () => {
+    let mockProvider: any;
+
+    beforeEach(async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
+      mockProvider = await service.getProviderInstance('org-1');
+      mockGrant.addOIDCScope.mockClear();
+      mockGrant.addOIDCClaims.mockClear();
+      mockGrant.save.mockClear().mockResolvedValue('grant-id-123');
+    });
+
+    it('should create grant, add scopes from missingOIDCScope, and return redirect URL', async () => {
+      mockProvider.interactionDetails.mockResolvedValue({
+        params: { client_id: 'client-123', scope: 'openid email' },
+        prompt: { details: { missingOIDCScope: ['openid', 'email'] } },
+      });
+      mockProvider.interactionResult.mockResolvedValue('https://example.com/callback?code=abc&state=xyz');
+
+      const result = await service.handleInteraction('org-1', 'uid-1', 'user-1', true, {}, {});
+
+      expect(result).toBe('https://example.com/callback?code=abc&state=xyz');
+      expect(mockProvider.Grant).toHaveBeenCalledWith({
+        accountId: 'user-1',
+        clientId: 'client-123',
+      });
+      expect(mockGrant.addOIDCScope).toHaveBeenCalledWith('openid email');
+      expect(mockGrant.save).toHaveBeenCalled();
+      expect(mockProvider.interactionResult).toHaveBeenCalledWith(
+        {},
+        {},
+        { login: { accountId: 'user-1' }, consent: { grantId: 'grant-id-123' } },
+        { mergeWithLastSubmission: false },
+      );
+    });
+
+    it('should fall back to interaction.params.scope when missingOIDCScope is absent', async () => {
+      mockProvider.interactionDetails.mockResolvedValue({
+        params: { client_id: 'client-123', scope: 'openid profile' },
+        prompt: { details: {} },
+      });
+      mockProvider.interactionResult.mockResolvedValue('https://example.com/callback?code=abc');
+
+      await service.handleInteraction('org-1', 'uid-1', 'user-1', true, {}, {});
+
+      expect(mockGrant.addOIDCScope).toHaveBeenCalledWith('openid profile');
+    });
+
+    it('should add missingOIDCClaims to grant when present', async () => {
+      mockProvider.interactionDetails.mockResolvedValue({
+        params: { client_id: 'client-123', scope: 'openid' },
+        prompt: { details: { missingOIDCScope: ['openid'], missingOIDCClaims: ['email', 'name'] } },
+      });
+      mockProvider.interactionResult.mockResolvedValue('https://example.com/callback?code=abc');
+
+      await service.handleInteraction('org-1', 'uid-1', 'user-1', true, {}, {});
+
+      expect(mockGrant.addOIDCClaims).toHaveBeenCalledWith(['email', 'name']);
+    });
+
+    it('should not call addOIDCClaims when missingOIDCClaims is absent', async () => {
+      mockProvider.interactionDetails.mockResolvedValue({
+        params: { client_id: 'client-123', scope: 'openid' },
+        prompt: { details: { missingOIDCScope: ['openid'] } },
+      });
+      mockProvider.interactionResult.mockResolvedValue('https://example.com/callback?code=abc');
+
+      await service.handleInteraction('org-1', 'uid-1', 'user-1', true, {}, {});
+
+      expect(mockGrant.addOIDCClaims).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── handleInteraction — error propagation ─────────────────────────────
+
+  describe('handleInteraction - error propagation', () => {
+    it('should propagate error when interactionDetails throws', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
+
+      const mockProvider = await service.getProviderInstance('org-1');
+      mockProvider.interactionDetails.mockRejectedValue(new Error('interaction session not found'));
+
+      await expect(
+        service.handleInteraction('org-1', 'uid-1', 'user-1', true, {}, {}),
+      ).rejects.toThrow('interaction session not found');
+    });
+  });
+
+  // ── dispatchToProvider ────────────────────────────────────────────────
+
+  describe('dispatchToProvider', () => {
+    it('should strip issuer path prefix from req.url and invoke provider callback', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
+
+      const mockCallback = jest.fn().mockResolvedValue(undefined);
+      const provider = await service.getProviderInstance('org-1');
+      provider.app.callback.mockReturnValue(mockCallback);
+
+      const req: any = { url: '/api/v1/sso/oidc-idp/org-1/token' };
+      const res: any = {};
+
+      await service.dispatchToProvider('org-1', req, res);
+
+      expect(mockCallback).toHaveBeenCalledWith(req, res);
+      // req.url should be restored after dispatch
+      expect(req.url).toBe('/api/v1/sso/oidc-idp/org-1/token');
+    });
+
+    it('should set req.url to "/" when issuer path equals full req.url', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
+
+      const callbackUrls: string[] = [];
+      const mockCallback = jest.fn().mockImplementation((r: any) => {
+        callbackUrls.push(r.url);
+        return Promise.resolve();
+      });
+      const provider = await service.getProviderInstance('org-1');
+      provider.app.callback.mockReturnValue(mockCallback);
+
+      const req: any = { url: '/api/v1/sso/oidc-idp/org-1' };
+      const res: any = {};
+
+      await service.dispatchToProvider('org-1', req, res);
+
+      expect(callbackUrls[0]).toBe('/');
+    });
+
+    it('should leave req.url unchanged when it does not start with issuer path', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
+
+      const callbackUrls: string[] = [];
+      const mockCallback = jest.fn().mockImplementation((r: any) => {
+        callbackUrls.push(r.url);
+        return Promise.resolve();
+      });
+      const provider = await service.getProviderInstance('org-1');
+      provider.app.callback.mockReturnValue(mockCallback);
+
+      const req: any = { url: '/some/other/path' };
+      const res: any = {};
+
+      await service.dispatchToProvider('org-1', req, res);
+
+      expect(callbackUrls[0]).toBe('/some/other/path');
+    });
+  });
+
+  // ── Provider configuration ────────────────────────────────────────────
+
+  describe('provider configuration', () => {
+    it('should configure PKCE as always required', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.findMany.mockResolvedValue([]);
+
+      await service.getProviderInstance('org-1');
+
+      const config = mockProviderConstructor.mock.calls[0][1];
+      expect(config.pkce.required()).toBe(true);
+    });
+
+    it('should configure correct grant types', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.findMany.mockResolvedValue([]);
+
+      await service.getProviderInstance('org-1');
+
+      const config = mockProviderConstructor.mock.calls[0][1];
+      expect(config.grantTypes).toContain('authorization_code');
+      expect(config.grantTypes).toContain('refresh_token');
+      expect(config.grantTypes).toContain('client_credentials');
+    });
+
+    it('should set proxy to true for reverse proxy support', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.findMany.mockResolvedValue([]);
+
+      await service.getProviderInstance('org-1');
+
+      const config = mockProviderConstructor.mock.calls[0][1];
+      expect(config.proxy).toBe(true);
+    });
+
+    it('should configure interaction URL pointing to auto-confirm endpoint', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.findMany.mockResolvedValue([]);
+
+      await service.getProviderInstance('org-1');
+
+      const config = mockProviderConstructor.mock.calls[0][1];
+      const url = await config.interactions.url({}, { uid: 'test-uid-123' });
+      expect(url).toContain('/api/v1/sso/oidc-idp/org-1/auto-confirm');
+      expect(url).toContain('uid=test-uid-123');
+    });
+
+    it('should configure correct response types', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.findMany.mockResolvedValue([]);
+
+      await service.getProviderInstance('org-1');
+
+      const config = mockProviderConstructor.mock.calls[0][1];
+      expect(config.responseTypes).toContain('code');
+      expect(config.responseTypes).toContain('id_token');
+    });
+
+    it('should disable devInteractions and registration', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.findMany.mockResolvedValue([]);
+
+      await service.getProviderInstance('org-1');
+
+      const config = mockProviderConstructor.mock.calls[0][1];
+      expect(config.features.devInteractions.enabled).toBe(false);
+      expect(config.features.registration.enabled).toBe(false);
     });
   });
 });

@@ -4,7 +4,9 @@
       "Bash(git init:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(pnpm install:*)"
+      "Bash(pnpm install:*)",
+      "Bash(export PATH=\"/Users/sanju/.nvm/versions/node/v24.12.0/bin:$PATH\")",
+      "Bash(npx jest:*)"
     ]
   }
 }

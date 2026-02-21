@@ -411,7 +411,7 @@ export class OidcIdpService {
     return {
       issuer,
       authorization_endpoint: `${issuer}/authorize`,
-      token_endpoint: `${issuer}/token`,
+      token_endpoint: `${baseUrl}/oauth/token`,
       userinfo_endpoint: `${issuer}/userinfo`,
       jwks_uri: `${issuer}/jwks`,
       registration_endpoint: `${issuer}/register`,

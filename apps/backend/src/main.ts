@@ -19,6 +19,8 @@ async function bootstrap() {
       { path: 'scim/v2/:orgRef', method: RequestMethod.ALL },
       { path: 'scim/v2/:orgRef/(.*)', method: RequestMethod.ALL },
       { path: '.well-known/(.*)', method: RequestMethod.ALL },
+      { path: 'oauth', method: RequestMethod.ALL },
+      { path: 'oauth/(.*)', method: RequestMethod.ALL },
     ],
   });
 
