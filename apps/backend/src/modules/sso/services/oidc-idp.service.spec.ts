@@ -172,6 +172,7 @@ describe('OidcIdpService', () => {
       expect(metadata.scopes_supported).toContain('openid');
       expect(metadata.scopes_supported).toContain('email');
       expect(metadata.scopes_supported).toContain('profile');
+      expect(metadata.scopes_supported).toContain('offline_access');
     });
 
     it('should include supported response types', async () => {
@@ -499,7 +500,7 @@ describe('OidcIdpService', () => {
       mockGrant.save.mockClear().mockResolvedValue('grant-id-123');
     });
 
-    it('should create grant, add scopes from missingOIDCScope, and return redirect URL', async () => {
+    it('should create grant, add scopes from params.scope, and return redirect URL', async () => {
       mockProvider.interactionDetails.mockResolvedValue({
         params: { client_id: 'client-123', scope: 'openid email' },
         prompt: { details: { missingOIDCScope: ['openid', 'email'] } },
@@ -523,7 +524,19 @@ describe('OidcIdpService', () => {
       );
     });
 
-    it('should fall back to interaction.params.scope when missingOIDCScope is absent', async () => {
+    it('should grant offline_access when included in params.scope', async () => {
+      mockProvider.interactionDetails.mockResolvedValue({
+        params: { client_id: 'client-123', scope: 'openid profile offline_access' },
+        prompt: { details: { missingOIDCScope: ['openid', 'profile'] } },
+      });
+      mockProvider.interactionResult.mockResolvedValue('https://example.com/callback?code=abc');
+
+      await service.handleInteraction('org-1', 'uid-1', 'user-1', true, {}, {});
+
+      expect(mockGrant.addOIDCScope).toHaveBeenCalledWith('openid profile offline_access');
+    });
+
+    it('should grant scopes from params.scope when missingOIDCScope is absent', async () => {
       mockProvider.interactionDetails.mockResolvedValue({
         params: { client_id: 'client-123', scope: 'openid profile' },
         prompt: { details: {} },
@@ -694,6 +707,16 @@ describe('OidcIdpService', () => {
       const config = mockProviderConstructor.mock.calls[0][1];
       expect(config.responseTypes).toContain('code');
       expect(config.responseTypes).toContain('id_token');
+    });
+
+    it('should configure JWT format for access tokens', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.findMany.mockResolvedValue([]);
+
+      await service.getProviderInstance('org-1');
+
+      const config = mockProviderConstructor.mock.calls[0][1];
+      expect(config.formats.AccessToken).toBe('jwt');
     });
 
     it('should disable devInteractions and registration', async () => {

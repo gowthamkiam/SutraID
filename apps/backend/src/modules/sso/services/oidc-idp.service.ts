@@ -67,6 +67,11 @@ export class OidcIdpService {
         introspection: { enabled: true },
       },
 
+      // Issue JWT access tokens (self-contained, verifiable without introspection)
+      formats: {
+        AccessToken: 'jwt',
+      },
+
       // Claims
       claims: {
         openid: ['sub'],
@@ -379,10 +384,10 @@ export class OidcIdpService {
       clientId: interaction.params.client_id as string,
     });
 
-    const requestedScopes = interaction.prompt?.details?.missingOIDCScope as string[] | undefined;
-    if (requestedScopes) {
-      grant.addOIDCScope(requestedScopes.join(' '));
-    } else if (interaction.params.scope) {
+    // Always grant the full requested scope from params (includes offline_access).
+    // missingOIDCScope omits non-claim scopes like offline_access, so using
+    // params.scope ensures refresh tokens are issued when offline_access is requested.
+    if (interaction.params.scope) {
       grant.addOIDCScope(interaction.params.scope as string);
     }
 
@@ -415,7 +420,7 @@ export class OidcIdpService {
       userinfo_endpoint: `${issuer}/userinfo`,
       jwks_uri: `${issuer}/jwks`,
       registration_endpoint: `${issuer}/register`,
-      scopes_supported: ['openid', 'email', 'profile'],
+      scopes_supported: ['openid', 'email', 'profile', 'offline_access'],
       response_types_supported: [
         'code',
         'id_token',
