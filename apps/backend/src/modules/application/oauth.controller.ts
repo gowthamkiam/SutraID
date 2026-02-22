@@ -7,54 +7,59 @@ import {
     Headers,
     UnauthorizedException,
     BadRequestException,
-    UseGuards,
     Req,
+    Res,
 } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { ApplicationService } from './application.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { OidcIdpService } from '../sso/services/oidc-idp.service';
 
 @Controller('oauth')
 export class OauthController {
     constructor(
         private applicationService: ApplicationService,
         private prisma: PrismaService,
+        private oidcIdpService: OidcIdpService,
     ) { }
 
     /**
-     * Token Endpoint (supports authorization_code, refresh_token, client_credentials)
+     * Token Endpoint — resolves org from client_id and delegates to oidc-provider
      */
     @Post('token')
     async token(
-        @Body() body: any,
-        @Headers('authorization') auth: string,
-        @Req() req: any,
+        @Req() req: Request,
+        @Res() res: Response,
     ) {
-        // 1. Authenticate Client
-        const client = await this.authenticateClient(body, auth);
+        const clientId = req.body?.client_id || this.extractClientIdFromAuth(req.headers.authorization);
 
-        // 2. Handle Grant Types
-        const grantType = body.grant_type;
-
-        // Placeholder for actual token generation logic
-        // This would typically involve checking the code/refresh_token/secret
-        // and issuing a JWT bound to DPoP if required.
-
-        const tokenResponse = {
-            access_token: 'mock_access_token',
-            token_type: client.requireDpop ? 'DPoP' : 'Bearer',
-            expires_in: 3600,
-            scope: body.scope || 'openid profile email',
-        };
-
-        if (client.requireDpop) {
-            if (!req.dpopJkt) {
-                throw new BadRequestException('DPoP proof required');
-            }
-            // Bind token to jkt in cnf claim (mocked here)
+        if (!clientId) {
+            throw new BadRequestException('client_id is required');
         }
 
-        return tokenResponse;
+        const application = await this.prisma.application.findUnique({
+            where: { clientId },
+            select: { organizationId: true },
+        });
+
+        if (!application) {
+            throw new UnauthorizedException('Invalid client_id');
+        }
+
+        const provider = await this.oidcIdpService.getProviderInstance(application.organizationId);
+        const originalUrl = req.url;
+        req.url = '/token';
+        await (provider.app.callback())(req, res);
+        req.url = originalUrl;
+    }
+
+    private extractClientIdFromAuth(authHeader?: string): string | null {
+        if (authHeader && authHeader.startsWith('Basic ')) {
+            const decoded = Buffer.from(authHeader.split(' ')[1], 'base64').toString();
+            return decoded.split(':')[0];
+        }
+        return null;
     }
 
     /**
@@ -111,25 +116,6 @@ export class OauthController {
         };
     }
 
-    private async authenticateClient(body: any, authHeader: string) {
-        let clientId = body.client_id;
-        let clientSecret = body.client_secret;
-
-        if (authHeader && authHeader.startsWith('Basic ')) {
-            const decoded = Buffer.from(authHeader.split(' ')[1], 'base64').toString();
-            [clientId, clientSecret] = decoded.split(':');
-        }
-
-        const application = await this.prisma.application.findUnique({
-            where: { clientId },
-        });
-
-        if (!application) throw new UnauthorizedException('Invalid client');
-
-        // In production, compare hashed clientSecret
-
-        return application;
-    }
 }
 
 @Controller('.well-known/openid-configuration')
@@ -138,12 +124,12 @@ export class OpenidConfigurationController {
 
     @Get(':orgId')
     async getConfiguration(@Param('orgId') orgId: string) {
-        const baseUrl = this.config.get<string>('BACKEND_URL') || 'http://localhost:3000';
+        const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
         const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${orgId}`;
         return {
             issuer,
             authorization_endpoint: `${issuer}/authorize`,
-            token_endpoint: `${issuer}/token`,
+            token_endpoint: `${baseUrl}/oauth/token`,
             userinfo_endpoint: `${issuer}/userinfo`,
             jwks_uri: `${issuer}/jwks`,
             registration_endpoint: `${issuer}/register`,

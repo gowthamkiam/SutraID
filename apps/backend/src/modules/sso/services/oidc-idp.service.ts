@@ -50,6 +50,9 @@ export class OidcIdpService {
     // Create OIDC Provider instance
     const ProviderClass = await this.loadProvider();
     const provider = new ProviderClass(issuer, {
+      // Trust X-Forwarded-Proto / X-Forwarded-Host from reverse proxies (Railway, Netlify).
+      proxy: true,
+
       // Adapter for storing authorization codes, tokens, etc.
       adapter: this.createAdapter(organizationId),
 
@@ -64,12 +67,9 @@ export class OidcIdpService {
         introspection: { enabled: true },
       },
 
-      // Token TTLs
-      ttl: {
-        AccessToken: 3600, // 1 hour
-        AuthorizationCode: 600, // 10 minutes
-        IdToken: 3600, // 1 hour
-        RefreshToken: 86400 * 30, // 30 days
+      // Issue JWT access tokens (self-contained, verifiable without introspection)
+      formats: {
+        AccessToken: 'jwt',
       },
 
       // Claims
@@ -100,16 +100,25 @@ export class OidcIdpService {
         'client_credentials',
       ],
 
+      // Route paths — must match what NestJS exposes under /:orgId/
+      routes: {
+        authorization: '/authorize',
+        resume: '/authorize/:uid',
+        userinfo: '/userinfo',
+      },
+
       // PKCE
       pkce: {
         required: () => true, // Always require PKCE
       },
 
-      // Interaction URL (custom consent screen)
+      // Interaction URL — points to backend auto-confirm endpoint so the
+      // browser roundtrip carries the signed interaction cookies naturally.
       interactions: {
         url: async (ctx: any, interaction: any): Promise<string> => {
-          const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
-          return `${frontendUrl}/auth/consent?uid=${interaction.uid}&orgId=${organizationId}`;
+          const backendUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
+          const apiPrefix = this.config.get<string>('API_PREFIX') || 'api/v1';
+          return `${backendUrl}/${apiPrefix}/sso/oidc-idp/${organizationId}/auto-confirm?uid=${interaction.uid}`;
         },
       },
 
@@ -118,6 +127,27 @@ export class OidcIdpService {
         keys: [this.config.get<string>('ENCRYPTION_KEY') || 'fallback-secret'],
         long: { signed: true, maxAge: 86400 * 30 * 1000 }, // 30 days
         short: { signed: true, maxAge: 600 * 1000 }, // 10 minutes
+      },
+
+      // TTLs
+      ttl: {
+        AccessToken: 3600,
+        AuthorizationCode: 600,
+        IdToken: 3600,
+        RefreshToken: 86400 * 30,
+        Session: 86400 * 14,
+        Grant: 86400 * 14,
+        Interaction: 3600,
+      },
+
+      // Custom renderError: log actual error to Railway console and redirect to frontend
+      renderError: async (ctx: any, out: any, error: any) => {
+        const errCode = out?.error || error?.name || 'server_error';
+        const errMsg = error?.message || out?.error_description || errCode;
+        console.error(`❌ OIDC renderError [${errCode}]: ${errMsg}`, { error, out });
+        const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
+        ctx.status = 302;
+        ctx.redirect(`${frontendUrl}/auth/error?error=${encodeURIComponent(errCode)}&error_description=${encodeURIComponent(errMsg)}`);
       },
     });
 
@@ -269,15 +299,22 @@ export class OidcIdpService {
       },
     });
 
-    return applications.map((app) => ({
-      client_id: app.clientId,
-      client_secret: app.clientSecretHash || undefined, // Stored as hash
-      grant_types: ['authorization_code', 'refresh_token'],
-      redirect_uris: app.redirectUris,
-      post_logout_redirect_uris: app.redirectUris,
-      response_types: ['code'],
-      token_endpoint_auth_method: 'client_secret_post',
-    }));
+    return applications.map((app) => {
+      // Public clients (no secret stored) use PKCE-only auth.
+      // Confidential clients pass the stored hash; oidc-provider stores it
+      // verbatim — token-endpoint verification is handled by the custom
+      // client_secret_verify callback below.
+      const isPublic = !app.clientSecretHash;
+      return {
+        client_id: app.clientId,
+        ...(!isPublic ? { client_secret: app.clientSecretHash } : {}),
+        grant_types: ['authorization_code', 'refresh_token'],
+        redirect_uris: app.redirectUris as string[],
+        post_logout_redirect_uris: app.redirectUris as string[],
+        response_types: ['code'],
+        token_endpoint_auth_method: isPublic ? 'none' : 'client_secret_post',
+      };
+    });
   }
 
   /**
@@ -317,91 +354,6 @@ export class OidcIdpService {
   }
 
   /**
-   * Full authorize flow for an already-authenticated user.
-   *
-   * Strategy:
-   *  1. Forward the (prefix-stripped) request to oidc-provider so it creates
-   *     the Interaction record and sets the interaction session cookies on res.
-   *  2. Intercept the redirect to the consent URL by overriding res.end —
-   *     this prevents the response from being flushed to the socket.
-   *  3. Inject the Set-Cookie values oidc-provider wrote into req.headers.cookie
-   *     so that interactionDetails() can verify them.
-   *  4. Auto-confirm the interaction (consent = true).
-   *  5. Redirect the browser to the returnTo (resume) URL, forwarding the
-   *     interaction cookies so oidc-provider can read the session on resume.
-   */
-  async handleAuthorizeAsAuthenticated(
-    organizationId: string,
-    userId: string,
-    req: any,
-    res: any,
-  ): Promise<void> {
-    const provider = await this.getProviderInstance(organizationId);
-    const origEnd = (res.end as Function).bind(res);
-    let intercepted = false;
-
-    // Override res.end to intercept oidc-provider's redirect to the interaction URL.
-    // All res.setHeader() calls (cookies, Location) have already been recorded on res
-    // but nothing has been written to the socket yet.
-    res.end = (...args: any[]) => {
-      const location = res.getHeader('location') as string | undefined;
-      if (location?.includes('uid=')) {
-        intercepted = true;
-        return res; // block — we will send the final redirect ourselves
-      }
-      // Error / non-interaction response — let oidc-provider handle it normally
-      return origEnd(...args);
-    };
-
-    await provider.app.callback()(req, res);
-    res.end = origEnd; // restore
-
-    if (!intercepted) {
-      // oidc-provider already sent its own response (e.g. an error) — nothing to do
-      return;
-    }
-
-    const interactionLocation = res.getHeader('location') as string;
-    let uid: string | null = null;
-    try {
-      uid = new URL(interactionLocation).searchParams.get('uid');
-    } catch {
-      uid = new URLSearchParams(interactionLocation.split('?')[1] ?? '').get('uid');
-    }
-
-    if (!uid) {
-      // Cannot determine UID — fall back to the original redirect
-      res.statusCode = 302;
-      origEnd('');
-      return;
-    }
-
-    // Inject the interaction session cookies oidc-provider wrote to res
-    // into req.headers.cookie so that interactionDetails() can find them.
-    const setCookies = res.getHeader('set-cookie');
-    if (setCookies) {
-      const cookieStrings: string[] = Array.isArray(setCookies)
-        ? (setCookies as string[])
-        : [String(setCookies)];
-      const pairs = cookieStrings
-        .map((c) => c.split(';')[0].trim())
-        .filter(Boolean);
-      const existing: string = req.headers?.cookie ?? '';
-      req.headers.cookie = existing ? `${existing}; ${pairs.join('; ')}` : pairs.join('; ');
-    }
-
-    // Auto-confirm the interaction — calls interactionResult internally
-    const returnTo = await this.handleInteraction(organizationId, uid, userId, true, req, res);
-
-    // Send the redirect. The Set-Cookie headers oidc-provider wrote are still
-    // queued in res (via setHeader) — origEnd() will flush them together with
-    // the new Location so the browser receives the interaction cookies.
-    res.statusCode = 302;
-    res.setHeader('Location', returnTo);
-    origEnd('');
-  }
-
-  /**
    * Handle interaction (consent).
    * Uses interactionResult (not interactionFinished) so the response is NOT
    * sent by oidc-provider — the caller is responsible for redirecting.
@@ -432,10 +384,10 @@ export class OidcIdpService {
       clientId: interaction.params.client_id as string,
     });
 
-    const requestedScopes = interaction.prompt?.details?.missingOIDCScope as string[] | undefined;
-    if (requestedScopes) {
-      grant.addOIDCScope(requestedScopes.join(' '));
-    } else if (interaction.params.scope) {
+    // Always grant the full requested scope from params (includes offline_access).
+    // missingOIDCScope omits non-claim scopes like offline_access, so using
+    // params.scope ensures refresh tokens are issued when offline_access is requested.
+    if (interaction.params.scope) {
       grant.addOIDCScope(interaction.params.scope as string);
     }
 
@@ -464,11 +416,11 @@ export class OidcIdpService {
     return {
       issuer,
       authorization_endpoint: `${issuer}/authorize`,
-      token_endpoint: `${issuer}/token`,
+      token_endpoint: `${baseUrl}/oauth/token`,
       userinfo_endpoint: `${issuer}/userinfo`,
       jwks_uri: `${issuer}/jwks`,
       registration_endpoint: `${issuer}/register`,
-      scopes_supported: ['openid', 'email', 'profile'],
+      scopes_supported: ['openid', 'email', 'profile', 'offline_access'],
       response_types_supported: [
         'code',
         'id_token',
@@ -498,6 +450,33 @@ export class OidcIdpService {
       ],
       code_challenge_methods_supported: ['S256'],
     };
+  }
+
+  /**
+   * Returns the URL pathname component of the issuer, e.g.
+   * '/api/v1/sso/oidc-idp/:orgId'. Used to strip the prefix from req.url
+   * before forwarding to oidc-provider's Koa app (which registers routes
+   * without this prefix).
+   */
+  private getIssuerPath(organizationId: string): string {
+    const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
+    return new URL(`${baseUrl}/api/v1/sso/oidc-idp/${organizationId}`).pathname;
+  }
+
+  /**
+   * Forward an Express req/res to oidc-provider's Koa app, stripping the
+   * issuer path prefix from req.url first so Koa's router can match routes.
+   * Use this in every controller handler that delegates to oidc-provider.
+   */
+  async dispatchToProvider(organizationId: string, req: any, res: any): Promise<void> {
+    const provider = await this.getProviderInstance(organizationId);
+    const issuerPath = this.getIssuerPath(organizationId);
+    const originalUrl: string = req.url;
+    req.url = originalUrl.startsWith(issuerPath)
+      ? originalUrl.slice(issuerPath.length) || '/'
+      : originalUrl;
+    await (provider.app.callback())(req, res);
+    req.url = originalUrl;
   }
 
   /**

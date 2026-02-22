@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Param,
+  Query,
   Body,
   Req,
   Res,
@@ -26,13 +27,6 @@ export class OidcIdpController {
     private config: ConfigService
   ) { }
 
-  private stripPrefix(req: Request, organizationId: string): void {
-    const prefix = `/api/v1/sso/oidc-idp/${organizationId}`;
-    if (req.url.startsWith(prefix)) {
-      req.url = req.url.slice(prefix.length) || '/';
-    }
-  }
-
   /**
    * GET /.well-known/openid-configuration
    * OIDC Discovery endpoint
@@ -46,7 +40,6 @@ export class OidcIdpController {
   /**
    * GET /authorize
    * OAuth 2.0 Authorization endpoint
-   * Handles authorization requests from external applications
    */
   @Get('authorize')
   async authorize(
@@ -58,33 +51,52 @@ export class OidcIdpController {
     try {
       const user = await this.getCurrentUser(req);
 
-       if (!user) {
-         // User not authenticated - redirect to login with full returnUrl.
-         // FRONTEND_URL / BACKEND_URL may be comma-separated — take the first value.
-         const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
-         // Derive backend URL from the incoming request so it always matches
-         // the host the caller actually reached (works behind any proxy).
-         const proto = req.get('x-forwarded-proto') || req.protocol;
-         const backendUrl = `${proto}://${req.get('host')}`;
-         const returnUrl = encodeURIComponent(`${backendUrl}${req.originalUrl}`);
-         const loginUrl = `${frontendUrl}/login?returnUrl=${returnUrl}`;
- 
-         console.log('⚠️  User not authenticated, redirecting to login');
-         return res.redirect(loginUrl);
-       }
- 
-       console.log('✅ User authenticated for OIDC authorization');
+      if (!user) {
+        const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
+        const proto = req.get('x-forwarded-proto') || req.protocol;
+        const backendUrl = `${proto}://${req.get('host')}`;
+        const returnUrl = encodeURIComponent(`${backendUrl}${req.originalUrl}`);
+        console.log('⚠️  User not authenticated, redirecting to login');
+        return res.redirect(`${frontendUrl}/login?returnUrl=${returnUrl}`);
+      }
 
-       // Strip the issuer prefix so oidc-provider's Koa router sees /authorize
-       this.stripPrefix(req, organizationId);
-
-       // User is authenticated — let oidc-provider create the interaction
-       // then immediately auto-confirm it (skip the consent screen).
-       return this.oidcIdpService.handleAuthorizeAsAuthenticated(
-         organizationId, user.id, req, res,
-       );
+      console.log('✅ User authenticated, forwarding to oidc-provider');
+      return this.oidcIdpService.dispatchToProvider(organizationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC authorization error:', error);
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  /**
+   * GET /auto-confirm
+   * Backend interaction endpoint — auto-confirms consent for authenticated users.
+   * oidc-provider redirects here so signed interaction cookies arrive naturally.
+   */
+  @Get('auto-confirm')
+  async autoConfirm(
+    @Param('orgId') organizationId: string,
+    @Query('uid') uid: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    console.log('📥 OIDC auto-confirm interaction request');
+    try {
+      const user = await this.getCurrentUser(req);
+
+      if (!user) {
+        const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
+        return res.redirect(`${frontendUrl}/login`);
+      }
+
+      const returnTo = await this.oidcIdpService.handleInteraction(
+        organizationId, uid, user.id, true, req, res,
+      );
+
+      console.log(`✅ Interaction auto-confirmed, resuming at ${returnTo}`);
+      return res.redirect(returnTo);
+    } catch (error: any) {
+      console.error('❌ OIDC auto-confirm error:', error);
       throw new BadRequestException(error.message);
     }
   }
@@ -102,14 +114,8 @@ export class OidcIdpController {
     @Res() res: Response,
   ) {
     try {
-      const provider = await this.oidcIdpService.getProviderInstance(
-        organizationId,
-      );
-
       console.log('📥 OIDC token request received');
-
-      this.stripPrefix(req, organizationId);
-      return provider.app.callback()(req, res);
+      return this.oidcIdpService.dispatchToProvider(organizationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC token error:', error);
       throw new BadRequestException(error.message);
@@ -129,12 +135,7 @@ export class OidcIdpController {
     @Res() res: Response,
   ) {
     try {
-      const provider = await this.oidcIdpService.getProviderInstance(
-        organizationId,
-      );
-
-      this.stripPrefix(req, organizationId);
-      return provider.app.callback()(req, res);
+      return this.oidcIdpService.dispatchToProvider(organizationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC userinfo error:', error);
       throw new UnauthorizedException(error.message);
@@ -154,12 +155,7 @@ export class OidcIdpController {
     @Res() res: Response,
   ) {
     try {
-      const provider = await this.oidcIdpService.getProviderInstance(
-        organizationId,
-      );
-
-      this.stripPrefix(req, organizationId);
-      return provider.app.callback()(req, res);
+      return this.oidcIdpService.dispatchToProvider(organizationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC jwks error:', error);
       throw new BadRequestException(error.message);
@@ -279,12 +275,7 @@ export class OidcIdpController {
     @Res() res: Response,
   ) {
     try {
-      const provider = await this.oidcIdpService.getProviderInstance(
-        organizationId,
-      );
-
-      this.stripPrefix(req, organizationId);
-      return provider.app.callback()(req, res);
+      return this.oidcIdpService.dispatchToProvider(organizationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC callback error:', error);
       throw new BadRequestException(error.message);
