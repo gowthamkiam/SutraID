@@ -30,6 +30,8 @@ function ConsentPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const uid = searchParams.get('uid');
+  const orgId = searchParams.get('orgId') || '';
+  const appId = searchParams.get('appId') || '';
 
   const [interaction, setInteraction] = useState<InteractionDetails | null>(
     null,
@@ -38,20 +40,12 @@ function ConsentPageContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Extract orgId from the current URL or use a default
-  // In production, this should come from the OAuth flow
-  const [orgId, setOrgId] = useState<string>('');
+  // No need for stateful orgId if we get it from params
+
+  // Removed useEffect that was getting orgId from localStorage
 
   useEffect(() => {
-    // Get orgId from localStorage or session
-    const storedOrgId = localStorage.getItem('currentOrgId');
-    if (storedOrgId) {
-      setOrgId(storedOrgId);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!uid || !orgId) {
+    if (!uid || !orgId || !appId) {
       return;
     }
 
@@ -59,7 +53,7 @@ function ConsentPageContent() {
     const fetchInteraction = async () => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/v1/sso/oidc-idp/${orgId}/interaction/${uid}`,
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/v1/sso/oidc-idp/${orgId}/${appId}/interaction/${uid}`,
           {
             credentials: 'include',
             headers: {
@@ -82,17 +76,17 @@ function ConsentPageContent() {
     };
 
     fetchInteraction();
-  }, [uid, orgId]);
+  }, [uid, orgId, appId]);
 
   const handleConsent = async (consent: boolean) => {
-    if (!uid || !orgId) return;
+    if (!uid || !orgId || !appId) return;
 
     setSubmitting(true);
     setError(null);
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/v1/sso/oidc-idp/${orgId}/interaction/${uid}/confirm`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/v1/sso/oidc-idp/${orgId}/${appId}/interaction/${uid}/confirm`,
         {
           method: 'POST',
           credentials: 'include',

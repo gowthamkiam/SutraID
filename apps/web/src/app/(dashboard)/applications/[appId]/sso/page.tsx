@@ -306,8 +306,8 @@ export default function ApplicationSsoPage() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
   const samlMetadataUrl = `${baseUrl}/api/v1/sso/saml-idp/${orgId}/metadata`;
   const samlSsoUrl = `${baseUrl}/api/v1/sso/saml-idp/${orgId}/sso`;
-  const oidcDiscoveryUrl = `${baseUrl}/api/v1/sso/oidc-idp/${orgId}/.well-known/openid-configuration`;
-  const oidcIssuer = `${baseUrl}/api/v1/sso/oidc-idp/${orgId}`;
+  const oidcDiscoveryUrl = `${baseUrl}/api/v1/sso/oidc-idp/${orgId}/${appId}/.well-known/openid-configuration`;
+  const oidcIssuer = `${baseUrl}/api/v1/sso/oidc-idp/${orgId}/${appId}`;
 
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>

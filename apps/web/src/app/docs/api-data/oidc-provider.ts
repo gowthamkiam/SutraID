@@ -9,7 +9,7 @@ export const oidcProviderSection: DocSection = {
     {
       id: 'oidc-discovery',
       method: 'GET',
-      path: '/api/v1/sso/oidc-idp/:orgId/.well-known/openid-configuration',
+      path: '/api/v1/sso/oidc-idp/:orgId/:appId/.well-known/openid-configuration',
       title: 'OIDC Discovery',
       description:
         'Returns the OpenID Connect discovery document for the specified organization. Clients can use this to auto-configure OIDC integration without hardcoding endpoint URLs.',
@@ -23,9 +23,17 @@ export const oidcProviderSection: DocSection = {
           description: 'The unique identifier of the organization acting as the OIDC IdP.',
           example: 'org_01hx9k2m3n4p5q6r7s8t9u0v',
         },
+        {
+          name: 'appId',
+          in: 'path',
+          type: 'string',
+          required: true,
+          description: 'The unique identifier of the application.',
+          example: 'app_01hx9k2m3n4p5q6r7s8t9u0v',
+        },
       ],
       responseFields: [
-        { name: 'issuer', type: 'string', description: 'The issuer URL for this IdP.', example: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v' },
+        { name: 'issuer', type: 'string', description: 'The issuer URL for this IdP.', example: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v' },
         { name: 'authorization_endpoint', type: 'string', description: 'URL of the authorization endpoint.' },
         { name: 'token_endpoint', type: 'string', description: 'URL of the token endpoint.' },
         { name: 'userinfo_endpoint', type: 'string', description: 'URL of the userinfo endpoint.' },
@@ -37,11 +45,11 @@ export const oidcProviderSection: DocSection = {
         { name: 'id_token_signing_alg_values_supported', type: 'string[]', description: 'ID token signing algorithms supported.', example: '["RS256"]' },
       ],
       responseSample: {
-        issuer: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v',
-        authorization_endpoint: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/authorize',
-        token_endpoint: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/token',
-        userinfo_endpoint: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/userinfo',
-        jwks_uri: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/jwks',
+        issuer: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v',
+        authorization_endpoint: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v/authorize',
+        token_endpoint: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v/token',
+        userinfo_endpoint: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v/userinfo',
+        jwks_uri: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v/jwks',
         scopes_supported: ['openid', 'email', 'profile'],
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code', 'refresh_token'],
@@ -49,7 +57,7 @@ export const oidcProviderSection: DocSection = {
         id_token_signing_alg_values_supported: ['RS256'],
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/.well-known/openid-configuration"`,
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v/.well-known/openid-configuration"`,
         python: `import requests
 
 org_id = "org_01hx9k2m3n4p5q6r7s8t9u0v"
@@ -118,7 +126,7 @@ print_r($config);`,
     {
       id: 'oidc-authorize',
       method: 'GET',
-      path: '/api/v1/sso/oidc-idp/:orgId/authorize',
+      path: '/api/v1/sso/oidc-idp/:orgId/:appId/authorize',
       title: 'Authorization Endpoint',
       description:
         'Initiates the OIDC authorization flow. The user is redirected to the SutraID login page (or consent screen if already authenticated). Supports PKCE for public clients.',
@@ -207,7 +215,7 @@ print_r($config);`,
       },
       codeSamples: {
         curl: `# Open this URL in a browser — it initiates the authorization flow with PKCE
-curl -v -L "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/authorize?client_id=app_01hx9k2m3n4p5q6r7s8t9u0v&redirect_uri=https%3A%2F%2Fyourapp.com%2Fcallback&scope=openid%20email%20profile&response_type=code&state=xK9mP2qR5tU8wZ1aB4cD7eF0&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256"`,
+curl -v -L "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v/authorize?client_id=app_01hx9k2m3n4p5q6r7s8t9u0v&redirect_uri=https%3A%2F%2Fyourapp.com%2Fcallback&scope=openid%20email%20profile&response_type=code&state=xK9mP2qR5tU8wZ1aB4cD7eF0&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256"`,
         python: `import urllib.parse
 import secrets
 import hashlib
@@ -256,7 +264,7 @@ const params = new URLSearchParams({
   code_challenge_method: 'S256',
 });
 
-const authUrl = \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/authorize?\${params}\`;
+const authUrl = \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/app_01hx9k2m3n4p5q6r7s8t9u0v/authorize?\${params}\`;
 console.log('Open in browser:', authUrl);`,
         java: `import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -322,7 +330,7 @@ func main() {
     }
 
     authURL := fmt.Sprintf(
-        "https://api.sutraid.com/api/v1/sso/oidc-idp/%s/authorize?%s",
+        "https://api.sutraid.com/api/v1/sso/oidc-idp/%s/app_01hx9k2m3n4p5q6r7s8t9u0v/authorize?%s",
         orgID, params.Encode(),
     )
     fmt.Println("Open in browser:", authURL)
@@ -353,7 +361,7 @@ echo "Open in browser: " . $authUrl;`,
     {
       id: 'oidc-token',
       method: 'POST',
-      path: '/api/v1/sso/oidc-idp/:orgId/token',
+      path: '/api/v1/sso/oidc-idp/:orgId/:appId/token',
       title: 'Token Endpoint',
       description:
         'Exchanges an authorization code for an access token, ID token, and optional refresh token. Accepts application/x-www-form-urlencoded. Supports PKCE via code_verifier.',
@@ -434,7 +442,7 @@ echo "Open in browser: " . $authUrl;`,
         expires_in: 3600,
       },
       codeSamples: {
-        curl: `curl -X POST "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/token" \\
+        curl: `curl -X POST "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v/token" \\
   -H "Content-Type: application/x-www-form-urlencoded" \\
   --data-urlencode "grant_type=authorization_code" \\
   --data-urlencode "code=SplxlOBeZQQYbYS6WxSbIA" \\
@@ -558,7 +566,7 @@ print_r($tokens);`,
     {
       id: 'oidc-userinfo',
       method: 'GET',
-      path: '/api/v1/sso/oidc-idp/:orgId/userinfo',
+      path: '/api/v1/sso/oidc-idp/:orgId/:appId/userinfo',
       title: 'UserInfo Endpoint',
       description:
         'Returns identity claims for the authenticated user. Requires a valid access token obtained from the token endpoint. Scope claims returned depend on the scopes granted during authorization.',
@@ -571,6 +579,14 @@ print_r($tokens);`,
           required: true,
           description: 'The unique identifier of the organization.',
           example: 'org_01hx9k2m3n4p5q6r7s8t9u0v',
+        },
+        {
+          name: 'appId',
+          in: 'path',
+          type: 'string',
+          required: true,
+          description: 'The unique identifier of the application.',
+          example: 'app_01hx9k2m3n4p5q6r7s8t9u0v',
         },
         {
           name: 'Authorization',
@@ -598,7 +614,7 @@ print_r($tokens);`,
         email_verified: true,
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/userinfo" \\
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v/userinfo" \\
   -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."`,
         python: `import requests
 
@@ -685,7 +701,7 @@ print_r($userInfo);`,
     {
       id: 'oidc-jwks',
       method: 'GET',
-      path: '/api/v1/sso/oidc-idp/:orgId/jwks',
+      path: '/api/v1/sso/oidc-idp/:orgId/:appId/jwks',
       title: 'JSON Web Key Set',
       description:
         'Returns the public keys used by SutraID to sign ID tokens and access tokens for the specified organization. Relying parties use this to verify JWT signatures.',

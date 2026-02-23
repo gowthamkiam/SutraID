@@ -320,8 +320,8 @@ export const applicationApi = {
   },
 
   // OIDC endpoints
-  getOidcDiscoveryUrl(orgId: string): string {
-    return `${API_URL.replace('/api/v1', '')}/.well-known/openid-configuration/${orgId}`;
+  getOidcDiscoveryUrl(orgId: string, appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/.well-known/openid-configuration`;
   },
 
   getTokenUrl(): string {
