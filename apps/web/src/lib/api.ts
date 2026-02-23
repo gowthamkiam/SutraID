@@ -680,6 +680,107 @@ export const mfaApi = {
 };
 
 // ============================================================================
+// OIDC Config API
+// ============================================================================
+
+export interface OidcScope {
+  id: string;
+  name: string;
+  description?: string;
+  isDefault: boolean;
+}
+
+export interface OidcClaim {
+  id: string;
+  name: string;
+  userAttribute: string;
+  regexRuleId?: string;
+  regexRule?: OidcRegexRule;
+  targetTokens: Array<'ID_TOKEN' | 'ACCESS_TOKEN' | 'USERINFO'>;
+}
+
+export interface OidcRegexRule {
+  id: string;
+  name: string;
+  pattern: string;
+  replacement: string;
+  flags: string;
+}
+
+export interface OidcSigningKey {
+  id: string;
+  kid: string;
+  algorithm: 'RS256' | 'ES256';
+  publicKey: string;
+  certChain?: string;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export interface OidcTokenPolicy {
+  accessTokenLifetime: number;
+  idTokenLifetime: number;
+  refreshTokenLifetime: number;
+  rotationEnabled: boolean;
+  reuseInterval: number;
+}
+
+export const oidcConfigApi = {
+  async getConfig(orgId: string): Promise<any> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/config`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch OIDC configuration');
+    return response.json();
+  },
+
+  async createScope(orgId: string, data: any): Promise<OidcScope> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/scopes`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async createClaim(orgId: string, data: any): Promise<OidcClaim> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/claims`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async createRegexRule(orgId: string, data: any): Promise<OidcRegexRule> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/regex-rules`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async createSigningKey(orgId: string, data: any): Promise<OidcSigningKey> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/signing-keys`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async updateTokenPolicy(orgId: string, data: Partial<OidcTokenPolicy>): Promise<OidcTokenPolicy> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/token-policy`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+};
+
+// ============================================================================
 // Directory API
 // ============================================================================
 

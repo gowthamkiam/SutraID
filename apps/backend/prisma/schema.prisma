@@ -289,6 +289,13 @@ model Organization {
   passwordPolicies  PasswordPolicy[]
   directoryConfig   DirectoryConfig?
   settings          OrganizationSetting[]
+  
+  // OIDC Provider configurations (Phase 3+)
+  oidcScopes        OidcScope[]
+  oidcClaims        OidcClaim[]
+  oidcRegexRules    OidcRegexRule[]
+  oidcSigningKeys   OidcSigningKey[]
+  oidcTokenPolicy   OidcTokenPolicy?
 
   @@index([slug])
   @@index([domain])
@@ -771,3 +778,122 @@ enum MfaType {
 // Phase 7: Agent, AgentToken models
 // Phase 8: McpServer model
 // Future: Identity (social OAuth), ApiKey
+
+// ============================================================================
+// OIDC PROVIDER CONFIGURATION (OAuth 2.1 & Multi-tenant Claims)
+// ============================================================================
+
+// OidcScope - Custom scopes per organization
+model OidcScope {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  name           String       // e.g., "read:orders"
+  description    String?
+  isDefault      Boolean      @default(false)
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("oidc_scopes")
+}
+
+// OidcClaim - Claim definitions mapping user attributes to tokens
+model OidcClaim {
+  id                 String       @id @default(uuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  name               String       // Claim name in the token
+  userAttribute      String       // Path to user attribute (e.g., "firstName", "metadata.custom_field")
+  
+  // Transformation
+  regexRuleId        String?
+  regexRule          OidcRegexRule? @relation(fields: [regexRuleId], references: [id], onDelete: SetNull)
+  
+  // Visibility
+  targetTokens       ClaimTarget[] // ["ID_TOKEN", "ACCESS_TOKEN", "USERINFO"]
+  
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("oidc_claims")
+}
+
+enum ClaimTarget {
+  ID_TOKEN
+  ACCESS_TOKEN
+  USERINFO
+}
+
+// OidcRegexRule - Regex transformations for claims
+model OidcRegexRule {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  name           String
+  pattern        String
+  replacement    String
+  flags          String       @default("g")
+  
+  claims         OidcClaim[]
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("oidc_regex_rules")
+}
+
+// OidcSigningKey - Organization-specific JWS signing keys
+model OidcSigningKey {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  kid            String       // Key ID (kid)
+  algorithm      JwsAlgorithm @default(RS256)
+  publicKey      String       @db.Text
+  privateKey     String       @db.Text // Encrypted (AES-256-GCM)
+  certChain      String?      @db.Text // Optional custom X.509 certificate chain
+  
+  isDefault      Boolean      @default(false)
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, kid])
+  @@index([organizationId])
+  @@map("oidc_signing_keys")
+}
+
+enum JwsAlgorithm {
+  RS256
+  ES256
+}
+
+// OidcTokenPolicy - Token lifetime and behaviors
+model OidcTokenPolicy {
+  id                   String       @id @default(uuid())
+  organizationId       String       @unique
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  accessTokenLifetime  Int          @default(3600)    // Seconds
+  idTokenLifetime     Int          @default(3600)    // Seconds
+  refreshTokenLifetime Int          @default(2592000) // 30 days
+  
+  rotationEnabled      Boolean      @default(true)
+  reuseInterval        Int          @default(30)      // Clock skew/reuse grace (seconds)
+  
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  @@map("oidc_token_policies")
+}

@@ -32,6 +32,7 @@ const navItems = [
   { icon: Users, label: 'Users', href: '/dashboard/users', key: 'users' },
   { icon: UsersRound, label: 'Groups', href: '/dashboard/groups', key: 'groups' },
   { icon: Database, label: 'Directory Services', href: '/dashboard/directory', key: 'directory' },
+  { icon: Shield, label: 'OIDC Configuration', href: '/dashboard/settings/oidc', key: 'oidc-config' },
   { icon: KeyRound, label: 'API Access', href: '/dashboard/sso/providers', key: 'api-access' },
   { icon: BarChart3, label: 'Reports', href: '/dashboard/audit', key: 'reports' },
   { icon: Settings, label: 'Settings', href: '/dashboard/settings', key: 'settings' },

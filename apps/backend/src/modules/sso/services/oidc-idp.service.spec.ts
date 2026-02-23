@@ -3,6 +3,8 @@ import { OidcIdpService } from './oidc-idp.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
+import { RegexService } from '../utils/regex.service';
+import { OidcConfigService } from './oidc-config.service';
 
 // Mock Grant for consent flow
 const mockGrant = {
@@ -87,6 +89,22 @@ describe('OidcIdpService', () => {
     }),
   };
 
+  const mockRegexService = {
+    replace: jest.fn().mockImplementation((val) => Promise.resolve(val)),
+    validate: jest.fn().mockResolvedValue({ isValid: true }),
+  };
+
+  const mockOidcConfigService = {
+    getTokenPolicy: jest.fn().mockResolvedValue({
+      accessTokenLifetime: 3600,
+      idTokenLifetime: 3600,
+      refreshTokenLifetime: 86400 * 30,
+    }),
+    getSigningKeys: jest.fn().mockResolvedValue([]),
+    getScopes: jest.fn().mockResolvedValue([]),
+    getClaims: jest.fn().mockResolvedValue([]),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -100,6 +118,14 @@ describe('OidcIdpService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: RegexService,
+          useValue: mockRegexService,
+        },
+        {
+          provide: OidcConfigService,
+          useValue: mockOidcConfigService,
         },
       ],
     }).compile();
@@ -409,6 +435,9 @@ describe('OidcIdpService', () => {
               status: 'ACTIVE',
             },
           },
+        },
+        include: {
+          organization: true,
         },
       });
     });

@@ -5,8 +5,10 @@ import { ConfigService } from '@nestjs/config';
 // TypeScript with "module": "commonjs" compiles import() to require(),
 // so we use new Function() to prevent the transformation.
 const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
-import { User } from '@prisma/client';
+import { User, ClaimTarget } from '@prisma/client';
 import * as crypto from 'crypto';
+import { RegexService } from '../utils/regex.service';
+import { OidcConfigService } from './oidc-config.service';
 
 @Injectable()
 export class OidcIdpService {
@@ -24,6 +26,8 @@ export class OidcIdpService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private regexService: RegexService,
+    private oidcConfigService: OidcConfigService,
   ) { }
 
   /**
@@ -44,6 +48,14 @@ export class OidcIdpService {
       throw new BadRequestException('Organization not found');
     }
 
+    // Load dynamic configuration
+    const [tokenPolicy, signingKeys, customScopes, customClaims] = await Promise.all([
+      this.oidcConfigService.getTokenPolicy(organizationId),
+      this.oidcConfigService.getSigningKeys(organizationId),
+      this.oidcConfigService.getScopes(organizationId),
+      this.oidcConfigService.getClaims(organizationId),
+    ]);
+
     const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
     const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}`;
 
@@ -58,6 +70,22 @@ export class OidcIdpService {
 
       // Client registration
       clients: await this.getClients(organizationId),
+
+      // JWKS (Organization-specific keys)
+      jwks: signingKeys.length > 0 ? {
+        keys: signingKeys.map(k => ({
+          kty: k.algorithm === 'RS256' ? 'RSA' : 'EC',
+          kid: k.kid,
+          use: 'sig',
+          alg: k.algorithm,
+          // In a real app, you'd parse the public key into the JWK format
+          n: (k as any).n, // Placeholder: simplified for prototype
+          e: (k as any).e,
+          crv: (k as any).crv,
+          x: (k as any).x,
+          y: (k as any).y,
+        })),
+      } : undefined,
 
       // Features
       features: {
@@ -131,10 +159,10 @@ export class OidcIdpService {
 
       // TTLs
       ttl: {
-        AccessToken: 3600,
+        AccessToken: tokenPolicy.accessTokenLifetime,
         AuthorizationCode: 600,
-        IdToken: 3600,
-        RefreshToken: 86400 * 30,
+        IdToken: tokenPolicy.idTokenLifetime,
+        RefreshToken: tokenPolicy.refreshTokenLifetime,
         Session: 86400 * 14,
         Grant: 86400 * 14,
         Interaction: 3600,
@@ -331,26 +359,81 @@ export class OidcIdpService {
           },
         },
       },
+      include: {
+        organization: true, // For potential org-level attributes
+      },
     });
 
     if (!user) {
       return undefined;
     }
 
+    const customClaims = await this.oidcConfigService.getClaims(organizationId);
+
     return {
       accountId: user.id,
-      async claims(use: string, scope: string): Promise<any> {
-        return {
+      claims: async (use: string, scope: string): Promise<any> => {
+        const claims: any = {
           sub: user.id,
           email: user.email,
           email_verified: user.emailVerified,
           name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
           given_name: user.firstName,
           family_name: user.lastName,
-          updated_at: user.updatedAt.getTime() / 1000,
+          updated_at: Math.floor(user.updatedAt.getTime() / 1000),
         };
+
+        // Process custom claims
+        for (const claimDef of customClaims) {
+          // Filter by target token
+          const target = use === 'id_token' ? ClaimTarget.ID_TOKEN :
+            use === 'userinfo' ? ClaimTarget.USERINFO :
+              ClaimTarget.ACCESS_TOKEN;
+
+          if (!claimDef.targetTokens.includes(target)) {
+            continue;
+          }
+
+          // Resolve value from user object
+          let value = this.getNestedProperty(user, claimDef.userAttribute);
+
+          if (value === undefined || value === null) {
+            continue;
+          }
+
+          // Apply regex transformation if defined
+          if (claimDef.regexRule) {
+            try {
+              value = await this.regexService.replace(
+                String(value),
+                claimDef.regexRule.pattern,
+                claimDef.regexRule.replacement,
+                claimDef.regexRule.flags,
+              );
+            } catch (err) {
+              console.error(`Error applying regex transformation for claim ${claimDef.name}:`, err);
+              // In production, we might want to skip the claim or use original value
+            }
+          }
+
+          claims[claimDef.name] = value;
+        }
+
+        return claims;
       },
     };
+  }
+
+  /**
+   * Helper to resolve nested properties from an object using a dot-notated path.
+   */
+  private getNestedProperty(obj: any, path: string): any {
+    return path.split('.').reduce((acc, part) => {
+      if (acc && typeof acc === 'object') {
+        return acc[part];
+      }
+      return undefined;
+    }, obj);
   }
 
   /**
