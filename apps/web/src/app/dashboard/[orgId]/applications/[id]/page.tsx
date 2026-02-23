@@ -485,8 +485,8 @@ export default function ApplicationDetailPage() {
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {[
-                    { label: 'Discovery URL', value: applicationApi.getOidcDiscoveryUrl(orgId) },
-                    { label: 'Authorization Endpoint', value: applicationApi.getAuthorizeUrl(orgId) },
+                    { label: 'Discovery URL', value: applicationApi.getOidcDiscoveryUrl(orgId, appId) },
+                    { label: 'Authorization Endpoint', value: applicationApi.getAuthorizeUrl(orgId, appId) },
                     { label: 'Token Endpoint', value: applicationApi.getTokenUrl() },
                     { label: 'Introspection Endpoint', value: applicationApi.getIntrospectUrl() },
                     { label: 'Revocation Endpoint', value: applicationApi.getRevokeUrl() },
@@ -667,9 +667,9 @@ function IntegrationGuide({
   const firstRedirectUri = Array.isArray(app.redirectUris) && app.redirectUris.length > 0
     ? app.redirectUris[0]
     : 'http://localhost:3000/callback';
-  const authorizeUrl = applicationApi.getAuthorizeUrl(orgId);
+  const authorizeUrl = applicationApi.getAuthorizeUrl(orgId, appId);
   const tokenUrl = applicationApi.getTokenUrl();
-  const discoveryUrl = applicationApi.getOidcDiscoveryUrl(orgId);
+  const discoveryUrl = applicationApi.getOidcDiscoveryUrl(orgId, appId);
 
   const clientType = app.isAiAgent
     ? 'ai_agent'
