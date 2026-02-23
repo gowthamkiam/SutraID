@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useEffect, useState, use } from 'react';
+import { useRouter } from 'next/navigation';
 import { applicationApi, Application, groupsApi, usersApi } from '@/lib/api';
 
 type Tab = 'general' | 'security' | 'endpoints' | 'guide' | 'assignments';
 
-export default function ApplicationDetailPage() {
+export default function ApplicationDetailPage({ params }: { params: Promise<{ orgId: string, id: string }> }) {
   const router = useRouter();
-  const params = useParams();
-  const appId = params.id as string;
+  const { orgId, id: appId } = use(params);
+  // Remove local appId declaration since it's now destructured from params
 
   const [app, setApp] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
@@ -17,7 +17,7 @@ export default function ApplicationDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('general');
-  const [orgId, setOrgId] = useState<string | null>(null);
+  // orgId is now available from use(params)
 
   // Form state
   const [name, setName] = useState('');
@@ -40,16 +40,10 @@ export default function ApplicationDetailPage() {
   const [samlNameIdFormat, setSamlNameIdFormat] = useState('');
 
   useEffect(() => {
-    const stored = localStorage.getItem('currentOrgId');
-    if (stored) setOrgId(stored);
-  }, []);
-
-  useEffect(() => {
-    if (orgId && appId) loadApp();
-  }, [orgId, appId]);
-
-  useEffect(() => {
-    if (orgId && appId) loadAssignments();
+    if (orgId && appId) {
+      loadApp();
+      loadAssignments();
+    }
   }, [orgId, appId]);
 
   const loadApp = async () => {

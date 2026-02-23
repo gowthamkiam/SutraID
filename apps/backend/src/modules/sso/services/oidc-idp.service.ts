@@ -79,6 +79,7 @@ export class OidcIdpService {
           redirect_uris: application.redirectUris as string[],
           response_types: ['code'],
           token_endpoint_auth_method: application.clientSecretHash ? 'client_secret_post' : 'none',
+          scope: 'openid profile email offline_access', // Explicitly allow these scopes
         }
       ],
 
@@ -179,7 +180,13 @@ export class OidcIdpService {
       renderError: async (ctx: any, out: any, error: any) => {
         const errCode = out?.error || error?.name || 'server_error';
         const errMsg = error?.message || out?.error_description || errCode;
-        console.error(`❌ OIDC renderError [${errCode}]: ${errMsg}`, { error, out });
+
+        // Log more details for debugging
+        console.error(`❌ OIDC Error [${errCode}]: ${errMsg}`);
+        console.error('Context Params:', ctx.query || ctx.params);
+        if (error) console.error('Original Error:', error);
+        if (out) console.error('Error Details (out):', out);
+
         const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
         ctx.status = 302;
         ctx.redirect(`${frontendUrl}/auth/error?error=${encodeURIComponent(errCode)}&error_description=${encodeURIComponent(errMsg)}`);
@@ -593,9 +600,15 @@ export class OidcIdpService {
     const provider = await this.getProviderInstance(applicationId);
     const issuerPath = this.getIssuerPath(organizationId, applicationId);
     const originalUrl: string = req.url;
+
+    console.log(`🔍 [OIDC] Dispatching request. Original URL: ${originalUrl}, Issuer Path: ${issuerPath}`);
+
     req.url = originalUrl.startsWith(issuerPath)
       ? originalUrl.slice(issuerPath.length) || '/'
       : originalUrl;
+
+    console.log(`🔍 [OIDC] Stripped URL: ${req.url}`);
+
     await (provider.app.callback())(req, res);
     req.url = originalUrl;
   }
