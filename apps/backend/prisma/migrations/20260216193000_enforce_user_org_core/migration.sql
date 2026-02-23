@@ -1,4 +1,22 @@
 -- Core org enforcement
+-- Create groups table if it doesn't exist yet (fix dependency error)
+CREATE TABLE IF NOT EXISTS "groups" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "externalId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "groups_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "groups_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS "groups_organizationId_idx" ON "groups"("organizationId");
+CREATE INDEX IF NOT EXISTS "groups_externalId_idx" ON "groups"("externalId");
+CREATE UNIQUE INDEX IF NOT EXISTS "groups_organizationId_name_key" ON "groups"("organizationId", "name");
+
 ALTER TABLE "users"
   ADD COLUMN IF NOT EXISTS "organizationId" TEXT,
   ADD COLUMN IF NOT EXISTS "role" "OrgRole" NOT NULL DEFAULT 'READ_ONLY_ADMIN';
