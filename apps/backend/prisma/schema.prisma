@@ -291,12 +291,8 @@ model Organization {
   settings          OrganizationSetting[]
   
   // OIDC Provider configurations (Phase 3+)
-  oidcScopes        OidcScope[]
-  oidcClaims        OidcClaim[]
-  oidcRegexRules    OidcRegexRule[]
-  oidcSigningKeys   OidcSigningKey[]
-  oidcTokenPolicy   OidcTokenPolicy?
-
+  // Moved to Application level
+  
   @@index([slug])
   @@index([domain])
   @@map("organizations")
@@ -428,6 +424,13 @@ model Application {
   @@index([organizationId])
   @@index([clientId])
   @@map("applications")
+
+  // OIDC Provider configurations (Phase 3+)
+  oidcScopes        OidcScope[]
+  oidcClaims        OidcClaim[]
+  oidcRegexRules    OidcRegexRule[]
+  oidcSigningKeys   OidcSigningKey[]
+  oidcTokenPolicy   OidcTokenPolicy?
 }
 
 model UserApplicationAssignment {
@@ -572,6 +575,7 @@ model SsoIdentity {
 model OidcToken {
   id                String   @id @default(uuid())
   organizationId    String
+  applicationId     String
 
   // Token type (AuthorizationCode, AccessToken, RefreshToken, etc.)
   type              String
@@ -591,8 +595,8 @@ model OidcToken {
 
   createdAt         DateTime @default(now())
 
-  @@unique([organizationId, type, tokenId])
-  @@index([organizationId, type])
+  @@unique([organizationId, applicationId, type, tokenId])
+  @@index([organizationId, applicationId, type])
   @@index([expiresAt])
   @@map("oidc_tokens")
 }
@@ -783,11 +787,11 @@ enum MfaType {
 // OIDC PROVIDER CONFIGURATION (OAuth 2.1 & Multi-tenant Claims)
 // ============================================================================
 
-// OidcScope - Custom scopes per organization
+// OidcScope - Custom scopes per application
 model OidcScope {
   id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId  String
+  application    Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   
   name           String       // e.g., "read:orders"
   description    String?
@@ -796,16 +800,16 @@ model OidcScope {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  @@unique([organizationId, name])
-  @@index([organizationId])
+  @@unique([applicationId, name])
+  @@index([applicationId])
   @@map("oidc_scopes")
 }
 
 // OidcClaim - Claim definitions mapping user attributes to tokens
 model OidcClaim {
   id                 String       @id @default(uuid())
-  organizationId     String
-  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId      String
+  application        Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   
   name               String       // Claim name in the token
   userAttribute      String       // Path to user attribute (e.g., "firstName", "metadata.custom_field")
@@ -820,8 +824,8 @@ model OidcClaim {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
-  @@unique([organizationId, name])
-  @@index([organizationId])
+  @@unique([applicationId, name])
+  @@index([applicationId])
   @@map("oidc_claims")
 }
 
@@ -834,8 +838,8 @@ enum ClaimTarget {
 // OidcRegexRule - Regex transformations for claims
 model OidcRegexRule {
   id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId  String
+  application    Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   
   name           String
   pattern        String
@@ -847,16 +851,16 @@ model OidcRegexRule {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  @@unique([organizationId, name])
-  @@index([organizationId])
+  @@unique([applicationId, name])
+  @@index([applicationId])
   @@map("oidc_regex_rules")
 }
 
-// OidcSigningKey - Organization-specific JWS signing keys
+// OidcSigningKey - Application-specific JWS signing keys
 model OidcSigningKey {
   id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId  String
+  application    Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   
   kid            String       // Key ID (kid)
   algorithm      JwsAlgorithm @default(RS256)
@@ -869,8 +873,8 @@ model OidcSigningKey {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  @@unique([organizationId, kid])
-  @@index([organizationId])
+  @@unique([applicationId, kid])
+  @@index([applicationId])
   @@map("oidc_signing_keys")
 }
 
@@ -882,8 +886,8 @@ enum JwsAlgorithm {
 // OidcTokenPolicy - Token lifetime and behaviors
 model OidcTokenPolicy {
   id                   String       @id @default(uuid())
-  organizationId       String       @unique
-  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId        String       @unique
+  application          Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   
   accessTokenLifetime  Int          @default(3600)    // Seconds
   idTokenLifetime     Int          @default(3600)    // Seconds

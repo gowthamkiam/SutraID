@@ -340,8 +340,8 @@ export const applicationApi = {
     return `${API_URL.replace('/api/v1', '')}/oauth/register`;
   },
 
-  getAuthorizeUrl(orgId: string): string {
-    return `${API_URL}/sso/oidc-idp/${orgId}/authorize`;
+  getAuthorizeUrl(orgId: string, appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/authorize`;
   },
 
   // Guide
@@ -726,16 +726,16 @@ export interface OidcTokenPolicy {
 }
 
 export const oidcConfigApi = {
-  async getConfig(orgId: string): Promise<any> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/config`, {
+  async getConfig(orgId: string, appId: string): Promise<any> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch OIDC configuration');
     return response.json();
   },
 
-  async createScope(orgId: string, data: any): Promise<OidcScope> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/scopes`, {
+  async createScope(orgId: string, appId: string, data: any): Promise<OidcScope> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/scopes`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -743,8 +743,8 @@ export const oidcConfigApi = {
     return response.json();
   },
 
-  async createClaim(orgId: string, data: any): Promise<OidcClaim> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/claims`, {
+  async createClaim(orgId: string, appId: string, data: any): Promise<OidcClaim> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/claims`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -752,8 +752,8 @@ export const oidcConfigApi = {
     return response.json();
   },
 
-  async createRegexRule(orgId: string, data: any): Promise<OidcRegexRule> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/regex-rules`, {
+  async createRegexRule(orgId: string, appId: string, data: any): Promise<OidcRegexRule> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/regex-rules`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -761,8 +761,8 @@ export const oidcConfigApi = {
     return response.json();
   },
 
-  async createSigningKey(orgId: string, data: any): Promise<OidcSigningKey> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/signing-keys`, {
+  async createSigningKey(orgId: string, appId: string, data: any): Promise<OidcSigningKey> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/signing-keys`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -770,8 +770,8 @@ export const oidcConfigApi = {
     return response.json();
   },
 
-  async updateTokenPolicy(orgId: string, data: Partial<OidcTokenPolicy>): Promise<OidcTokenPolicy> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/token-policy`, {
+  async updateTokenPolicy(orgId: string, appId: string, data: Partial<OidcTokenPolicy>): Promise<OidcTokenPolicy> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/token-policy`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),

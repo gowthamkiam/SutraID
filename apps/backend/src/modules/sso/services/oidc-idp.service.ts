@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 // TypeScript with "module": "commonjs" compiles import() to require(),
 // so we use new Function() to prevent the transformation.
 const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
-import { User, ClaimTarget } from '@prisma/client';
+import { User } from '@prisma/client';
 import * as crypto from 'crypto';
 import { RegexService } from '../utils/regex.service';
 import { OidcConfigService } from './oidc-config.service';
@@ -31,59 +31,66 @@ export class OidcIdpService {
   ) { }
 
   /**
-   * Get or create OIDC Provider instance for an organization
+   * Get or create OIDC Provider instance for an application
    */
-  async getProviderInstance(organizationId: string): Promise<any> {
+  async getProviderInstance(applicationId: string): Promise<any> {
     // Check cache
-    if (this.providerInstances.has(organizationId)) {
-      return this.providerInstances.get(organizationId)!;
+    if (this.providerInstances.has(applicationId)) {
+      return this.providerInstances.get(applicationId)!;
     }
 
-    // Get organization
-    const organization = await this.prisma.organization.findUnique({
-      where: { id: organizationId },
+    // Get application and its organization
+    const application = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+      include: { organization: true },
     });
 
-    if (!organization) {
-      throw new BadRequestException('Organization not found');
+    if (!application) {
+      throw new BadRequestException('Application not found');
     }
 
-    // Load dynamic configuration
+    const organizationId = application.organizationId;
+
+    // Load dynamic configuration (now at app level)
     const [tokenPolicy, signingKeys, customScopes, customClaims] = await Promise.all([
-      this.oidcConfigService.getTokenPolicy(organizationId),
-      this.oidcConfigService.getSigningKeys(organizationId),
-      this.oidcConfigService.getScopes(organizationId),
-      this.oidcConfigService.getClaims(organizationId),
+      this.oidcConfigService.getTokenPolicy(applicationId),
+      this.oidcConfigService.getSigningKeys(applicationId),
+      this.oidcConfigService.getScopes(applicationId),
+      this.oidcConfigService.getClaims(applicationId),
     ]);
 
     const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
-    const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}`;
+    const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}/${applicationId}`;
 
     // Create OIDC Provider instance
     const ProviderClass = await this.loadProvider();
     const provider = new ProviderClass(issuer, {
-      // Trust X-Forwarded-Proto / X-Forwarded-Host from reverse proxies (Railway, Netlify).
       proxy: true,
 
-      // Adapter for storing authorization codes, tokens, etc.
-      adapter: this.createAdapter(organizationId),
+      // Adapter still needs to store tokens — we'll pass both IDs for filtering if needed
+      adapter: this.createAdapter(organizationId, applicationId),
 
-      // Client registration
-      clients: await this.getClients(organizationId),
+      // Client registration - only this specific client for this instance
+      clients: [
+        {
+          client_id: application.clientId,
+          client_secret: application.clientSecretHash || undefined,
+          grant_types: ['authorization_code', 'refresh_token'],
+          redirect_uris: application.redirectUris as string[],
+          response_types: ['code'],
+          token_endpoint_auth_method: application.clientSecretHash ? 'client_secret_post' : 'none',
+        }
+      ],
 
       // JWKS (Organization-specific keys)
       jwks: signingKeys.length > 0 ? {
-        keys: signingKeys.map(k => ({
-          kty: k.algorithm === 'RS256' ? 'RSA' : 'EC',
+        keys: signingKeys.map((k: any) => ({
+          kty: 'RSA',
           kid: k.kid,
-          use: 'sig',
+          n: k.publicKey,
+          e: 'AQAB',
           alg: k.algorithm,
-          // In a real app, you'd parse the public key into the JWK format
-          n: (k as any).n, // Placeholder: simplified for prototype
-          e: (k as any).e,
-          crv: (k as any).crv,
-          x: (k as any).x,
-          y: (k as any).y,
+          use: 'sig',
         })),
       } : undefined,
 
@@ -109,7 +116,7 @@ export class OidcIdpService {
 
       // Find account by ID
       findAccount: async (ctx: any, sub: string): Promise<any> => {
-        return this.findAccount(organizationId, sub);
+        return this.findAccount(applicationId, sub);
       },
 
       // Supported response types
@@ -146,7 +153,7 @@ export class OidcIdpService {
         url: async (ctx: any, interaction: any): Promise<string> => {
           const backendUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
           const apiPrefix = this.config.get<string>('API_PREFIX') || 'api/v1';
-          return `${backendUrl}/${apiPrefix}/sso/oidc-idp/${organizationId}/auto-confirm?uid=${interaction.uid}`;
+          return `${backendUrl}/${apiPrefix}/sso/oidc-idp/${organizationId}/${applicationId}/auto-confirm?uid=${interaction.uid}`;
         },
       },
 
@@ -180,7 +187,7 @@ export class OidcIdpService {
     });
 
     // Cache the instance
-    this.providerInstances.set(organizationId, provider);
+    this.providerInstances.set(applicationId, provider);
 
     return provider;
   }
@@ -188,7 +195,7 @@ export class OidcIdpService {
   /**
    * Create database adapter for oidc-provider
    */
-  private createAdapter(organizationId: string) {
+  private createAdapter(organizationId: string, applicationId: string) {
     const prisma = this.prisma;
 
     return class Adapter {
@@ -199,14 +206,16 @@ export class OidcIdpService {
 
         await prisma.oidcToken.upsert({
           where: {
-            organizationId_type_tokenId: {
+            organizationId_applicationId_type_tokenId: {
               organizationId,
+              applicationId,
               type: this.name,
               tokenId: id,
             },
           },
           create: {
             organizationId,
+            applicationId,
             type: this.name,
             tokenId: id,
             payload: JSON.stringify(payload),
@@ -222,8 +231,9 @@ export class OidcIdpService {
       async find(id: string) {
         const token = await prisma.oidcToken.findUnique({
           where: {
-            organizationId_type_tokenId: {
+            organizationId_applicationId_type_tokenId: {
               organizationId,
+              applicationId,
               type: this.name,
               tokenId: id,
             },
@@ -241,6 +251,7 @@ export class OidcIdpService {
         const token = await prisma.oidcToken.findFirst({
           where: {
             organizationId,
+            applicationId,
             type: this.name,
             payload: {
               contains: userCode,
@@ -259,6 +270,7 @@ export class OidcIdpService {
         const token = await prisma.oidcToken.findFirst({
           where: {
             organizationId,
+            applicationId,
             type: this.name,
             payload: {
               contains: uid,
@@ -276,8 +288,9 @@ export class OidcIdpService {
       async consume(id: string) {
         await prisma.oidcToken.update({
           where: {
-            organizationId_type_tokenId: {
+            organizationId_applicationId_type_tokenId: {
               organizationId,
+              applicationId,
               type: this.name,
               tokenId: id,
             },
@@ -292,8 +305,9 @@ export class OidcIdpService {
       async destroy(id: string) {
         await prisma.oidcToken.delete({
           where: {
-            organizationId_type_tokenId: {
+            organizationId_applicationId_type_tokenId: {
               organizationId,
+              applicationId,
               type: this.name,
               tokenId: id,
             },
@@ -348,7 +362,16 @@ export class OidcIdpService {
   /**
    * Find user account by ID
    */
-  private async findAccount(organizationId: string, userId: string) {
+  private async findAccount(applicationId: string, userId: string) {
+    const application = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+      select: { organizationId: true }
+    });
+
+    if (!application) return undefined;
+
+    const organizationId = application.organizationId;
+
     const user = await this.prisma.user.findFirst({
       where: {
         id: userId,
@@ -360,7 +383,10 @@ export class OidcIdpService {
         },
       },
       include: {
-        organization: true, // For potential org-level attributes
+        organization: true,
+        organizationMembers: {
+          where: { organizationId, status: 'ACTIVE' },
+        }
       },
     });
 
@@ -368,7 +394,8 @@ export class OidcIdpService {
       return undefined;
     }
 
-    const customClaims = await this.oidcConfigService.getClaims(organizationId);
+    const member = user.organizationMembers[0];
+    const customClaims = await this.oidcConfigService.getClaims(applicationId);
 
     return {
       accountId: user.id,
@@ -381,16 +408,21 @@ export class OidcIdpService {
           given_name: user.firstName,
           family_name: user.lastName,
           updated_at: Math.floor(user.updatedAt.getTime() / 1000),
+          // Organization context
+          org_id: organizationId,
+          org_name: user.organization?.name,
+          org_role: member?.role,
         };
 
         // Process custom claims
         for (const claimDef of customClaims) {
           // Filter by target token
-          const target = use === 'id_token' ? ClaimTarget.ID_TOKEN :
-            use === 'userinfo' ? ClaimTarget.USERINFO :
-              ClaimTarget.ACCESS_TOKEN;
+          // Use string comparisons if enum import is problematic
+          const target = use === 'id_token' ? 'ID_TOKEN' :
+            use === 'userinfo' ? 'USERINFO' :
+              'ACCESS_TOKEN';
 
-          if (!claimDef.targetTokens.includes(target)) {
+          if (!claimDef.targetTokens.includes(target as any)) {
             continue;
           }
 
@@ -444,13 +476,19 @@ export class OidcIdpService {
    */
   async handleInteraction(
     organizationId: string,
+    applicationId: string,
     _uid: string,
     actorId: string,
     consent: boolean,
     req: any,
     res: any,
   ): Promise<string> {
-    const provider = await this.getProviderInstance(organizationId);
+    const application = await this.prisma.application.findUnique({
+      where: { id: applicationId }
+    });
+    if (!application) throw new BadRequestException('Application not found');
+
+    const provider = await this.getProviderInstance(applicationId);
     const interaction = await provider.interactionDetails(req, res);
 
     if (!consent) {
@@ -492,14 +530,14 @@ export class OidcIdpService {
   /**
    * Get OIDC discovery metadata
    */
-  async getDiscoveryMetadata(organizationId: string) {
+  async getDiscoveryMetadata(organizationId: string, applicationId: string) {
     const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
-    const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}`;
+    const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}/${applicationId}`;
 
     return {
       issuer,
       authorization_endpoint: `${issuer}/authorize`,
-      token_endpoint: `${baseUrl}/oauth/token`,
+      token_endpoint: `${issuer}/token`,
       userinfo_endpoint: `${issuer}/userinfo`,
       jwks_uri: `${issuer}/jwks`,
       registration_endpoint: `${issuer}/register`,
@@ -541,9 +579,9 @@ export class OidcIdpService {
    * before forwarding to oidc-provider's Koa app (which registers routes
    * without this prefix).
    */
-  private getIssuerPath(organizationId: string): string {
+  private getIssuerPath(organizationId: string, applicationId: string): string {
     const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
-    return new URL(`${baseUrl}/api/v1/sso/oidc-idp/${organizationId}`).pathname;
+    return new URL(`${baseUrl}/api/v1/sso/oidc-idp/${organizationId}/${applicationId}`).pathname;
   }
 
   /**
@@ -551,9 +589,9 @@ export class OidcIdpService {
    * issuer path prefix from req.url first so Koa's router can match routes.
    * Use this in every controller handler that delegates to oidc-provider.
    */
-  async dispatchToProvider(organizationId: string, req: any, res: any): Promise<void> {
-    const provider = await this.getProviderInstance(organizationId);
-    const issuerPath = this.getIssuerPath(organizationId);
+  async dispatchToProvider(organizationId: string, applicationId: string, req: any, res: any): Promise<void> {
+    const provider = await this.getProviderInstance(applicationId);
+    const issuerPath = this.getIssuerPath(organizationId, applicationId);
     const originalUrl: string = req.url;
     req.url = originalUrl.startsWith(issuerPath)
       ? originalUrl.slice(issuerPath.length) || '/'

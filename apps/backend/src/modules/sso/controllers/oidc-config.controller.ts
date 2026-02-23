@@ -10,6 +10,7 @@ import {
     HttpStatus,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { OrgGuard } from '../../auth/guards/org.guard';
 import { OidcConfigService } from '../services/oidc-config.service';
 import {
     CreateOidcScopeDto,
@@ -19,83 +20,83 @@ import {
     UpdateOidcTokenPolicyDto,
 } from '../dto/oidc-config.dto';
 
-@Controller('orgs/:orgId')
-@UseGuards(JwtAuthGuard)
+@Controller('orgs/:orgId/applications/:appId/oidc-config')
+@UseGuards(JwtAuthGuard, OrgGuard)
 export class OidcConfigController {
     constructor(private readonly oidcConfigService: OidcConfigService) { }
 
-    @Get('config')
-    async getConfig(@Param('orgId') organizationId: string) {
-        return this.oidcConfigService.getConfig(organizationId);
+    @Get()
+    async getConfig(@Param('appId') applicationId: string) {
+        return this.oidcConfigService.getConfig(applicationId);
     }
 
     // Scopes
     @Post('scopes')
     async createScope(
-        @Param('orgId') organizationId: string,
+        @Param('appId') applicationId: string,
         @Body() dto: CreateOidcScopeDto,
     ) {
-        return this.oidcConfigService.createScope(organizationId, dto);
+        return this.oidcConfigService.createScope(applicationId, dto);
     }
 
     @Get('scopes')
-    async getScopes(@Param('orgId') organizationId: string) {
-        return this.oidcConfigService.getScopes(organizationId);
+    async getScopes(@Param('appId') applicationId: string) {
+        return this.oidcConfigService.getScopes(applicationId);
     }
 
     // Claims
     @Post('claims')
     async createClaim(
-        @Param('orgId') organizationId: string,
+        @Param('appId') applicationId: string,
         @Body() dto: CreateOidcClaimDto,
     ) {
-        return this.oidcConfigService.createClaim(organizationId, dto);
+        return this.oidcConfigService.createClaim(applicationId, dto);
     }
 
     @Get('claims')
-    async getClaims(@Param('orgId') organizationId: string) {
-        return this.oidcConfigService.getClaims(organizationId);
+    async getClaims(@Param('appId') applicationId: string) {
+        return this.oidcConfigService.getClaims(applicationId);
     }
 
     // Regex Rules
     @Post('regex-rules')
     async createRegexRule(
-        @Param('orgId') organizationId: string,
+        @Param('appId') applicationId: string,
         @Body() dto: CreateOidcRegexRuleDto,
     ) {
-        return this.oidcConfigService.createRegexRule(organizationId, dto);
+        return this.oidcConfigService.createRegexRule(applicationId, dto);
     }
 
     @Get('regex-rules')
-    async getRegexRules(@Param('orgId') organizationId: string) {
-        return this.oidcConfigService.getRegexRules(organizationId);
+    async getRegexRules(@Param('appId') applicationId: string) {
+        return this.oidcConfigService.getRegexRules(applicationId);
     }
 
     // Signing Keys
     @Post('signing-keys')
     async createSigningKey(
-        @Param('orgId') organizationId: string,
+        @Param('appId') applicationId: string,
         @Body() dto: CreateOidcSigningKeyDto,
     ) {
-        return this.oidcConfigService.createSigningKey(organizationId, dto);
+        return this.oidcConfigService.createSigningKey(applicationId, dto);
     }
 
     @Get('signing-keys')
-    async getSigningKeys(@Param('orgId') organizationId: string) {
-        return this.oidcConfigService.getSigningKeys(organizationId);
+    async getSigningKeys(@Param('appId') applicationId: string) {
+        return this.oidcConfigService.getSigningKeys(applicationId);
     }
 
     // Token Policy
     @Put('token-policy')
     async updateTokenPolicy(
-        @Param('orgId') organizationId: string,
+        @Param('appId') applicationId: string,
         @Body() dto: UpdateOidcTokenPolicyDto,
     ) {
-        return this.oidcConfigService.updateTokenPolicy(organizationId, dto);
+        return this.oidcConfigService.updateTokenPolicy(applicationId, dto);
     }
 
     @Get('token-policy')
-    async getTokenPolicy(@Param('orgId') organizationId: string) {
-        return this.oidcConfigService.getTokenPolicy(organizationId);
+    async getTokenPolicy(@Param('appId') applicationId: string) {
+        return this.oidcConfigService.getTokenPolicy(applicationId);
     }
 }

@@ -192,11 +192,17 @@ export class AuthService {
     const expiresIn = 15 * 60; // seconds
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
+    // Ensure user belongs to an organization (auto-create if needed)
+    const orgInfo = await this.ensureOrganization(user.id, preferredOrgId);
+
     // Create access token (JWT)
     const accessToken = await new SignJWT({
       sub: user.id,
       email: user.email,
       type: 'access',
+      org_id: orgInfo.id,
+      org_name: orgInfo.name,
+      org_role: orgInfo.role,
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
@@ -214,9 +220,6 @@ export class AuthService {
         lastActiveAt: new Date(),
       },
     });
-
-    // Ensure user belongs to an organization (auto-create if needed)
-    const orgInfo = await this.ensureOrganization(user.id, preferredOrgId);
 
     return {
       accessToken,
@@ -249,13 +252,13 @@ export class AuthService {
   }> {
     const existing = preferredOrgId
       ? await this.prisma.organizationMember.findUnique({
-          where: { organizationId_userId: { organizationId: preferredOrgId, userId } },
-          include: { organization: true },
-        })
+        where: { organizationId_userId: { organizationId: preferredOrgId, userId } },
+        include: { organization: true },
+      })
       : await this.prisma.organizationMember.findFirst({
-          where: { userId, status: 'ACTIVE' },
-          include: { organization: true },
-        });
+        where: { userId, status: 'ACTIVE' },
+        include: { organization: true },
+      });
 
     if (existing && existing.status === 'ACTIVE') {
       await this.prisma.user.update({
@@ -575,9 +578,9 @@ export class AuthService {
 
     const membership = user
       ? await this.prisma.organizationMember.findUnique({
-          where: { organizationId_userId: { organizationId, userId: user.id } },
-          select: { status: true },
-        })
+        where: { organizationId_userId: { organizationId, userId: user.id } },
+        select: { status: true },
+      })
       : null;
 
     if (!user || !user.passwordHash || !membership || membership.status !== 'ACTIVE') {
@@ -1029,6 +1032,10 @@ export class AuthService {
       organizationId: membership?.organizationId || null,
       role: membership?.role || null,
       organization: membership?.organization || null,
+      // Snake case versions to match JWT claims
+      org_id: membership?.organizationId || null,
+      org_name: membership?.organization?.name || null,
+      org_role: membership?.role || null,
     };
   }
 

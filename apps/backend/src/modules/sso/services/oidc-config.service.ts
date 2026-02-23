@@ -13,56 +13,56 @@ export class OidcConfigService {
     constructor(private prisma: PrismaService) { }
 
     // Scopes
-    async createScope(organizationId: string, dto: CreateOidcScopeDto) {
+    async createScope(applicationId: string, dto: CreateOidcScopeDto) {
         return this.prisma.oidcScope.create({
-            data: { ...dto, organizationId },
+            data: { ...dto, applicationId },
         });
     }
 
-    async getScopes(organizationId: string) {
+    async getScopes(applicationId: string) {
         return this.prisma.oidcScope.findMany({
-            where: { organizationId },
+            where: { applicationId },
         });
     }
 
     // Claims
-    async createClaim(organizationId: string, dto: CreateOidcClaimDto) {
+    async createClaim(applicationId: string, dto: CreateOidcClaimDto) {
         return this.prisma.oidcClaim.create({
-            data: { ...dto, organizationId },
+            data: { ...dto, applicationId },
         });
     }
 
-    async getClaims(organizationId: string) {
+    async getClaims(applicationId: string) {
         return this.prisma.oidcClaim.findMany({
-            where: { organizationId },
+            where: { applicationId },
             include: { regexRule: true },
         });
     }
 
     // Regex Rules
-    async createRegexRule(organizationId: string, dto: CreateOidcRegexRuleDto) {
+    async createRegexRule(applicationId: string, dto: CreateOidcRegexRuleDto) {
         return this.prisma.oidcRegexRule.create({
-            data: { ...dto, organizationId },
+            data: { ...dto, applicationId },
         });
     }
 
-    async getRegexRules(organizationId: string) {
+    async getRegexRules(applicationId: string) {
         return this.prisma.oidcRegexRule.findMany({
-            where: { organizationId },
+            where: { applicationId },
         });
     }
 
     // Signing Keys
-    async createSigningKey(organizationId: string, dto: CreateOidcSigningKeyDto) {
+    async createSigningKey(applicationId: string, dto: CreateOidcSigningKeyDto) {
         // Encrypt private key should be done here in a real app
         return this.prisma.oidcSigningKey.create({
-            data: { ...dto, organizationId },
+            data: { ...dto, applicationId },
         });
     }
 
-    async getSigningKeys(organizationId: string) {
+    async getSigningKeys(applicationId: string) {
         return this.prisma.oidcSigningKey.findMany({
-            where: { organizationId },
+            where: { applicationId },
             select: {
                 id: true,
                 kid: true,
@@ -76,23 +76,23 @@ export class OidcConfigService {
     }
 
     // Token Policy
-    async updateTokenPolicy(organizationId: string, dto: UpdateOidcTokenPolicyDto) {
+    async updateTokenPolicy(applicationId: string, dto: UpdateOidcTokenPolicyDto) {
         return this.prisma.oidcTokenPolicy.upsert({
-            where: { organizationId },
-            create: { ...dto, organizationId },
+            where: { applicationId },
+            create: { ...dto, applicationId },
             update: dto,
         });
     }
 
-    async getTokenPolicy(organizationId: string) {
+    async getTokenPolicy(applicationId: string) {
         let policy = await this.prisma.oidcTokenPolicy.findUnique({
-            where: { organizationId },
+            where: { applicationId },
         });
 
         if (!policy) {
             // Return default policy
             policy = await this.prisma.oidcTokenPolicy.create({
-                data: { organizationId },
+                data: { applicationId },
             });
         }
 
@@ -100,13 +100,13 @@ export class OidcConfigService {
     }
 
     // Unified Config
-    async getConfig(organizationId: string) {
+    async getConfig(applicationId: string) {
         const [scopes, claims, regexRules, signingKeys, tokenPolicy] = await Promise.all([
-            this.getScopes(organizationId),
-            this.getClaims(organizationId),
-            this.getRegexRules(organizationId),
-            this.getSigningKeys(organizationId),
-            this.getTokenPolicy(organizationId),
+            this.getScopes(applicationId),
+            this.getClaims(applicationId),
+            this.getRegexRules(applicationId),
+            this.getSigningKeys(applicationId),
+            this.getTokenPolicy(applicationId),
         ]);
 
         return {
