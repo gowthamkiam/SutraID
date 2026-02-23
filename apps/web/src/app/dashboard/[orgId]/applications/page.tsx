@@ -3,41 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { applicationApi, Application } from '@/lib/api';
+import { useOrg } from '@/components/providers/OrgContextProvider';
 
 export default function ApplicationsPage() {
+  const { orgId, isLoading: orgLoading } = useOrg();
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [orgId, setOrgId] = useState<string | null>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    const stored = localStorage.getItem('currentOrgId');
-    if (stored) {
-      setOrgId(stored);
-    } else {
-      const accessToken = localStorage.getItem('accessToken');
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
-      fetch(`${apiUrl}/organizations`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
-        .then((res) => res.json())
-        .then((orgs) => {
-          if (orgs && orgs.length > 0) {
-            setOrgId(orgs[0].id);
-            localStorage.setItem('currentOrgId', orgs[0].id);
-          } else {
-            setLoading(false);
-            setError('No organization found. Please complete onboarding first.');
-          }
-        })
-        .catch(() => {
-          setLoading(false);
-          setError('Failed to load organization.');
-        });
-    }
-  }, []);
 
   useEffect(() => {
     if (orgId) loadApps();
@@ -55,6 +29,28 @@ export default function ApplicationsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleQuickTest = (app: Application) => {
+    if (!orgId || !app.clientId) return;
+
+    // Generate a simple PKCE verifier/challenge for the quick test
+    // In a real app, this would be more robust.
+    const verifier = 'quick-test-verifier-123456789012345678901234567890';
+    const challenge = 'S1FQX1Rlc3RfQ2hhbGxlbmdlXzEyMzQ1Njc4OTAxMjM0NTY3ODk'; // Placeholder S256 challenge
+
+    const params = new URLSearchParams({
+      client_id: app.clientId,
+      response_type: 'code',
+      scope: 'openid profile email',
+      redirect_uri: app.redirectUris[0] || window.location.origin + '/auth/callback',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      org_id: orgId // Include the orgId for context
+    });
+
+    const authorizeUrl = `${applicationApi.getAuthorizeUrl(orgId, app.id)}?${params.toString()}`;
+    window.open(authorizeUrl, '_blank');
   };
 
   const handleDelete = async (appId: string) => {
@@ -121,7 +117,7 @@ export default function ApplicationsPage() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <button
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push(`/dashboard/${orgId}`)}
               style={{
                 background: 'rgba(255, 255, 255, 0.05)',
                 border: '1px solid var(--border-color, #30363d)',
@@ -142,7 +138,7 @@ export default function ApplicationsPage() {
             </div>
           </div>
           <button
-            onClick={() => router.push('/dashboard/applications/new')}
+            onClick={() => router.push(`/dashboard/${orgId}/applications/new`)}
             style={{
               padding: '0.75rem 1.5rem',
               background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
@@ -212,7 +208,7 @@ export default function ApplicationsPage() {
               Create your first application to enable OAuth 2.1 (OIDC) or SAML 2.0 Identity Provider features.
             </p>
             <button
-              onClick={() => router.push('/dashboard/applications/new')}
+              onClick={() => router.push(`/dashboard/${orgId}/applications/new`)}
               style={{
                 padding: '0.75rem 2rem', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                 color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer',
@@ -232,7 +228,7 @@ export default function ApplicationsPage() {
             {filteredApps.map((app) => (
               <div
                 key={app.id}
-                onClick={() => router.push(`/dashboard/applications/${app.id}`)}
+                onClick={() => router.push(`/dashboard/${orgId}/applications/${app.id}`)}
                 style={{
                   background: 'var(--bg-card, #161b22)', padding: '1.5rem', borderRadius: '12px',
                   border: '1px solid var(--border-color, #30363d)', transition: 'all 0.2s', cursor: 'pointer'
@@ -314,7 +310,7 @@ export default function ApplicationsPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                   <button
-                    onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/applications/${app.id}`); }}
+                    onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/${orgId}/applications/${app.id}`); }}
                     style={{
                       padding: '0.5rem', background: 'rgba(255, 255, 255, 0.05)',
                       color: 'var(--text-primary, #e6edf3)',
@@ -324,12 +320,25 @@ export default function ApplicationsPage() {
                   >
                     Configure
                   </button>
+                  {app.type === 'OIDC' && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleQuickTest(app); }}
+                      style={{
+                        padding: '0.5rem', background: 'rgba(99, 102, 241, 0.1)',
+                        color: '#a5b4fc', border: '1px solid rgba(99, 102, 241, 0.3)',
+                        borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500', transition: 'all 0.2s'
+                      }}
+                    >
+                      Quick Test
+                    </button>
+                  )}
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDelete(app.id); }}
                     style={{
                       padding: '0.5rem', background: 'rgba(239, 68, 68, 0.15)',
                       color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.3)',
-                      borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500', transition: 'all 0.2s'
+                      borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500', transition: 'all 0.2s',
+                      gridColumn: app.type === 'OIDC' ? 'span 2' : 'auto'
                     }}
                   >
                     Archive

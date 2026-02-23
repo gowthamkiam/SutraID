@@ -21,8 +21,8 @@ const actionIcons: Record<string, string> = {
   'sso.login': '🔐',
 };
 
-export default function AuditLogsPage() {
-  const [orgId, setOrgId] = useState<string | null>(null);
+export default function AuditLogsPage({ params }: { params: { orgId: string } }) {
+  const orgId = params.orgId;
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -34,27 +34,6 @@ export default function AuditLogsPage() {
   const [actionFilter, setActionFilter] = useState('');
   const [resultFilter, setResultFilter] = useState('');
   const [stats, setStats] = useState<any>(null);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('currentOrgId');
-    if (stored) {
-      setOrgId(stored);
-    } else {
-      const accessToken = localStorage.getItem('accessToken');
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
-      fetch(`${apiUrl}/organizations`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
-        .then((res) => res.json())
-        .then((orgs) => {
-          if (orgs?.length > 0) {
-            setOrgId(orgs[0].id);
-            localStorage.setItem('currentOrgId', orgs[0].id);
-          }
-        })
-        .catch(() => setError('Failed to load organization'));
-    }
-  }, []);
 
   useEffect(() => {
     if (orgId) {
@@ -116,7 +95,7 @@ export default function AuditLogsPage() {
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
-            <a href="/dashboard" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.85rem' }}>
+            <a href={`/dashboard/${orgId}`} style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.85rem' }}>
               ← Back to Dashboard
             </a>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary, #111827)', margin: '0.5rem 0 0' }}>

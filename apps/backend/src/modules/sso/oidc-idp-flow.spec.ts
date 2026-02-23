@@ -13,8 +13,8 @@ describe('OIDC IdP Token Validation Flow', () => {
   let privateKey: jose.KeyLike;
   let wrongPrivateKey: jose.KeyLike;
 
-  const TEST_ISSUER = 'http://localhost:3000/api/v1/sso/oidc-idp/22843968-59d7-4488-9ef2-f9f720945b57';
   const TEST_CLIENT_ID = 'app_4b66113d6d7fd374183c94837d306fcf';
+  const TEST_ISSUER = `http://localhost:3000/api/v1/sso/oidc-idp/22843968-59d7-4488-9ef2-f9f720945b57/${TEST_CLIENT_ID}`;
   const TEST_USER_ID = 'usr_a1b2c3d4e5f6';
   const TEST_NONCE = 'test-nonce-123';
 

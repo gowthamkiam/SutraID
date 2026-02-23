@@ -27,21 +27,31 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', key: 'dashboard' },
-  { icon: AppWindow, label: 'Applications', href: '/dashboard/applications', key: 'applications' },
-  { icon: Users, label: 'Users', href: '/dashboard/users', key: 'users' },
-  { icon: UsersRound, label: 'Groups', href: '/dashboard/groups', key: 'groups' },
-  { icon: Database, label: 'Directory Services', href: '/dashboard/directory', key: 'directory' },
-  { icon: KeyRound, label: 'API Access', href: '/dashboard/sso/providers', key: 'api-access' },
-  { icon: BarChart3, label: 'Reports', href: '/dashboard/audit', key: 'reports' },
-  { icon: Settings, label: 'Settings', href: '/dashboard/settings', key: 'settings' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '', key: 'dashboard' },
+  { icon: AppWindow, label: 'Applications', path: '/applications', key: 'applications' },
+  { icon: Users, label: 'Users', path: '/users', key: 'users' },
+  { icon: UsersRound, label: 'Groups', path: '/groups', key: 'groups' },
+  { icon: Database, label: 'Directory Services', path: '/directory', key: 'directory' },
+  { icon: Shield, label: 'OIDC Configuration', path: '/settings/oidc', key: 'oidc-config' },
+  { icon: KeyRound, label: 'API Access', path: '/sso/providers', key: 'api-access' },
+  { icon: BarChart3, label: 'Reports', path: '/audit', key: 'reports' },
+  { icon: Settings, label: 'Settings', path: '/settings', key: 'settings' },
 ];
 
-export default function Sidebar({ collapsed, onToggle, user, onLogout }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, user, onLogout, currentOrgId }: SidebarProps) {
   const pathname = usePathname();
   const role = (user?.role as OrgRole) || 'READ_ONLY_ADMIN';
   const visibleKeys = new Set(roleVisibleTabs[role] || roleVisibleTabs.READ_ONLY_ADMIN);
-  const items = navItems.filter((item) => visibleKeys.has(item.key));
+
+  const orgPrefix = currentOrgId ? `/dashboard/${currentOrgId}` : '/dashboard';
+
+  const items = navItems
+    .filter((item) => visibleKeys.has(item.key))
+    .map(item => ({
+      ...item,
+      href: `${orgPrefix}${item.path}`
+    }));
+
   const isSuperAdmin = role === 'SUPER_ADMIN';
 
   return (

@@ -320,8 +320,8 @@ export const applicationApi = {
   },
 
   // OIDC endpoints
-  getOidcDiscoveryUrl(orgId: string): string {
-    return `${API_URL.replace('/api/v1', '')}/.well-known/openid-configuration/${orgId}`;
+  getOidcDiscoveryUrl(orgId: string, appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/.well-known/openid-configuration`;
   },
 
   getTokenUrl(): string {
@@ -340,8 +340,8 @@ export const applicationApi = {
     return `${API_URL.replace('/api/v1', '')}/oauth/register`;
   },
 
-  getAuthorizeUrl(orgId: string): string {
-    return `${API_URL}/sso/oidc-idp/${orgId}/authorize`;
+  getAuthorizeUrl(orgId: string, appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/authorize`;
   },
 
   // Guide
@@ -675,6 +675,107 @@ export const mfaApi = {
       body: JSON.stringify({ enabled }),
     });
     if (!response.ok) throw new Error('Failed to update adaptive auth');
+    return response.json();
+  },
+};
+
+// ============================================================================
+// OIDC Config API
+// ============================================================================
+
+export interface OidcScope {
+  id: string;
+  name: string;
+  description?: string;
+  isDefault: boolean;
+}
+
+export interface OidcClaim {
+  id: string;
+  name: string;
+  userAttribute: string;
+  regexRuleId?: string;
+  regexRule?: OidcRegexRule;
+  targetTokens: Array<'ID_TOKEN' | 'ACCESS_TOKEN' | 'USERINFO'>;
+}
+
+export interface OidcRegexRule {
+  id: string;
+  name: string;
+  pattern: string;
+  replacement: string;
+  flags: string;
+}
+
+export interface OidcSigningKey {
+  id: string;
+  kid: string;
+  algorithm: 'RS256' | 'ES256';
+  publicKey: string;
+  certChain?: string;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export interface OidcTokenPolicy {
+  accessTokenLifetime: number;
+  idTokenLifetime: number;
+  refreshTokenLifetime: number;
+  rotationEnabled: boolean;
+  reuseInterval: number;
+}
+
+export const oidcConfigApi = {
+  async getConfig(orgId: string, appId: string): Promise<any> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch OIDC configuration');
+    return response.json();
+  },
+
+  async createScope(orgId: string, appId: string, data: any): Promise<OidcScope> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/scopes`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async createClaim(orgId: string, appId: string, data: any): Promise<OidcClaim> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/claims`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async createRegexRule(orgId: string, appId: string, data: any): Promise<OidcRegexRule> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/regex-rules`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async createSigningKey(orgId: string, appId: string, data: any): Promise<OidcSigningKey> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/signing-keys`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async updateTokenPolicy(orgId: string, appId: string, data: Partial<OidcTokenPolicy>): Promise<OidcTokenPolicy> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/token-policy`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
     return response.json();
   },
 };

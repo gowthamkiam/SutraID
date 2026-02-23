@@ -4,19 +4,26 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
 import DashboardNavbar from '@/components/dashboard/DashboardNavbar';
+import { OrgProvider } from '@/components/providers/OrgContextProvider';
 
 type ColorMode = 'light' | 'dark' | 'auto';
 
 export default function DashboardLayout({
     children,
+    params,
 }: {
     children: React.ReactNode;
+    params: { orgId: string };
 }) {
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [colorMode, setColorMode] = useState<ColorMode>('dark');
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-    const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
+
+    // orgId is now managed by OrgProvider, but we keep a local one for Sidebar if needed
+    // or we can just pass params.orgId
+    const currentOrgId = params.orgId;
+
     const router = useRouter();
 
     // Load saved color mode
@@ -29,10 +36,6 @@ export default function DashboardLayout({
         } else {
             document.documentElement.setAttribute('data-theme', 'dark');
         }
-
-        // Load org ID
-        const storedOrgId = localStorage.getItem('currentOrgId');
-        if (storedOrgId) setCurrentOrgId(storedOrgId);
     }, []);
 
     const handleColorModeChange = (mode: ColorMode) => {
@@ -70,23 +73,6 @@ export default function DashboardLayout({
 
                 const data = await response.json();
                 setUser(data.user);
-
-                // Prefer organizationId from authenticated user context
-                let orgId = data.user?.organizationId || localStorage.getItem('currentOrgId');
-                if (orgId) {
-                    localStorage.setItem('currentOrgId', orgId);
-                    setCurrentOrgId(orgId);
-                } else {
-                    const orgsResponse = await fetch(`${apiUrl}/organizations`, {
-                        headers: { 'Authorization': `Bearer ${accessToken}` },
-                    });
-                    const orgs = await orgsResponse.json();
-                    if (orgs && orgs.length > 0) {
-                        orgId = orgs[0].id;
-                        localStorage.setItem('currentOrgId', orgId!);
-                        setCurrentOrgId(orgId);
-                    }
-                }
             } catch (error) {
                 console.error('Auth check failed:', error);
                 localStorage.removeItem('accessToken');
@@ -148,32 +134,34 @@ export default function DashboardLayout({
     if (!user) return null;
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
-            <Sidebar
-                collapsed={sidebarCollapsed}
-                onToggle={setSidebarCollapsed}
-                user={user}
-                onLogout={handleLogout}
-                currentOrgId={currentOrgId}
-            />
-
-            <div style={{
-                flex: 1,
-                marginLeft: sidebarCollapsed ? '80px' : '280px',
-                transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                display: 'flex',
-                flexDirection: 'column',
-            }}>
-                <DashboardNavbar
-                    colorMode={colorMode}
-                    onColorModeChange={handleColorModeChange}
+        <OrgProvider>
+            <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+                <Sidebar
+                    collapsed={sidebarCollapsed}
+                    onToggle={setSidebarCollapsed}
                     user={user}
+                    onLogout={handleLogout}
+                    currentOrgId={currentOrgId}
                 />
 
-                <main style={{ flex: 1, padding: '2rem' }}>
-                    {children}
-                </main>
+                <div style={{
+                    flex: 1,
+                    marginLeft: sidebarCollapsed ? '80px' : '280px',
+                    transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                }}>
+                    <DashboardNavbar
+                        colorMode={colorMode}
+                        onColorModeChange={handleColorModeChange}
+                        user={user}
+                    />
+
+                    <main style={{ flex: 1, padding: '2rem' }}>
+                        {children}
+                    </main>
+                </div>
             </div>
-        </div>
+        </OrgProvider>
     );
 }

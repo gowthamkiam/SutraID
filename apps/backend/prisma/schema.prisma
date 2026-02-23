@@ -1,6 +1,3 @@
-// SutraID - Prisma Schema
-// Simplified schema for prototype (User authentication only)
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,54 +8,35 @@ datasource db {
   directUrl = env("DIRECT_DATABASE_URL")
 }
 
-// ============================================================================
-// CORE TABLES (Prototype)
-// ============================================================================
-
-// User table - Core user identity
 model User {
-  id                String   @id @default(uuid())
-  email             String   @unique
-  organizationId    String?
-  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  role              OrgRole  @default(READ_ONLY_ADMIN)
-  emailVerified     Boolean  @default(false)
-  emailVerifiedAt   DateTime?
-
-  // Profile
-  firstName         String?
-  lastName          String?
-  avatarUrl         String?
-
-  // Password (nullable — passwordless users don't have one)
-  passwordHash      String?
-  passwordChangedAt DateTime?
-  mustChangePassword Boolean @default(false)
-
-  // Status
-  status            UserStatus @default(ACTIVE)
-  lastLoginAt       DateTime?
-
-  // Timestamps
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // MFA (Phase 6)
-  mfaEnabled        Boolean  @default(false)
-
-  // Directory / External Identity (SCIM/LDAP)
-  externalId        String?  // ID from external directory
-  agentMetadata     Json?    // Metadata for AI agents
-
-  // Relations
-  authChallenges    AuthChallenge[]
-  sessions          Session[]
-  organizationMembers OrganizationMember[]
-  ssoIdentities     SsoIdentity[]
-  mfaMethods        MfaMethod[]
-  groups            GroupMember[]
-  userGroups        UserGroup[]
+  id                     String                      @id @default(uuid())
+  email                  String                      @unique
+  organizationId         String?
+  role                   OrgRole                     @default(READ_ONLY_ADMIN)
+  emailVerified          Boolean                     @default(false)
+  emailVerifiedAt        DateTime?
+  firstName              String?
+  lastName               String?
+  avatarUrl              String?
+  passwordHash           String?
+  passwordChangedAt      DateTime?
+  mustChangePassword     Boolean                     @default(false)
+  status                 UserStatus                  @default(ACTIVE)
+  lastLoginAt            DateTime?
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+  mfaEnabled             Boolean                     @default(false)
+  externalId             String?
+  agentMetadata          Json?
+  authChallenges         AuthChallenge[]
+  groups                 GroupMember[]
+  mfaMethods             MfaMethod[]
+  organizationMembers    OrganizationMember[]
+  sessions               Session[]
+  ssoIdentities          SsoIdentity[]
   applicationAssignments UserApplicationAssignment[]
+  userGroups             UserGroup[]
+  organization           Organization?               @relation(fields: [organizationId], references: [id])
 
   @@index([email])
   @@index([organizationId])
@@ -67,66 +45,40 @@ model User {
   @@map("users")
 }
 
-// ... (UserStatus, AuthChallenge, ChallengeType, Session, OrgPlan, OrgStatus enums and models)
-
-// ============================================================================
-// DIRECTORY INTEGRATION (SCIM & LDAP)
-// ============================================================================
-
-// DirectoryConfig - Multi-tenant directory configuration
 model DirectoryConfig {
-  id                String   @id @default(uuid())
-  organizationId    String   @unique
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  // Directory type
-  type              DirectoryType @default(SCIM)
-  enabled           Boolean  @default(true)
-
-  // SCIM Configuration
-  scimToken         String?  // Hashed bearer token
-  
-  // LDAP Configuration
-  ldapUrl           String?  // ldaps://hostname:636
-  ldapBaseDn        String?
-  ldapBindDn        String?
-  ldapBindPassword  String?  // Encrypted
-  ldapUserFilter    String?  @default("(objectClass=user)")
-  ldapGroupFilter   String?  @default("(objectClass=group)")
-
-  // Sync Settings
-  syncInterval      Int      @default(60) // Minutes
-  lastSyncAt        DateTime?
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String        @id @default(uuid())
+  organizationId   String        @unique
+  type             DirectoryType @default(SCIM)
+  enabled          Boolean       @default(true)
+  scimToken        String?
+  ldapUrl          String?
+  ldapBaseDn       String?
+  ldapBindDn       String?
+  ldapBindPassword String?
+  ldapUserFilter   String?       @default("(objectClass=user)")
+  ldapGroupFilter  String?       @default("(objectClass=group)")
+  syncInterval     Int           @default(60)
+  lastSyncAt       DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@map("directory_configs")
 }
 
-enum DirectoryType {
-  SCIM
-  LDAP
-}
-
-// Group - User groups (synced from directory or local)
 model Group {
-  id                String   @id @default(uuid())
-  organizationId    String
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  name              String
-  description       String?
-  externalId        String?  // ID from external directory (SCIM/LDAP)
-
-  // Relations
-  members           GroupMember[]
-  userGroups        UserGroup[]
+  id                     String                       @id @default(uuid())
+  organizationId         String
+  name                   String
+  description            String?
+  externalId             String?
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
   applicationAssignments GroupApplicationAssignment[]
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  members                GroupMember[]
+  organization           Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userGroups             UserGroup[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -135,11 +87,11 @@ model Group {
 }
 
 model UserGroup {
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  groupId           String
-  group             Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  createdAt         DateTime @default(now())
+  userId    String
+  groupId   String
+  createdAt DateTime @default(now())
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, groupId])
   @@index([groupId])
@@ -147,15 +99,13 @@ model UserGroup {
   @@map("user_groups")
 }
 
-// GroupMember - Junction table for Groups and Users
 model GroupMember {
-  id                String   @id @default(uuid())
-  groupId           String
-  group             Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt         DateTime @default(now())
+  id        String   @id @default(uuid())
+  groupId   String
+  userId    String
+  createdAt DateTime @default(now())
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, userId])
   @@index([groupId])
@@ -163,37 +113,21 @@ model GroupMember {
   @@map("group_members")
 }
 
-enum UserStatus {
-  ACTIVE
-  SUSPENDED
-  DELETED
-}
-
-// AuthChallenge - For passwordless authentication (magic links, OTP)
 model AuthChallenge {
-  id                String   @id @default(uuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Challenge details
-  type              ChallengeType
-  token             String   @unique  // Hashed token for magic links, or OTP code
-  identifier        String            // Email or phone number used
-
-  // Verification
-  verified          Boolean  @default(false)
-  verifiedAt        DateTime?
-  attempts          Int      @default(0)
-  maxAttempts       Int      @default(3)
-
-  // Expiration
-  expiresAt         DateTime
-
-  // Metadata
-  ipAddress         String?
-  userAgent         String?
-
-  createdAt         DateTime @default(now())
+  id          String        @id @default(uuid())
+  userId      String
+  type        ChallengeType
+  token       String        @unique
+  identifier  String
+  verified    Boolean       @default(false)
+  verifiedAt  DateTime?
+  attempts    Int           @default(0)
+  maxAttempts Int           @default(3)
+  expiresAt   DateTime
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime      @default(now())
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([token])
@@ -201,41 +135,24 @@ model AuthChallenge {
   @@map("auth_challenges")
 }
 
-enum ChallengeType {
-  MAGIC_LINK
-  EMAIL_OTP
-  SMS_OTP
-  PASSWORD_RESET
-}
-
-// Session - User session management
 model Session {
-  id                String   @id @default(uuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Session tokens
-  accessToken       String   @unique  // JWT ID (jti claim)
-  refreshToken      String   @unique  // Hashed refresh token
-
-  // Device info
-  deviceId          String?
-  deviceName        String?
-  deviceType        String?
-  ipAddress         String?
-  userAgent         String?
-  location          String?
-
-  // Status
-  revoked           Boolean  @default(false)
-  revokedAt         DateTime?
-  revokedReason     String?
-
-  // Expiration
-  expiresAt         DateTime
-  lastActiveAt      DateTime @default(now())
-
-  createdAt         DateTime @default(now())
+  id            String    @id @default(uuid())
+  userId        String
+  accessToken   String    @unique
+  refreshToken  String    @unique
+  deviceId      String?
+  deviceName    String?
+  deviceType    String?
+  ipAddress     String?
+  userAgent     String?
+  location      String?
+  revoked       Boolean   @default(false)
+  revokedAt     DateTime?
+  revokedReason String?
+  expiresAt     DateTime
+  lastActiveAt  DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([accessToken])
@@ -244,72 +161,410 @@ model Session {
   @@map("sessions")
 }
 
-// ============================================================================
-// MULTI-TENANCY (Phase 1 - Enterprise Features)
-// ============================================================================
-
-// Organization (Tenant) - Multi-tenant entity
 model Organization {
-  id                String   @id @default(uuid())
-
-  // Basic info
-  name              String   @unique
-  slug              String   @unique  // URL-safe identifier
-  domain            String?  @unique  // Primary verified domain
-
-  // Branding
-  logoUrl           String?
-  primaryColor      String   @default("#000000")
-
-  // Settings
-  allowedDomains    String[]  // Email domains that can auto-join
-
-  // Subscription & Limits
-  plan              OrgPlan  @default(FREE)
-  status            OrgStatus @default(ACTIVE)
-  maxMembers        Int      @default(10)
-  maxApplications   Int      @default(3)
-
-  // SAML Identity Provider (Phase 3)
-  samlIdpCertificate String?  // X.509 certificate for signing SAML assertions
-  samlIdpPrivateKey  String?  // Private key (encrypted with AES-256-GCM)
-
-  // Timestamps
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Relations
-  users             User[]
-  members           OrganizationMember[]
-  applications      Application[]
-  ssoProviders      SsoProvider[]
-  policies          Policy[]
-  networkZones      NetworkZone[]
-  groups            Group[]
-  passwordPolicies  PasswordPolicy[]
-  directoryConfig   DirectoryConfig?
-  settings          OrganizationSetting[]
+  id                 String                @id @default(uuid())
+  name               String                @unique
+  slug               String                @unique
+  domain             String?               @unique
+  logoUrl            String?
+  primaryColor       String                @default("#000000")
+  allowedDomains     String[]
+  plan               OrgPlan               @default(FREE)
+  status             OrgStatus             @default(ACTIVE)
+  maxMembers         Int                   @default(10)
+  maxApplications    Int                   @default(3)
+  samlIdpCertificate String?
+  samlIdpPrivateKey  String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  applications       Application[]
+  directoryConfig    DirectoryConfig?
+  groups             Group[]
+  networkZones       NetworkZone[]
+  members            OrganizationMember[]
+  settings           OrganizationSetting[]
+  passwordPolicies   PasswordPolicy?
+  policies           Policy[]
+  ssoProviders       SsoProvider[]
+  users              User[]
 
   @@index([slug])
   @@index([domain])
   @@map("organizations")
 }
 
-// Organization Setting - Key-value pair configuration
 model OrganizationSetting {
   id             String       @id @default(uuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  key            String       // e.g., "dashboard.tabs.sso.visible"
-  value          String       @db.Text
-  
-  updatedBy      String?      // User ID of the admin who updated it
+  key            String
+  value          String
+  updatedBy      String?
   updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, key])
   @@index([organizationId])
   @@map("organization_settings")
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid())
+  organizationId String
+  userId         String
+  role           OrgRole      @default(READ_ONLY_ADMIN)
+  status         MemberStatus @default(ACTIVE)
+  invitedBy      String?
+  invitedAt      DateTime?
+  joinedAt       DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+model Application {
+  id                      String                       @id @default(uuid())
+  organizationId          String
+  name                    String
+  description             String?
+  logoUrl                 String?
+  type                    ApplicationProtocol          @default(OIDC)
+  clientId                String?                      @unique
+  clientSecretHash        String?
+  redirectUris            Json                         @default("[]")
+  grantTypes              Json                         @default("[\"authorization_code\", \"refresh_token\"]")
+  responseTypes           Json                         @default("[\"code\"]")
+  scopes                  Json                         @default("[\"openid\", \"profile\", \"email\"]")
+  tokenEndpointAuthMethod String                       @default("client_secret_post")
+  isPublicClient          Boolean                      @default(false)
+  requireDpop             Boolean                      @default(false)
+  jwks                    Json?
+  dpopNonceEnabled        Boolean                      @default(true)
+  isAiAgent               Boolean                      @default(false)
+  samlEntityId            String?
+  samlCertificate         String?
+  samlPrivateKey          String?
+  samlSpEntityId          String?
+  samlSpAcsUrl            String?
+  samlNameIdFormat        String?                      @default("urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress")
+  samlAttributeMapping    Json?
+  status                  AppStatus                    @default(ACTIVE)
+  createdBy               String?
+  createdAt               DateTime                     @default(now())
+  updatedAt               DateTime                     @updatedAt
+  organization            Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  groupAssignments        GroupApplicationAssignment[]
+  oidcClaims              OidcClaim[]
+  oidcRegexRules          OidcRegexRule[]
+  oidcScopes              OidcScope[]
+  oidcSigningKeys         OidcSigningKey[]
+  oidcTokenPolicy         OidcTokenPolicy?
+  userAssignments         UserApplicationAssignment[]
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@map("applications")
+}
+
+model UserApplicationAssignment {
+  id            String      @id @default(uuid())
+  userId        String
+  applicationId String
+  createdAt     DateTime    @default(now())
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, applicationId])
+  @@index([applicationId])
+  @@index([userId])
+  @@map("user_application_assignments")
+}
+
+model GroupApplicationAssignment {
+  id            String      @id @default(uuid())
+  groupId       String
+  applicationId String
+  createdAt     DateTime    @default(now())
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  group         Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, applicationId])
+  @@index([applicationId])
+  @@index([groupId])
+  @@map("group_application_assignments")
+}
+
+model SsoProvider {
+  id               String          @id @default(uuid())
+  organizationId   String
+  name             String
+  type             SsoProviderType
+  protocol         SsoProtocol
+  samlEntityId     String?
+  samlSsoUrl       String?
+  samlCertificate  String?
+  samlMetadataUrl  String?
+  oidcIssuer       String?
+  oidcClientId     String?
+  oidcClientSecret String?
+  oidcAuthUrl      String?
+  oidcTokenUrl     String?
+  oidcUserinfoUrl  String?
+  oidcScopes       String[]        @default(["openid", "profile", "email"])
+  attributeMapping Json            @default("{}")
+  enabled          Boolean         @default(true)
+  autoProvision    Boolean         @default(true)
+  allowedDomains   String[]        @default([])
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  identities       SsoIdentity[]
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, enabled])
+  @@map("sso_providers")
+}
+
+model SsoIdentity {
+  id            String      @id @default(uuid())
+  userId        String
+  ssoProviderId String
+  externalId    String
+  externalEmail String?
+  issuer        String
+  attributes    Json        @default("{}")
+  firstLoginAt  DateTime    @default(now())
+  lastLoginAt   DateTime    @default(now())
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  ssoProvider   SsoProvider @relation(fields: [ssoProviderId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([ssoProviderId, externalId])
+  @@index([userId])
+  @@index([ssoProviderId])
+  @@map("sso_identities")
+}
+
+model OidcToken {
+  id             String    @id @default(uuid())
+  organizationId String
+  applicationId  String
+  type           String
+  tokenId        String
+  payload        String
+  expiresAt      DateTime
+  consumed       Boolean   @default(false)
+  consumedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@unique([organizationId, applicationId, type, tokenId])
+  @@index([organizationId, applicationId, type])
+  @@index([expiresAt])
+  @@map("oidc_tokens")
+}
+
+model Policy {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  type           PolicyType   @default(ACCESS)
+  effect         PolicyEffect @default(ALLOW)
+  resource       String       @default("*")
+  actions        String[]     @default([])
+  rules          Json         @default("[]")
+  conditions     Json         @default("{}")
+  priority       Int          @default(0)
+  enabled        Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, enabled])
+  @@map("policies")
+}
+
+model PasswordPolicy {
+  id               String       @id @default(uuid())
+  organizationId   String       @unique
+  minLength        Int          @default(8)
+  requireUppercase Boolean      @default(true)
+  requireLowercase Boolean      @default(true)
+  requireNumbers   Boolean      @default(true)
+  requireSymbols   Boolean      @default(true)
+  maxAgeDays       Int          @default(0)
+  historyCount     Int          @default(5)
+  lockoutThreshold Int          @default(5)
+  lockoutDuration  Int          @default(30)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("password_policies")
+}
+
+model NetworkZone {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  ipRanges       String[]
+  geoLocations   String[]
+  trusted        Boolean      @default(false)
+  enabled        Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("network_zones")
+}
+
+model AuditLog {
+  id             String      @id @default(uuid())
+  organizationId String?
+  userId         String?
+  agentId        String?
+  action         String
+  resource       String?
+  result         AuditResult @default(SUCCESS)
+  metadata       Json        @default("{}")
+  riskScore      Float?
+  createdAt      DateTime    @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action])
+  @@index([result])
+  @@map("audit_logs")
+}
+
+model MfaMethod {
+  id               String    @id @default(uuid())
+  userId           String
+  type             MfaType   @default(TOTP)
+  name             String    @default("Authenticator App")
+  totpSecret       String?
+  totpEncryptionIv String?
+  totpAuthTag      String?
+  backupCodes      String[]
+  verified         Boolean   @default(false)
+  enabled          Boolean   @default(true)
+  lastUsedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, enabled])
+  @@map("mfa_methods")
+}
+
+model OidcScope {
+  id            String      @id @default(uuid())
+  applicationId String
+  name          String
+  description   String?
+  isDefault     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, name])
+  @@index([applicationId])
+  @@map("oidc_scopes")
+}
+
+model OidcClaim {
+  id            String         @id @default(uuid())
+  applicationId String
+  name          String
+  userAttribute String
+  regexRuleId   String?
+  targetTokens  ClaimTarget[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  application   Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  regexRule     OidcRegexRule? @relation(fields: [regexRuleId], references: [id])
+
+  @@unique([applicationId, name])
+  @@index([applicationId])
+  @@map("oidc_claims")
+}
+
+model OidcRegexRule {
+  id            String      @id @default(uuid())
+  applicationId String
+  name          String
+  pattern       String
+  replacement   String
+  flags         String      @default("g")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  claims        OidcClaim[]
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, name])
+  @@index([applicationId])
+  @@map("oidc_regex_rules")
+}
+
+model OidcSigningKey {
+  id            String       @id @default(uuid())
+  applicationId String
+  kid           String
+  algorithm     JwsAlgorithm @default(RS256)
+  publicKey     String
+  privateKey    String
+  certChain     String?
+  isDefault     Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, kid])
+  @@index([applicationId])
+  @@map("oidc_signing_keys")
+}
+
+model OidcTokenPolicy {
+  id                   String      @id @default(uuid())
+  applicationId        String      @unique
+  accessTokenLifetime  Int         @default(3600)
+  idTokenLifetime      Int         @default(3600)
+  refreshTokenLifetime Int         @default(2592000)
+  rotationEnabled      Boolean     @default(true)
+  reuseInterval        Int         @default(30)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  application          Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("oidc_token_policies")
+}
+
+enum DirectoryType {
+  SCIM
+  LDAP
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum ChallengeType {
+  MAGIC_LINK
+  EMAIL_OTP
+  SMS_OTP
+  PASSWORD_RESET
 }
 
 enum OrgPlan {
@@ -326,129 +581,23 @@ enum OrgStatus {
   DELETED
 }
 
-// Organization Member - Users belonging to organizations with roles
-model OrganizationMember {
-  id                String   @id @default(uuid())
-  organizationId    String
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Role-based access control
-  role              OrgRole  @default(READ_ONLY_ADMIN)
-
-  // Status
-  status            MemberStatus @default(ACTIVE)
-  invitedBy         String?  // UserId who sent invitation
-  invitedAt         DateTime?
-  joinedAt          DateTime @default(now())
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@unique([organizationId, userId])
-  @@index([organizationId])
-  @@index([userId])
-  @@map("organization_members")
-}
-
 enum OrgRole {
-  SUPER_ADMIN                   // Full control, can delete org
-  ORG_ADMIN                     // Manage members, apps, policies
-  APP_ADMIN                     // Manage apps and integrations
-  USER_ADMIN                    // Manage users
-  GROUP_MEMBERSHIP_ADMIN        // Manage groups
-  HELP_DESK_ADMIN               // Reset passwords, unlock users
-  MOBILE_ADMIN                  // Manage mobile app configs
-  READ_ONLY_ADMIN               // Read-only access
-  REPORT_ADMIN                  // Audit logs and reports
-  API_ACCESS_MANAGEMENT_ADMIN   // Manage API keys and integrations
+  SUPER_ADMIN
+  ORG_ADMIN
+  APP_ADMIN
+  USER_ADMIN
+  GROUP_MEMBERSHIP_ADMIN
+  HELP_DESK_ADMIN
+  MOBILE_ADMIN
+  READ_ONLY_ADMIN
+  REPORT_ADMIN
+  API_ACCESS_MANAGEMENT_ADMIN
 }
 
 enum MemberStatus {
   ACTIVE
   PENDING_INVITATION
   SUSPENDED
-}
-
-// Application - Apps that organizations want to protect
-model Application {
-  id                String   @id @default(uuid())
-  organizationId    String
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  // Basic info
-  name              String
-  description       String?
-  logoUrl           String?
-  type              ApplicationProtocol @default(OIDC)
-
-  // OAuth/OIDC settings (OAuth 2.1 aligned)
-  clientId          String?   @unique
-  clientSecretHash  String?   // Hashed
-  redirectUris      Json      @default("[]") // Allowed redirect URIs
-  grantTypes        Json      @default("[\"authorization_code\", \"refresh_token\"]")
-  responseTypes     Json      @default("[\"code\"]")
-  scopes            Json      @default("[\"openid\", \"profile\", \"email\"]")
-  tokenEndpointAuthMethod String @default("client_secret_post")
-  isPublicClient    Boolean   @default(false)
-  
-  // Security Features
-  requireDpop       Boolean   @default(false)
-  jwks               Json?     // For DPoP-bound clients or AI Agents
-  dpopNonceEnabled   Boolean   @default(true)
-  
-  // AI Agent specific
-  isAiAgent         Boolean   @default(false)
-
-  // SAML Identity Provider Configuration
-  samlEntityId       String?
-  samlCertificate    String?   @db.Text
-  samlPrivateKey     String?   @db.Text
-  samlSpEntityId     String?   // External SP's Entity ID
-  samlSpAcsUrl       String?   // External SP's Assertion Consumer Service URL
-  samlNameIdFormat   String?   @default("urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress")
-  samlAttributeMapping Json?   // Map our attributes to SP's expected attributes
-
-  // Status and Metadata
-  status            AppStatus @default(ACTIVE)
-  createdBy         String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  userAssignments   UserApplicationAssignment[]
-  groupAssignments  GroupApplicationAssignment[]
-
-  @@index([organizationId])
-  @@index([clientId])
-  @@map("applications")
-}
-
-model UserApplicationAssignment {
-  id             String      @id @default(uuid())
-  userId         String
-  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  applicationId  String
-  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime    @default(now())
-
-  @@unique([userId, applicationId])
-  @@index([applicationId])
-  @@index([userId])
-  @@map("user_application_assignments")
-}
-
-model GroupApplicationAssignment {
-  id             String      @id @default(uuid())
-  groupId        String
-  group          Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  applicationId  String
-  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime    @default(now())
-
-  @@unique([groupId, applicationId])
-  @@index([applicationId])
-  @@index([groupId])
-  @@map("group_application_assignments")
 }
 
 enum ApplicationProtocol {
@@ -460,58 +609,6 @@ enum AppStatus {
   ACTIVE
   DISABLED
   ARCHIVED
-}
-
-// ============================================================================
-// SSO (Phase 2 - External Identity Providers)
-// ============================================================================
-
-// SSO Provider - External SAML/OIDC identity providers
-model SsoProvider {
-  id                String   @id @default(uuid())
-  organizationId    String
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  // Provider details
-  name              String
-  type              SsoProviderType
-  protocol          SsoProtocol
-
-  // SAML Configuration
-  samlEntityId      String?  // SAML Entity ID (IdP)
-  samlSsoUrl        String?  // SAML Single Sign-On URL
-  samlCertificate   String?  // X.509 Certificate (encrypted)
-  samlMetadataUrl   String?  // SAML Metadata URL
-
-  // OIDC Configuration
-  oidcIssuer        String?  // OIDC Issuer URL
-  oidcClientId      String?  // OIDC Client ID
-  oidcClientSecret  String?  // OIDC Client Secret (encrypted)
-  oidcAuthUrl       String?  // Authorization endpoint
-  oidcTokenUrl      String?  // Token endpoint
-  oidcUserinfoUrl   String?  // UserInfo endpoint
-  oidcScopes        String[] @default(["openid", "profile", "email"])
-
-  // Attribute Mapping (JSON)
-  // Maps external attributes to internal user fields
-  // Example: { "email": "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress" }
-  attributeMapping  Json     @default("{}")
-
-  // Settings
-  enabled           Boolean  @default(true)
-  autoProvision     Boolean  @default(true)  // Auto-create users on first login
-  allowedDomains    String[] @default([])    // Restrict to specific email domains
-
-  // Timestamps
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Relations
-  identities        SsoIdentity[]
-
-  @@index([organizationId])
-  @@index([organizationId, enabled])
-  @@map("sso_providers")
 }
 
 enum SsoProviderType {
@@ -527,108 +624,6 @@ enum SsoProtocol {
   OIDC
 }
 
-// SSO Identity - Links users to external SSO identities
-model SsoIdentity {
-  id                String   @id @default(uuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ssoProviderId     String
-  ssoProvider       SsoProvider @relation(fields: [ssoProviderId], references: [id], onDelete: Cascade)
-
-  // External identity details
-  externalId        String   // Subject ID from IdP (sub claim or NameID)
-  externalEmail     String?  // Email from IdP
-  issuer            String   // Issuer URL or Entity ID
-
-  // Attributes from IdP (JSON)
-  attributes        Json     @default("{}")
-
-  // First and last login tracking
-  firstLoginAt      DateTime @default(now())
-  lastLoginAt       DateTime @default(now())
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@unique([ssoProviderId, externalId])
-  @@index([userId])
-  @@index([ssoProviderId])
-  @@map("sso_identities")
-}
-
-// ============================================================================
-// OIDC IDENTITY PROVIDER (Phase 3)
-// ============================================================================
-
-// OidcToken - Stores OIDC Provider tokens (authorization codes, access tokens, etc.)
-// Used by oidc-provider library
-model OidcToken {
-  id                String   @id @default(uuid())
-  organizationId    String
-
-  // Token type (AuthorizationCode, AccessToken, RefreshToken, etc.)
-  type              String
-
-  // Token identifier (from oidc-provider)
-  tokenId           String
-
-  // Serialized payload (JSON)
-  payload           String   @db.Text
-
-  // Expiration
-  expiresAt         DateTime
-
-  // Consumption tracking
-  consumed          Boolean  @default(false)
-  consumedAt        DateTime?
-
-  createdAt         DateTime @default(now())
-
-  @@unique([organizationId, type, tokenId])
-  @@index([organizationId, type])
-  @@index([expiresAt])
-  @@map("oidc_tokens")
-}
-
-// ============================================================================
-// POLICY ENGINE (Phase 4)
-// ============================================================================
-
-// Policy - Fine-grained authorization rules
-model Policy {
-  id              String       @id @default(uuid())
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  // Policy details
-  name            String
-  description     String?
-  type            PolicyType   @default(ACCESS)
-  effect          PolicyEffect @default(ALLOW)
-  
-  // Resources and Actions (ABAC)
-  resource        String       @default("*")
-  actions         String[]     @default([])
-  
-  // Rules for Sign-on/Auth policies (JSON array of rules)
-  // Example: [{ "priority": 1, "conditions": { "group": "Admins" }, "requirement": "MFA_REQUIRED" }]
-  rules           Json         @default("[]")
-
-  // Context conditions (JSON) - Legacy/Generic
-  conditions      Json         @default("{}")
-
-  // Evaluation order
-  priority        Int          @default(0)
-  enabled         Boolean      @default(true)
-
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  @@index([organizationId])
-  @@index([organizationId, enabled])
-  @@map("policies")
-}
-
 enum PolicyType {
   ACCESS
   SIGN_ON
@@ -636,86 +631,9 @@ enum PolicyType {
   PASSWORD
 }
 
-// PasswordPolicy - Complexity and rotation rules
-model PasswordPolicy {
-  id              String       @id @default(uuid())
-  organizationId  String       @unique
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  minLength       Int          @default(8)
-  requireUppercase Boolean     @default(true)
-  requireLowercase Boolean     @default(true)
-  requireNumbers   Boolean     @default(true)
-  requireSymbols   Boolean     @default(true)
-  
-  maxAgeDays      Int          @default(0) // 0 = never expire
-  historyCount    Int          @default(5) // Don't allow reuse of last 5 passwords
-  
-  lockoutThreshold Int         @default(5) // Lock after 5 failed attempts
-  lockoutDuration  Int         @default(30) // Minutes
-
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  @@map("password_policies")
-}
-
 enum PolicyEffect {
   ALLOW
   DENY
-}
-
-// NetworkZone - IP/geo-based access zones
-model NetworkZone {
-  id              String       @id @default(uuid())
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  name            String
-  description     String?
-  ipRanges        String[]     // CIDR blocks (e.g., ["10.0.0.0/8", "192.168.1.0/24"])
-  geoLocations    String[]     // ISO country codes (e.g., ["US", "CA", "GB"])
-  trusted         Boolean      @default(false)
-  enabled         Boolean      @default(true)
-
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  @@index([organizationId])
-  @@map("network_zones")
-}
-
-// ============================================================================
-// AUDIT LOGGING (Phase 5)
-// ============================================================================
-
-// AuditLog - Immutable audit trail for compliance
-model AuditLog {
-  id              String       @id @default(uuid())
-  organizationId  String?
-  userId          String?
-  agentId         String?      // For AI agent actions (Phase 7)
-
-  // Event details
-  action          String       // "user.login", "user.register", "token.issued", "policy.evaluated", "sso.login"
-  resource        String?      // What was accessed/modified
-  result          AuditResult  @default(SUCCESS)
-
-  // Context metadata (JSON)
-  // { "ipAddress": "...", "userAgent": "...", "method": "password", "provider": "okta" }
-  metadata        Json         @default("{}")
-
-  // Risk scoring (anomaly detection placeholder)
-  riskScore       Float?
-
-  // Immutable timestamp
-  createdAt       DateTime     @default(now())
-
-  @@index([organizationId, createdAt])
-  @@index([userId, createdAt])
-  @@index([action])
-  @@index([result])
-  @@map("audit_logs")
 }
 
 enum AuditResult {
@@ -724,50 +642,17 @@ enum AuditResult {
   DENIED
 }
 
-// ============================================================================
-// MFA (Phase 6)
-// ============================================================================
-
-// MfaMethod - Multi-factor authentication methods per user
-model MfaMethod {
-  id                String   @id @default(uuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Method details
-  type              MfaType  @default(TOTP)
-  name              String   @default("Authenticator App")
-
-  // TOTP configuration (encrypted with AES-256-GCM)
-  totpSecret        String?  // Encrypted Base32 secret
-  totpEncryptionIv  String?  // AES-GCM initialization vector
-  totpAuthTag       String?  // AES-GCM authentication tag
-
-  // Backup codes (bcrypt hashed)
-  backupCodes       String[]
-
-  // Status
-  verified          Boolean  @default(false)
-  enabled           Boolean  @default(true)
-
-  // Metadata
-  lastUsedAt        DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@index([userId])
-  @@index([userId, enabled])
-  @@map("mfa_methods")
-}
-
 enum MfaType {
   TOTP
 }
 
-// ============================================================================
-// FUTURE TABLES (Phase 7+)
-// ============================================================================
+enum ClaimTarget {
+  ID_TOKEN
+  ACCESS_TOKEN
+  USERINFO
+}
 
-// Phase 7: Agent, AgentToken models
-// Phase 8: McpServer model
-// Future: Identity (social OAuth), ApiKey
+enum JwsAlgorithm {
+  RS256
+  ES256
+}
