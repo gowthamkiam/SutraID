@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
 import DashboardNavbar from '@/components/dashboard/DashboardNavbar';
@@ -13,8 +13,9 @@ export default function DashboardLayout({
     params,
 }: {
     children: React.ReactNode;
-    params: { orgId: string };
+    params: Promise<{ orgId: string }>;
 }) {
+    const { orgId } = use(params);
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [colorMode, setColorMode] = useState<ColorMode>('dark');
@@ -22,7 +23,7 @@ export default function DashboardLayout({
 
     // orgId is now managed by OrgProvider, but we keep a local one for Sidebar if needed
     // or we can just pass params.orgId
-    const currentOrgId = params.orgId;
+    const currentOrgId = orgId;
 
     const router = useRouter();
 

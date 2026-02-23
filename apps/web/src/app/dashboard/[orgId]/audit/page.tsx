@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { auditApi, AuditLogEntry } from '@/lib/api';
 
 const resultColors: Record<string, { bg: string; text: string }> = {
@@ -21,8 +21,8 @@ const actionIcons: Record<string, string> = {
   'sso.login': '🔐',
 };
 
-export default function AuditLogsPage({ params }: { params: { orgId: string } }) {
-  const orgId = params.orgId;
+export default function AuditLogsPage({ params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = use(params);
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);

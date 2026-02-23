@@ -18,27 +18,47 @@ import {
     Search,
     CheckCircle2
 } from 'lucide-react';
-import { oidcConfigApi, OidcScope, OidcClaim, OidcRegexRule, OidcSigningKey, OidcTokenPolicy } from '@/lib/api';
+import { oidcConfigApi, applicationApi, Application, OidcScope, OidcClaim, OidcRegexRule, OidcSigningKey, OidcTokenPolicy } from '@/lib/api';
+import { useOrg } from '@/components/providers/OrgContextProvider';
 
 export default function OidcSettingsPage() {
+    const { orgId } = useOrg();
     const [activeTab, setActiveTab] = useState<'scopes' | 'claims' | 'security' | 'keys' | 'regex'>('scopes');
     const [loading, setLoading] = useState(true);
     const [config, setConfig] = useState<any>(null);
-    const [orgId, setOrgId] = useState<string | null>(null);
+    const [oidcApps, setOidcApps] = useState<Application[]>([]);
+    const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
 
     useEffect(() => {
-        // In a real app, get orgId from context or URL
-        const storedOrg = localStorage.getItem('currentOrganizationId');
-        if (storedOrg) {
-            setOrgId(storedOrg);
-            loadConfig(storedOrg);
+        if (orgId) {
+            loadInitialData(orgId);
         }
-    }, []);
+    }, [orgId]);
 
-    const loadConfig = async (id: string) => {
+    const loadInitialData = async (targetOrgId: string) => {
         try {
             setLoading(true);
-            const data = await oidcConfigApi.getConfig(id);
+            const apps = await applicationApi.list(targetOrgId);
+            const filteredOidcApps = apps.filter(app => app.type === 'OIDC');
+            setOidcApps(filteredOidcApps);
+
+            if (filteredOidcApps.length > 0) {
+                const appId = filteredOidcApps[0].id;
+                setSelectedAppId(appId);
+                await loadConfig(targetOrgId, appId);
+            } else {
+                setLoading(false);
+            }
+        } catch (err) {
+            console.error('Failed to load OIDC applications', err);
+            setLoading(false);
+        }
+    };
+
+    const loadConfig = async (targetOrgId: string, appId: string) => {
+        try {
+            setLoading(true);
+            const data = await oidcConfigApi.getConfig(targetOrgId, appId);
             setConfig(data);
         } catch (err) {
             console.error('Failed to load OIDC config', err);
@@ -130,29 +150,76 @@ export default function OidcSettingsPage() {
                 })}
             </div>
 
+            {oidcApps.length > 0 && (
+                <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <label style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Configure Application:</label>
+                    <select
+                        value={selectedAppId || ''}
+                        onChange={(e) => {
+                            const appId = e.target.value;
+                            setSelectedAppId(appId);
+                            if (orgId) loadConfig(orgId, appId);
+                        }}
+                        style={{
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border-color)',
+                            background: 'var(--bg-card)',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.9rem',
+                            fontWeight: 600,
+                            minWidth: '240px'
+                        }}
+                    >
+                        {oidcApps.map(app => (
+                            <option key={app.id} value={app.id}>{app.name}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
+            {!loading && oidcApps.length === 0 && (
+                <div style={{
+                    padding: '40px',
+                    textAlign: 'center',
+                    background: 'var(--bg-card)',
+                    borderRadius: '16px',
+                    border: '1px solid var(--border-color)',
+                    marginBottom: '24px'
+                }}>
+                    <AlertCircle size={48} color="var(--error-text)" style={{ marginBottom: '16px', opacity: 0.5 }} />
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '8px' }}>No OIDC Applications Found</h3>
+                    <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto' }}>
+                        To configure OIDC settings, you must first create an OIDC application in your dashboard.
+                    </p>
+                </div>
+            )}
+
             <main style={{
                 background: 'var(--bg-card)',
                 borderRadius: '16px',
                 border: '1px solid var(--border-color)',
                 padding: '32px',
-                boxShadow: 'var(--shadow-card)'
+                boxShadow: 'var(--shadow-card)',
+                opacity: selectedAppId ? 1 : 0.5,
+                pointerEvents: selectedAppId ? 'auto' : 'none'
             }}>
-                {activeTab === 'scopes' && <ScopesTab scopes={config?.scopes || []} orgId={orgId!} onRefresh={() => loadConfig(orgId!)} />}
-                {activeTab === 'claims' && <ClaimsTab claims={config?.claims || []} regexRules={config?.regexRules || []} orgId={orgId!} onRefresh={() => loadConfig(orgId!)} />}
-                {activeTab === 'regex' && <RegexRulesTab rules={config?.regexRules || []} orgId={orgId!} onRefresh={() => loadConfig(orgId!)} />}
-                {activeTab === 'security' && <SecurityTab policy={config?.tokenPolicy} orgId={orgId!} onRefresh={() => loadConfig(orgId!)} />}
-                {activeTab === 'keys' && <KeysTab keys={config?.signingKeys || []} orgId={orgId!} onRefresh={() => loadConfig(orgId!)} />}
+                {activeTab === 'scopes' && <ScopesTab scopes={config?.scopes || []} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} />}
+                {activeTab === 'claims' && <ClaimsTab claims={config?.claims || []} regexRules={config?.regexRules || []} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} />}
+                {activeTab === 'regex' && <RegexRulesTab rules={config?.regexRules || []} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} />}
+                {activeTab === 'security' && <SecurityTab policy={config?.tokenPolicy} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} />}
+                {activeTab === 'keys' && <KeysTab keys={config?.signingKeys || []} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} />}
             </main>
         </div>
     );
 }
 
-function ScopesTab({ scopes, orgId, onRefresh }: { scopes: OidcScope[], orgId: string, onRefresh: () => void }) {
+function ScopesTab({ scopes, orgId, appId, onRefresh }: { scopes: OidcScope[], orgId: string, appId: string, onRefresh: () => void }) {
     const [newScope, setNewScope] = useState({ name: '', description: '', isDefault: false });
 
     const handleAdd = async () => {
         if (!newScope.name) return;
-        await oidcConfigApi.createScope(orgId, newScope);
+        await oidcConfigApi.createScope(orgId, appId, newScope);
         setNewScope({ name: '', description: '', isDefault: false });
         onRefresh();
     };
@@ -214,7 +281,7 @@ function ScopesTab({ scopes, orgId, onRefresh }: { scopes: OidcScope[], orgId: s
     );
 }
 
-function ClaimsTab({ claims, regexRules, orgId, onRefresh }: { claims: OidcClaim[], regexRules: OidcRegexRule[], orgId: string, onRefresh: () => void }) {
+function ClaimsTab({ claims, regexRules, orgId, appId, onRefresh }: { claims: OidcClaim[], regexRules: OidcRegexRule[], orgId: string, appId: string, onRefresh: () => void }) {
     return (
         <div>
             <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -265,11 +332,11 @@ function ClaimsTab({ claims, regexRules, orgId, onRefresh }: { claims: OidcClaim
     );
 }
 
-function SecurityTab({ policy, orgId, onRefresh }: { policy: OidcTokenPolicy, orgId: string, onRefresh: () => void }) {
+function SecurityTab({ policy, orgId, appId, onRefresh }: { policy: OidcTokenPolicy, orgId: string, appId: string, onRefresh: () => void }) {
     const [formData, setFormData] = useState(policy || {});
 
     const handleSave = async () => {
-        await oidcConfigApi.updateTokenPolicy(orgId, formData);
+        await oidcConfigApi.updateTokenPolicy(orgId, appId, formData);
         onRefresh();
     };
 
@@ -324,7 +391,7 @@ function SecurityTab({ policy, orgId, onRefresh }: { policy: OidcTokenPolicy, or
     );
 }
 
-function KeysTab({ keys, orgId, onRefresh }: { keys: OidcSigningKey[], orgId: string, onRefresh: () => void }) {
+function KeysTab({ keys, orgId, appId, onRefresh }: { keys: OidcSigningKey[], orgId: string, appId: string, onRefresh: () => void }) {
     return (
         <div>
             <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -375,14 +442,14 @@ function KeysTab({ keys, orgId, onRefresh }: { keys: OidcSigningKey[], orgId: st
     );
 }
 
-function RegexRulesTab({ rules, orgId, onRefresh }: { rules: OidcRegexRule[], orgId: string, onRefresh: () => void }) {
+function RegexRulesTab({ rules, orgId, appId, onRefresh }: { rules: OidcRegexRule[], orgId: string, appId: string, onRefresh: () => void }) {
     const [newRule, setNewRule] = useState({ name: '', pattern: '', replacement: '', flags: 'g' });
     const [testInput, setTestInput] = useState('');
     const [testResult, setTestResult] = useState('');
 
     const handleAdd = async () => {
         if (!newRule.name || !newRule.pattern) return;
-        await oidcConfigApi.createRegexRule(orgId, newRule);
+        await oidcConfigApi.createRegexRule(orgId, appId, newRule);
         setNewRule({ name: '', pattern: '', replacement: '', flags: 'g' });
         onRefresh();
     };
