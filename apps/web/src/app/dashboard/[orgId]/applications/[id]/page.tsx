@@ -552,10 +552,10 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
                   {[
                     { label: 'Discovery URL', value: applicationApi.getOidcDiscoveryUrl(orgId, appId) },
                     { label: 'Authorization Endpoint', value: applicationApi.getAuthorizeUrl(orgId, appId) },
-                    { label: 'Token Endpoint', value: applicationApi.getTokenUrl() },
-                    { label: 'Introspection Endpoint', value: applicationApi.getIntrospectUrl() },
-                    { label: 'Revocation Endpoint', value: applicationApi.getRevokeUrl() },
-                    { label: 'DCR Endpoint', value: applicationApi.getDcrUrl() },
+                    { label: 'Token Endpoint', value: applicationApi.getTokenUrl(orgId, appId) },
+                    { label: 'Introspection Endpoint', value: applicationApi.getIntrospectUrl(orgId, appId) },
+                    { label: 'Revocation Endpoint', value: applicationApi.getRevokeUrl(orgId, appId) },
+                    { label: 'DCR Endpoint', value: applicationApi.getDcrUrl(orgId, appId) },
                   ].map(({ label, value }) => (
                     <div key={label}>
                       <label style={labelStyle}>{label}</label>
@@ -794,7 +794,7 @@ function IntegrationGuide({
     ? app.redirectUris[0]
     : 'http://localhost:3000/callback';
   const authorizeUrl = applicationApi.getAuthorizeUrl(orgId, appId);
-  const tokenUrl = applicationApi.getTokenUrl();
+  const tokenUrl = applicationApi.getTokenUrl(orgId, appId);
   const discoveryUrl = applicationApi.getOidcDiscoveryUrl(orgId, appId);
 
   const clientType = app.isAiAgent

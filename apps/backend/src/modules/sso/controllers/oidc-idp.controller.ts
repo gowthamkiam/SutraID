@@ -13,7 +13,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { Response, Request } from 'express';
+import { Request, Response } from 'express';
 import { OidcIdpService } from '../services/oidc-idp.service';
 import { AuthService } from '../../auth/services/auth.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -53,7 +53,7 @@ export class OidcIdpController {
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
-  ) {
+  ): Promise<void> {
     console.log('📥 OIDC authorization request received');
     try {
       const user = await this.getCurrentUser(req);
@@ -64,11 +64,12 @@ export class OidcIdpController {
         const backendUrl = `${proto}://${req.get('host')}`;
         const returnUrl = encodeURIComponent(`${backendUrl}${req.originalUrl}`);
         console.log('⚠️  User not authenticated, redirecting to login');
-        return res.redirect(`${frontendUrl}/login?returnUrl=${returnUrl}`);
+        res.redirect(`${frontendUrl}/login?returnUrl=${returnUrl}`);
+        return;
       }
 
       console.log('✅ User authenticated, forwarding to oidc-provider');
-      return this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC authorization error:', error);
       throw new BadRequestException(error.message);
@@ -87,14 +88,15 @@ export class OidcIdpController {
     @Query('uid') uid: string,
     @Req() req: Request,
     @Res() res: Response,
-  ) {
+  ): Promise<void> {
     console.log('📥 OIDC auto-confirm interaction request');
     try {
       const user = await this.getCurrentUser(req);
 
       if (!user) {
         const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
-        return res.redirect(`${frontendUrl}/login`);
+        res.redirect(`${frontendUrl}/login`);
+        return;
       }
 
       const returnTo = await this.oidcIdpService.handleInteraction(
@@ -102,7 +104,7 @@ export class OidcIdpController {
       );
 
       console.log(`✅ Interaction auto-confirmed, resuming at ${returnTo}`);
-      return res.redirect(returnTo);
+      res.redirect(returnTo);
     } catch (error: any) {
       console.error('❌ OIDC auto-confirm error:', error);
       throw new BadRequestException(error.message);
@@ -121,10 +123,10 @@ export class OidcIdpController {
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
-  ) {
+  ): Promise<void> {
     try {
       console.log('📥 OIDC token request received');
-      return this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC token error:', error);
       throw new BadRequestException(error.message);
@@ -143,9 +145,9 @@ export class OidcIdpController {
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
-  ) {
+  ): Promise<void> {
     try {
-      return this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC userinfo error:', error);
       throw new UnauthorizedException(error.message);
@@ -164,9 +166,9 @@ export class OidcIdpController {
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
-  ) {
+  ): Promise<void> {
     try {
-      return this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC jwks error:', error);
       throw new BadRequestException(error.message);
@@ -185,7 +187,7 @@ export class OidcIdpController {
     @Param('uid') uid: string,
     @Req() req: Request,
     @Res() res: Response,
-  ) {
+  ): Promise<void> {
     try {
       // Verify caller is authenticated via Bearer token
       const user = await this.getCurrentUser(req);
@@ -219,7 +221,7 @@ export class OidcIdpController {
         throw new BadRequestException('Application not found');
       }
 
-      return res.json({
+      res.json({
         uid,
         application,
         scopes: interaction.params.scope
@@ -247,7 +249,7 @@ export class OidcIdpController {
     @Body() body: { consent: boolean },
     @Req() req: Request,
     @Res() res: Response,
-  ) {
+  ): Promise<void> {
     try {
       const user = await this.getCurrentUser(req);
 
@@ -269,7 +271,7 @@ export class OidcIdpController {
         `✅ OIDC consent ${body.consent ? 'granted' : 'denied'} by user ${user.id}`,
       );
 
-      return res.json({
+      res.json({
         success: true,
         redirectTo,
       });
@@ -290,9 +292,9 @@ export class OidcIdpController {
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
-  ) {
+  ): Promise<void> {
     try {
-      return this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC callback error:', error);
       throw new BadRequestException(error.message);
