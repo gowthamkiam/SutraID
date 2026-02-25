@@ -21,6 +21,7 @@ const navigation: NavItem[] = [
       { label: 'SSO', href: '/docs/api-reference/sso' },
       { label: 'OIDC Provider', href: '/docs/api-reference/oidc-provider' },
       { label: 'SAML Provider', href: '/docs/api-reference/saml-provider' },
+      { label: 'OIDC Configuration', href: '/docs/api-reference/oidc-config' },
       { label: 'Audit Logs', href: '/docs/api-reference/audit' },
       { label: 'Policies', href: '/docs/api-reference/policies' },
       { label: 'Directory (SCIM/LDAP)', href: '/docs/api-reference/directory' },

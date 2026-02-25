@@ -9,3 +9,4 @@ export { samlProviderSection } from './saml-provider';
 export { auditSection } from './audit';
 export { policiesSection } from './policies';
 export { directorySection } from './directory';
+export { oidcConfigSection } from './oidc-config';

@@ -61,7 +61,8 @@ export const oidcProviderSection: DocSection = {
         python: `import requests
 
 org_id = "org_01hx9k2m3n4p5q6r7s8t9u0v"
-url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/.well-known/openid-configuration"
+app_id = "app_01hx9k2m3n4p5q6r7s8t9u0v"
+url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/{app_id}/.well-known/openid-configuration"
 
 response = requests.get(url)
 config = response.json()
@@ -69,7 +70,8 @@ print(config)`,
         nodejs: `const fetch = require('node-fetch');
 
 const orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
-const url = \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/.well-known/openid-configuration\`;
+const appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
+const url = \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/\${appId}/.well-known/openid-configuration\`;
 
 const response = await fetch(url);
 const config = await response.json();
@@ -80,9 +82,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 String orgId = "org_01hx9k2m3n4p5q6r7s8t9u0v";
+String appId = "app_01hx9k2m3n4p5q6r7s8t9u0v";
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/.well-known/openid-configuration"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/" + appId + "/.well-known/openid-configuration"))
     .GET()
     .build();
 
@@ -98,7 +101,8 @@ import (
 
 func main() {
     orgID := "org_01hx9k2m3n4p5q6r7s8t9u0v"
-    url := fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/.well-known/openid-configuration", orgID)
+    appID := "app_01hx9k2m3n4p5q6r7s8t9u0v"
+    url := fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/%s/.well-known/openid-configuration", orgID, appID)
 
     resp, err := http.Get(url)
     if err != nil {
@@ -112,7 +116,8 @@ func main() {
         php: `<?php
 
 $orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
-$url = "https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/.well-known/openid-configuration";
+$appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
+$url = "https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/{$appId}/.well-known/openid-configuration";
 
 $ch = curl_init($url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -139,6 +144,14 @@ print_r($config);`,
           required: true,
           description: 'The unique identifier of the organization.',
           example: 'org_01hx9k2m3n4p5q6r7s8t9u0v',
+        },
+        {
+          name: 'appId',
+          in: 'path',
+          type: 'string',
+          required: true,
+          description: 'The unique identifier of the application.',
+          example: 'app_01hx9k2m3n4p5q6r7s8t9u0v',
         },
         {
           name: 'client_id',
@@ -229,6 +242,7 @@ code_challenge = base64.urlsafe_b64encode(
 
 state = secrets.token_urlsafe(16)
 org_id = "org_01hx9k2m3n4p5q6r7s8t9u0v"
+app_id = "app_01hx9k2m3n4p5q6r7s8t9u0v"
 
 params = {
     "client_id": "app_01hx9k2m3n4p5q6r7s8t9u0v",
@@ -240,7 +254,7 @@ params = {
     "code_challenge_method": "S256",
 }
 
-auth_url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/authorize?" + urllib.parse.urlencode(params)
+auth_url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/{app_id}/authorize?" + urllib.parse.urlencode(params)
 print("Open in browser:", auth_url)`,
         nodejs: `const crypto = require('crypto');
 
@@ -282,9 +296,10 @@ byte[] challengeBytes = digest.digest(codeVerifier.getBytes(StandardCharsets.US_
 String codeChallenge = Base64.getUrlEncoder().withoutPadding().encodeToString(challengeBytes);
 
 String orgId = "org_01hx9k2m3n4p5q6r7s8t9u0v";
+String appId = "app_01hx9k2m3n4p5q6r7s8t9u0v";
 String state = Base64.getUrlEncoder().withoutPadding().encodeToString(random.generateSeed(16));
 
-String authUrl = "https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/authorize?"
+String authUrl = "https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/" + appId + "/authorize?"
     + "client_id=" + URLEncoder.encode("app_01hx9k2m3n4p5q6r7s8t9u0v", StandardCharsets.UTF_8)
     + "&redirect_uri=" + URLEncoder.encode("https://yourapp.com/callback", StandardCharsets.UTF_8)
     + "&scope=" + URLEncoder.encode("openid email profile", StandardCharsets.UTF_8)
@@ -343,6 +358,7 @@ $codeChallenge = rtrim(strtr(base64_encode(hash('sha256', $codeVerifier, true)),
 $state = bin2hex(random_bytes(16));
 
 $orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
+$appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
 
 $params = http_build_query([
     'client_id'             => 'app_01hx9k2m3n4p5q6r7s8t9u0v',
@@ -354,7 +370,7 @@ $params = http_build_query([
     'code_challenge_method' => 'S256',
 ]);
 
-$authUrl = "https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/authorize?{$params}";
+$authUrl = "https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/{$appId}/authorize?{$params}";
 echo "Open in browser: " . $authUrl;`,
       },
     },
@@ -374,6 +390,14 @@ echo "Open in browser: " . $authUrl;`,
           required: true,
           description: 'The unique identifier of the organization.',
           example: 'org_01hx9k2m3n4p5q6r7s8t9u0v',
+        },
+        {
+          name: 'appId',
+          in: 'path',
+          type: 'string',
+          required: true,
+          description: 'The unique identifier of the application.',
+          example: 'app_01hx9k2m3n4p5q6r7s8t9u0v',
         },
       ],
       requestBody: [
@@ -452,7 +476,8 @@ echo "Open in browser: " . $authUrl;`,
         python: `import requests
 
 org_id = "org_01hx9k2m3n4p5q6r7s8t9u0v"
-url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/token"
+app_id = "app_01hx9k2m3n4p5q6r7s8t9u0v"
+url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/{app_id}/token"
 
 data = {
     "grant_type": "authorization_code",
@@ -468,7 +493,8 @@ print(tokens)`,
         nodejs: `const fetch = require('node-fetch');
 
 const orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
-const url = \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/token\`;
+const appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
+const url = \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/\${appId}/token\`;
 
 const body = new URLSearchParams({
   grant_type: 'authorization_code',
@@ -492,6 +518,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 String orgId = "org_01hx9k2m3n4p5q6r7s8t9u0v";
+String appId = "app_01hx9k2m3n4p5q6r7s8t9u0v";
 String body = "grant_type=authorization_code"
     + "&code=SplxlOBeZQQYbYS6WxSbIA"
     + "&redirect_uri=https%3A%2F%2Fyourapp.com%2Fcallback"
@@ -500,7 +527,7 @@ String body = "grant_type=authorization_code"
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/token"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/" + appId + "/token"))
     .header("Content-Type", "application/x-www-form-urlencoded")
     .POST(HttpRequest.BodyPublishers.ofString(body))
     .build();
@@ -519,7 +546,8 @@ import (
 
 func main() {
     orgID := "org_01hx9k2m3n4p5q6r7s8t9u0v"
-    endpoint := fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/token", orgID)
+    appID := "app_01hx9k2m3n4p5q6r7s8t9u0v"
+    endpoint := fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/%s/token", orgID, appID)
 
     formData := url.Values{
         "grant_type":    {"authorization_code"},
@@ -541,7 +569,8 @@ func main() {
         php: `<?php
 
 $orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
-$url = "https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/token";
+$appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
+$url = "https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/{$appId}/token";
 
 $data = http_build_query([
     'grant_type'    => 'authorization_code',
@@ -619,9 +648,10 @@ print_r($tokens);`,
         python: `import requests
 
 org_id = "org_01hx9k2m3n4p5q6r7s8t9u0v"
+app_id = "app_01hx9k2m3n4p5q6r7s8t9u0v"
 access_token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
 
-url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/userinfo"
+url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/{app_id}/userinfo"
 headers = {"Authorization": f"Bearer {access_token}"}
 
 response = requests.get(url, headers=headers)
@@ -630,10 +660,11 @@ print(user_info)`,
         nodejs: `const fetch = require('node-fetch');
 
 const orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
+const appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
 const accessToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...';
 
 const response = await fetch(
-  \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/userinfo\`,
+  \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/\${appId}/userinfo\`,
   { headers: { Authorization: \`Bearer \${accessToken}\` } }
 );
 
@@ -645,11 +676,12 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 String orgId = "org_01hx9k2m3n4p5q6r7s8t9u0v";
+String appId = "app_01hx9k2m3n4p5q6r7s8t9u0v";
 String accessToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...";
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/userinfo"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/" + appId + "/userinfo"))
     .header("Authorization", "Bearer " + accessToken)
     .GET()
     .build();
@@ -666,10 +698,11 @@ import (
 
 func main() {
     orgID := "org_01hx9k2m3n4p5q6r7s8t9u0v"
+    appID := "app_01hx9k2m3n4p5q6r7s8t9u0v"
     accessToken := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
 
     req, _ := http.NewRequest("GET",
-        fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/userinfo", orgID),
+        fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/%s/userinfo", orgID, appID),
         nil,
     )
     req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -686,9 +719,10 @@ func main() {
         php: `<?php
 
 $orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
+$appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
 $accessToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...';
 
-$ch = curl_init("https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/userinfo");
+$ch = curl_init("https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/{$appId}/userinfo");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer {$accessToken}"]);
 $response = curl_exec($ch);
@@ -715,6 +749,14 @@ print_r($userInfo);`,
           description: 'The unique identifier of the organization.',
           example: 'org_01hx9k2m3n4p5q6r7s8t9u0v',
         },
+        {
+          name: 'appId',
+          in: 'path',
+          type: 'string',
+          required: true,
+          description: 'The unique identifier of the application.',
+          example: 'app_01hx9k2m3n4p5q6r7s8t9u0v',
+        },
       ],
       responseFields: [
         { name: 'keys', type: 'object[]', description: 'Array of JSON Web Keys.' },
@@ -738,11 +780,12 @@ print_r($userInfo);`,
         ],
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/jwks"`,
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v/jwks"`,
         python: `import requests
 
 org_id = "org_01hx9k2m3n4p5q6r7s8t9u0v"
-url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/jwks"
+app_id = "app_01hx9k2m3n4p5q6r7s8t9u0v"
+url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/{app_id}/jwks"
 
 response = requests.get(url)
 jwks = response.json()
@@ -750,9 +793,10 @@ print(jwks)`,
         nodejs: `const fetch = require('node-fetch');
 
 const orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
+const appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
 
 const response = await fetch(
-  \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/jwks\`
+  \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/\${appId}/jwks\`
 );
 const jwks = await response.json();
 console.log(jwks);`,
@@ -762,9 +806,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 String orgId = "org_01hx9k2m3n4p5q6r7s8t9u0v";
+String appId = "app_01hx9k2m3n4p5q6r7s8t9u0v";
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/jwks"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/" + appId + "/jwks"))
     .GET()
     .build();
 
@@ -780,7 +825,8 @@ import (
 
 func main() {
     orgID := "org_01hx9k2m3n4p5q6r7s8t9u0v"
-    url := fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/jwks", orgID)
+    appID := "app_01hx9k2m3n4p5q6r7s8t9u0v"
+    url := fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/%s/jwks", orgID, appID)
 
     resp, err := http.Get(url)
     if err != nil {
@@ -794,8 +840,9 @@ func main() {
         php: `<?php
 
 $orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
+$appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
 
-$ch = curl_init("https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/jwks");
+$ch = curl_init("https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/{$appId}/jwks");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 $response = curl_exec($ch);
 curl_close($ch);
@@ -807,7 +854,7 @@ print_r($jwks);`,
     {
       id: 'oidc-interaction-get',
       method: 'GET',
-      path: '/api/v1/sso/oidc-idp/:orgId/interaction/:uid',
+      path: '/api/v1/sso/oidc-idp/:orgId/:appId/interaction/:uid',
       title: 'Get Consent Interaction Details',
       description:
         'Retrieves details about a pending consent interaction, including the application requesting access and the scopes being requested. Used to render a consent screen to the user.',
@@ -820,6 +867,14 @@ print_r($jwks);`,
           required: true,
           description: 'The unique identifier of the organization.',
           example: 'org_01hx9k2m3n4p5q6r7s8t9u0v',
+        },
+        {
+          name: 'appId',
+          in: 'path',
+          type: 'string',
+          required: true,
+          description: 'The unique identifier of the application.',
+          example: 'app_01hx9k2m3n4p5q6r7s8t9u0v',
         },
         {
           name: 'uid',
@@ -859,15 +914,16 @@ print_r($jwks);`,
         redirectUri: 'https://yourapp.com/callback',
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/interaction/int_01hx9k2m3n4p5q6r7s8t9u0v" \\
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v/interaction/int_01hx9k2m3n4p5q6r7s8t9u0v" \\
   -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."`,
         python: `import requests
 
 org_id = "org_01hx9k2m3n4p5q6r7s8t9u0v"
+app_id = "app_01hx9k2m3n4p5q6r7s8t9u0v"
 uid = "int_01hx9k2m3n4p5q6r7s8t9u0v"
 token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
 
-url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/interaction/{uid}"
+url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/{app_id}/interaction/{uid}"
 headers = {"Authorization": f"Bearer {token}"}
 
 response = requests.get(url, headers=headers)
@@ -876,11 +932,12 @@ print(interaction)`,
         nodejs: `const fetch = require('node-fetch');
 
 const orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
+const appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
 const uid = 'int_01hx9k2m3n4p5q6r7s8t9u0v';
 const token = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...';
 
 const response = await fetch(
-  \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/interaction/\${uid}\`,
+  \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/\${appId}/interaction/\${uid}\`,
   { headers: { Authorization: \`Bearer \${token}\` } }
 );
 
@@ -892,12 +949,13 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 String orgId = "org_01hx9k2m3n4p5q6r7s8t9u0v";
+String appId = "app_01hx9k2m3n4p5q6r7s8t9u0v";
 String uid = "int_01hx9k2m3n4p5q6r7s8t9u0v";
 String token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...";
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/interaction/" + uid))
+    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/" + appId + "/interaction/" + uid))
     .header("Authorization", "Bearer " + token)
     .GET()
     .build();
@@ -914,11 +972,12 @@ import (
 
 func main() {
     orgID := "org_01hx9k2m3n4p5q6r7s8t9u0v"
+    appID := "app_01hx9k2m3n4p5q6r7s8t9u0v"
     uid := "int_01hx9k2m3n4p5q6r7s8t9u0v"
     token := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
 
     req, _ := http.NewRequest("GET",
-        fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/interaction/%s", orgID, uid),
+        fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/%s/interaction/%s", orgID, appID, uid),
         nil,
     )
     req.Header.Set("Authorization", "Bearer "+token)
@@ -935,10 +994,11 @@ func main() {
         php: `<?php
 
 $orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
+$appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
 $uid = 'int_01hx9k2m3n4p5q6r7s8t9u0v';
 $token = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...';
 
-$ch = curl_init("https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/interaction/{$uid}");
+$ch = curl_init("https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/{$appId}/interaction/{$uid}");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer {$token}"]);
 $response = curl_exec($ch);
@@ -951,7 +1011,7 @@ print_r($interaction);`,
     {
       id: 'oidc-interaction-confirm',
       method: 'POST',
-      path: '/api/v1/sso/oidc-idp/:orgId/interaction/:uid/confirm',
+      path: '/api/v1/sso/oidc-idp/:orgId/:appId/interaction/:uid/confirm',
       title: 'Confirm Consent',
       description:
         'Submits the user\'s consent decision for a pending OIDC interaction. When consent is true, the authorization code flow completes and the user is redirected to the client application.',
@@ -964,6 +1024,14 @@ print_r($interaction);`,
           required: true,
           description: 'The unique identifier of the organization.',
           example: 'org_01hx9k2m3n4p5q6r7s8t9u0v',
+        },
+        {
+          name: 'appId',
+          in: 'path',
+          type: 'string',
+          required: true,
+          description: 'The unique identifier of the application.',
+          example: 'app_01hx9k2m3n4p5q6r7s8t9u0v',
         },
         {
           name: 'uid',
@@ -1001,17 +1069,18 @@ print_r($interaction);`,
         redirectTo: 'https://yourapp.com/callback?code=SplxlOBeZQQYbYS6WxSbIA&state=xK9mP2qR5tU8wZ1aB4cD7eF0',
       },
       codeSamples: {
-        curl: `curl -X POST "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/interaction/int_01hx9k2m3n4p5q6r7s8t9u0v/confirm" \\
+        curl: `curl -X POST "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v/interaction/int_01hx9k2m3n4p5q6r7s8t9u0v/confirm" \\
   -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \\
   -H "Content-Type: application/json" \\
   -d '{"consent": true}'`,
         python: `import requests
 
 org_id = "org_01hx9k2m3n4p5q6r7s8t9u0v"
+app_id = "app_01hx9k2m3n4p5q6r7s8t9u0v"
 uid = "int_01hx9k2m3n4p5q6r7s8t9u0v"
 token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
 
-url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/interaction/{uid}/confirm"
+url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/{app_id}/interaction/{uid}/confirm"
 headers = {
     "Authorization": f"Bearer {token}",
     "Content-Type": "application/json",
@@ -1023,11 +1092,12 @@ print(result)`,
         nodejs: `const fetch = require('node-fetch');
 
 const orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
+const appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
 const uid = 'int_01hx9k2m3n4p5q6r7s8t9u0v';
 const token = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...';
 
 const response = await fetch(
-  \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/interaction/\${uid}/confirm\`,
+  \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/\${appId}/interaction/\${uid}/confirm\`,
   {
     method: 'POST',
     headers: {
@@ -1046,12 +1116,13 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 String orgId = "org_01hx9k2m3n4p5q6r7s8t9u0v";
+String appId = "app_01hx9k2m3n4p5q6r7s8t9u0v";
 String uid = "int_01hx9k2m3n4p5q6r7s8t9u0v";
 String token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...";
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/interaction/" + uid + "/confirm"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/" + appId + "/interaction/" + uid + "/confirm"))
     .header("Authorization", "Bearer " + token)
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString("{\\"consent\\": true}"))
@@ -1070,12 +1141,13 @@ import (
 
 func main() {
     orgID := "org_01hx9k2m3n4p5q6r7s8t9u0v"
+    appID := "app_01hx9k2m3n4p5q6r7s8t9u0v"
     uid := "int_01hx9k2m3n4p5q6r7s8t9u0v"
     token := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
 
     body := strings.NewReader(\`{"consent": true}\`)
     req, _ := http.NewRequest("POST",
-        fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/interaction/%s/confirm", orgID, uid),
+        fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/%s/interaction/%s/confirm", orgID, appID, uid),
         body,
     )
     req.Header.Set("Authorization", "Bearer "+token)
@@ -1093,10 +1165,11 @@ func main() {
         php: `<?php
 
 $orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
+$appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
 $uid = 'int_01hx9k2m3n4p5q6r7s8t9u0v';
 $token = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...';
 
-$ch = curl_init("https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/interaction/{$uid}/confirm");
+$ch = curl_init("https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/{$appId}/interaction/{$uid}/confirm");
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['consent' => true]));
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -1114,7 +1187,7 @@ print_r($result);`,
     {
       id: 'oidc-end-session',
       method: 'GET',
-      path: '/api/v1/sso/oidc-idp/:orgId/end-session',
+      path: '/api/v1/sso/oidc-idp/:orgId/:appId/end-session',
       title: 'End Session (Logout)',
       description:
         'Ends the user\'s SSO session at the SutraID IdP and optionally redirects to a post-logout URI. Implements the OpenID Connect RP-Initiated Logout specification.',
@@ -1127,6 +1200,14 @@ print_r($result);`,
           required: true,
           description: 'The unique identifier of the organization.',
           example: 'org_01hx9k2m3n4p5q6r7s8t9u0v',
+        },
+        {
+          name: 'appId',
+          in: 'path',
+          type: 'string',
+          required: true,
+          description: 'The unique identifier of the application.',
+          example: 'app_01hx9k2m3n4p5q6r7s8t9u0v',
         },
         {
           name: 'id_token_hint',
@@ -1160,10 +1241,11 @@ print_r($result);`,
         _note: 'HTTP 302 redirect — no JSON body. User is redirected to post_logout_redirect_uri?state=STATE or the default logout page.',
       },
       codeSamples: {
-        curl: `curl -v -L "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/end-session?id_token_hint=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...&post_logout_redirect_uri=https%3A%2F%2Fyourapp.com%2Flogged-out&state=xK9mP2qR5tU8wZ1aB4cD7eF0"`,
+        curl: `curl -v -L "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v/end-session?id_token_hint=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...&post_logout_redirect_uri=https%3A%2F%2Fyourapp.com%2Flogged-out&state=xK9mP2qR5tU8wZ1aB4cD7eF0"`,
         python: `import urllib.parse
 
 org_id = "org_01hx9k2m3n4p5q6r7s8t9u0v"
+app_id = "app_01hx9k2m3n4p5q6r7s8t9u0v"
 
 params = {
     "id_token_hint": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -1171,9 +1253,10 @@ params = {
     "state": "xK9mP2qR5tU8wZ1aB4cD7eF0",
 }
 
-logout_url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/end-session?" + urllib.parse.urlencode(params)
+logout_url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/{app_id}/end-session?" + urllib.parse.urlencode(params)
 print("Redirect user to:", logout_url)`,
         nodejs: `const orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
+const appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
 
 const params = new URLSearchParams({
   id_token_hint: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
@@ -1181,15 +1264,16 @@ const params = new URLSearchParams({
   state: 'xK9mP2qR5tU8wZ1aB4cD7eF0',
 });
 
-const logoutUrl = \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/end-session?\${params}\`;
+const logoutUrl = \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/\${appId}/end-session?\${params}\`;
 console.log('Redirect user to:', logoutUrl);
 // In an Express app: res.redirect(logoutUrl)`,
         java: `import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 String orgId = "org_01hx9k2m3n4p5q6r7s8t9u0v";
+String appId = "app_01hx9k2m3n4p5q6r7s8t9u0v";
 
-String logoutUrl = "https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/end-session?"
+String logoutUrl = "https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/" + appId + "/end-session?"
     + "id_token_hint=" + URLEncoder.encode("eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...", StandardCharsets.UTF_8)
     + "&post_logout_redirect_uri=" + URLEncoder.encode("https://yourapp.com/logged-out", StandardCharsets.UTF_8)
     + "&state=xK9mP2qR5tU8wZ1aB4cD7eF0";
@@ -1205,6 +1289,7 @@ import (
 
 func main() {
     orgID := "org_01hx9k2m3n4p5q6r7s8t9u0v"
+    appID := "app_01hx9k2m3n4p5q6r7s8t9u0v"
 
     params := url.Values{
         "id_token_hint":            {"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."},
@@ -1213,8 +1298,8 @@ func main() {
     }
 
     logoutURL := fmt.Sprintf(
-        "https://api.sutraid.com/api/v1/sso/oidc-idp/%s/end-session?%s",
-        orgID, params.Encode(),
+        "https://api.sutraid.com/api/v1/sso/oidc-idp/%s/%s/end-session?%s",
+        orgID, appID, params.Encode(),
     )
     fmt.Println("Redirect user to:", logoutURL)
     // http.Redirect(w, r, logoutURL, http.StatusFound)
@@ -1222,6 +1307,7 @@ func main() {
         php: `<?php
 
 $orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
+$appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
 
 $params = http_build_query([
     'id_token_hint'            => 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
@@ -1229,7 +1315,7 @@ $params = http_build_query([
     'state'                    => 'xK9mP2qR5tU8wZ1aB4cD7eF0',
 ]);
 
-$logoutUrl = "https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/end-session?{$params}";
+$logoutUrl = "https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/{$appId}/end-session?{$params}";
 header("Location: {$logoutUrl}");
 exit;`,
       },
@@ -1237,7 +1323,7 @@ exit;`,
     {
       id: 'oidc-catch-all',
       method: 'GET',
-      path: '/api/v1/sso/oidc-idp/:orgId/*',
+      path: '/api/v1/sso/oidc-idp/:orgId/:appId/*',
       title: 'OIDC Provider Catch-All',
       description:
         'Wildcard route that forwards any unmatched requests to the underlying oidc-provider library. This handles additional protocol interactions such as device authorization, pushed authorization requests, and other oidc-provider internal routes.',
@@ -1251,30 +1337,40 @@ exit;`,
           description: 'The unique identifier of the organization.',
           example: 'org_01hx9k2m3n4p5q6r7s8t9u0v',
         },
+        {
+          name: 'appId',
+          in: 'path',
+          type: 'string',
+          required: true,
+          description: 'The unique identifier of the application.',
+          example: 'app_01hx9k2m3n4p5q6r7s8t9u0v',
+        },
       ],
       responseFields: [
         { name: 'varies', type: 'any', description: 'Response format depends on the specific oidc-provider route being accessed.' },
       ],
       responseSample: {
-        _note: 'Response varies by route. This catch-all proxies to the oidc-provider library for any path under /api/v1/sso/oidc-idp/:orgId/ not covered by a dedicated endpoint.',
+        _note: 'Response varies by route. This catch-all proxies to the oidc-provider library for any path under /api/v1/sso/oidc-idp/:orgId/:appId/ not covered by a dedicated endpoint.',
       },
       codeSamples: {
         curl: `# Example: access the oidc-provider check_session iframe endpoint
-curl -X GET "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/session/check"`,
+curl -X GET "https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hx9k2m3n4p5q6r7s8t9u0v/app_01hx9k2m3n4p5q6r7s8t9u0v/session/check"`,
         python: `import requests
 
 org_id = "org_01hx9k2m3n4p5q6r7s8t9u0v"
+app_id = "app_01hx9k2m3n4p5q6r7s8t9u0v"
 # Any path under the org's OIDC provider base URL
-url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/session/check"
+url = f"https://api.sutraid.com/api/v1/sso/oidc-idp/{org_id}/{app_id}/session/check"
 
 response = requests.get(url)
 print(response.status_code, response.text)`,
         nodejs: `const fetch = require('node-fetch');
 
 const orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
+const appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
 // Any path under the org's OIDC provider base URL
 const response = await fetch(
-  \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/session/check\`
+  \`https://api.sutraid.com/api/v1/sso/oidc-idp/\${orgId}/\${appId}/session/check\`
 );
 console.log(response.status, await response.text());`,
         java: `import java.net.URI;
@@ -1283,10 +1379,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 String orgId = "org_01hx9k2m3n4p5q6r7s8t9u0v";
+String appId = "app_01hx9k2m3n4p5q6r7s8t9u0v";
 // Any path under the org's OIDC provider base URL
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/session/check"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/sso/oidc-idp/" + orgId + "/" + appId + "/session/check"))
     .GET()
     .build();
 
@@ -1302,8 +1399,9 @@ import (
 
 func main() {
     orgID := "org_01hx9k2m3n4p5q6r7s8t9u0v"
+    appID := "app_01hx9k2m3n4p5q6r7s8t9u0v"
     // Any path under the org's OIDC provider base URL
-    url := fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/session/check", orgID)
+    url := fmt.Sprintf("https://api.sutraid.com/api/v1/sso/oidc-idp/%s/%s/session/check", orgID, appID)
 
     resp, err := http.Get(url)
     if err != nil {
@@ -1317,8 +1415,9 @@ func main() {
         php: `<?php
 
 $orgId = 'org_01hx9k2m3n4p5q6r7s8t9u0v';
+$appId = 'app_01hx9k2m3n4p5q6r7s8t9u0v';
 // Any path under the org's OIDC provider base URL
-$ch = curl_init("https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/session/check");
+$ch = curl_init("https://api.sutraid.com/api/v1/sso/oidc-idp/{$orgId}/{$appId}/session/check");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
