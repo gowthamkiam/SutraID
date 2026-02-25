@@ -334,20 +334,20 @@ export const applicationApi = {
     return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/.well-known/openid-configuration`;
   },
 
-  getTokenUrl(): string {
-    return `${API_URL.replace('/api/v1', '')}/oauth/token`;
+  getTokenUrl(orgId: string, appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/oauth/token`;
   },
 
-  getIntrospectUrl(): string {
-    return `${API_URL.replace('/api/v1', '')}/oauth/introspect`;
+  getIntrospectUrl(orgId: string, appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/oauth/introspect`;
   },
 
-  getRevokeUrl(): string {
-    return `${API_URL.replace('/api/v1', '')}/oauth/revoke`;
+  getRevokeUrl(orgId: string, appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/oauth/revoke`;
   },
 
-  getDcrUrl(): string {
-    return `${API_URL.replace('/api/v1', '')}/oauth/register`;
+  getDcrUrl(orgId: string, appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/oauth/register`;
   },
 
   getAuthorizeUrl(orgId: string, appId: string): string {
