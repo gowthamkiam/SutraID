@@ -1,0 +1,16 @@
+node_modules
+.env
+.env.local
+.env.*.local
+!.env.example
+*.log
+coverage
+test
+src
+.turbo
+.DS_Store
+prisma/migrations
+.git
+.gitignore
+README.md
+*.md
