@@ -1,33 +1,41 @@
 {
-  "version": 2,
-  "builds": [
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "npx prisma generate && npx @nestjs/cli build && mkdir -p public && echo '{\"ok\":true}' > public/.keep",
+  "outputDirectory": "public",
+  "framework": null,
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "dist/**",
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
     {
-      "src": "api/index.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "dist/**",
-          "node_modules/.prisma/**",
-          "node_modules/@prisma/client/**",
-          "prisma/schema.prisma"
-        ]
-      }
+      "source": "/(.*)",
+      "destination": "/api"
     }
   ],
-  "routes": [
+  "headers": [
     {
-      "src": "/(.*)",
-      "headers": {
-        "X-Frame-Options": "DENY",
-        "X-Content-Type-Options": "nosniff",
-        "X-XSS-Protection": "1; mode=block",
-        "Referrer-Policy": "strict-origin-when-cross-origin"
-      },
-      "continue": true
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/api/index.js"
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
     }
   ]
 }
