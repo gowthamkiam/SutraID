@@ -9,6 +9,7 @@ import { User } from '@prisma/client';
 import * as crypto from 'crypto';
 import { RegexService } from '../utils/regex.service';
 import { OidcConfigService } from './oidc-config.service';
+import { AuditService } from '../../audit/audit.service';
 
 @Injectable()
 export class OidcIdpService {
@@ -28,6 +29,7 @@ export class OidcIdpService {
     private config: ConfigService,
     private regexService: RegexService,
     private oidcConfigService: OidcConfigService,
+    private auditService: AuditService,
   ) { }
 
   /**
@@ -70,17 +72,21 @@ export class OidcIdpService {
       // Adapter still needs to store tokens — we'll pass both IDs for filtering if needed
       adapter: this.createAdapter(organizationId, applicationId),
 
+      // Build dynamic grant types based on per-app settings
       // Client registration - only this specific client for this instance
-      clients: [
-        {
+      clients: (() => {
+        const clientGrants = ['authorization_code', 'refresh_token'];
+        if (application.allowClientCredentials) clientGrants.push('client_credentials');
+        return [{
           client_id: application.clientId,
           client_secret: application.clientSecretHash || undefined,
-          grant_types: ['authorization_code', 'refresh_token'],
+          grant_types: clientGrants,
           redirect_uris: application.redirectUris as string[],
           response_types: ['code'],
           token_endpoint_auth_method: application.clientSecretHash ? 'client_secret_post' : 'none',
-        }
-      ],
+          scope: 'openid profile email offline_access',
+        }];
+      })(),
 
       // JWKS (Organization-specific keys)
       jwks: signingKeys.length > 0 ? {
@@ -119,21 +125,15 @@ export class OidcIdpService {
         return this.findAccount(applicationId, sub);
       },
 
-      // Supported response types
-      responseTypes: [
-        'code',
-        'id_token',
-        'code id_token',
-        'id_token token',
-        'code id_token token',
-      ],
+      // OAuth 2.1: only authorization code flow (no implicit)
+      responseTypes: ['code'],
 
-      // Grant types
-      grantTypes: [
-        'authorization_code',
-        'refresh_token',
-        'client_credentials',
-      ],
+      // Grant types (dynamic per application)
+      grantTypes: (() => {
+        const grants = ['authorization_code', 'refresh_token'];
+        if (application.allowClientCredentials) grants.push('client_credentials');
+        return grants;
+      })(),
 
       // Route paths — must match what NestJS exposes under /:orgId/
       routes: {
@@ -142,9 +142,12 @@ export class OidcIdpService {
         userinfo: '/userinfo',
       },
 
-      // PKCE
+      // PKCE: always required for public clients, configurable for confidential
       pkce: {
-        required: () => true, // Always require PKCE
+        required: (_ctx: any, _client: any) => {
+          if (!application.clientSecretHash) return true;
+          return application.pkceRequired;
+        },
       },
 
       // Interaction URL — points to backend auto-confirm endpoint so the
@@ -179,17 +182,138 @@ export class OidcIdpService {
       renderError: async (ctx: any, out: any, error: any) => {
         const errCode = out?.error || error?.name || 'server_error';
         const errMsg = error?.message || out?.error_description || errCode;
-        console.error(`❌ OIDC renderError [${errCode}]: ${errMsg}`, { error, out });
+
+        // Log more details for debugging
+        console.error(`❌ OIDC Error [${errCode}]: ${errMsg}`);
+        console.error('Context Params:', ctx.query || ctx.params);
+        if (error) console.error('Original Error:', error);
+        if (out) console.error('Error Details (out):', out);
+
         const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
         ctx.status = 302;
         ctx.redirect(`${frontendUrl}/auth/error?error=${encodeURIComponent(errCode)}&error_description=${encodeURIComponent(errMsg)}`);
       },
     });
 
+    // Register ROPC (password) grant handler if enabled for this application
+    if (application.allowROPC) {
+      await this.registerPasswordGrant(provider, application, organizationId, applicationId);
+    }
+
     // Cache the instance
     this.providerInstances.set(applicationId, provider);
 
     return provider;
+  }
+
+  /**
+   * Register custom password (ROPC) grant type on the oidc-provider instance.
+   * Issues access_token only (no id_token). Optional refresh_token based on app config.
+   */
+  private async registerPasswordGrant(
+    provider: any,
+    application: any,
+    organizationId: string,
+    applicationId: string,
+  ): Promise<void> {
+    const prisma = this.prisma;
+    const auditService = this.auditService;
+    const bcryptMod = await dynamicImport('bcrypt');
+
+    provider.registerGrantType('password', async function passwordGrant(ctx: any, next: any) {
+      const { client } = ctx.oidc;
+      const { username, password: pwd, scope: requestedScope } = ctx.oidc.params;
+
+      if (!username || !pwd) {
+        ctx.body = { error: 'invalid_grant', error_description: 'username and password are required' };
+        ctx.status = 400;
+        return next();
+      }
+
+      // Find user in this org
+      const user = await prisma.user.findFirst({
+        where: {
+          email: username,
+          organizationMembers: {
+            some: { organizationId, status: 'ACTIVE' },
+          },
+        },
+      });
+
+      if (!user || !user.passwordHash) {
+        await auditService.log({
+          organizationId,
+          action: 'oauth.ropc',
+          resource: `application:${applicationId}`,
+          result: 'FAILURE',
+          metadata: { username, reason: 'invalid_credentials', grant_type: 'password' },
+          riskScore: 0.7,
+        });
+        ctx.body = { error: 'invalid_grant', error_description: 'invalid username or password' };
+        ctx.status = 400;
+        return next();
+      }
+
+      const valid = await bcryptMod.compare(pwd, user.passwordHash);
+      if (!valid) {
+        await auditService.log({
+          organizationId,
+          userId: user.id,
+          action: 'oauth.ropc',
+          resource: `application:${applicationId}`,
+          result: 'FAILURE',
+          metadata: { username, reason: 'wrong_password', grant_type: 'password' },
+          riskScore: 0.8,
+        });
+        ctx.body = { error: 'invalid_grant', error_description: 'invalid username or password' };
+        ctx.status = 400;
+        return next();
+      }
+
+      // Issue access token only (NO id_token for ROPC per spec)
+      const scope = requestedScope || 'openid';
+      const at = new provider.AccessToken({
+        accountId: user.id,
+        client,
+        grantId: ctx.oidc.uid || crypto.randomUUID(),
+        scope,
+      });
+      at.setAudiences(client.clientId);
+
+      const accessToken = await at.save();
+      const tokenType = at.tokenType || 'Bearer';
+
+      ctx.body = {
+        access_token: accessToken,
+        token_type: tokenType,
+        expires_in: at.expiration,
+        scope,
+      };
+
+      // Optionally issue refresh token
+      if (application.allowRefreshForROPC) {
+        const rt = new provider.RefreshToken({
+          accountId: user.id,
+          client,
+          grantId: ctx.oidc.uid || crypto.randomUUID(),
+          scope,
+        });
+        const refreshToken = await rt.save();
+        ctx.body.refresh_token = refreshToken;
+      }
+
+      await auditService.log({
+        organizationId,
+        userId: user.id,
+        action: 'oauth.ropc',
+        resource: `application:${applicationId}`,
+        result: 'SUCCESS',
+        metadata: { username, scope, grant_type: 'password' },
+        riskScore: 0.5,
+      });
+
+      await next();
+    }, ['username', 'password', 'scope']);
   }
 
   /**
@@ -528,11 +652,20 @@ export class OidcIdpService {
   }
 
   /**
-   * Get OIDC discovery metadata
+   * Get OIDC discovery metadata (dynamic per application)
    */
   async getDiscoveryMetadata(organizationId: string, applicationId: string) {
     const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
     const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}/${applicationId}`;
+
+    const app = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+      select: { allowROPC: true, allowClientCredentials: true },
+    });
+
+    const grantTypes = ['authorization_code', 'refresh_token'];
+    if (app?.allowClientCredentials) grantTypes.push('client_credentials');
+    if (app?.allowROPC) grantTypes.push('password');
 
     return {
       issuer,
@@ -542,18 +675,8 @@ export class OidcIdpService {
       jwks_uri: `${issuer}/jwks`,
       registration_endpoint: `${issuer}/register`,
       scopes_supported: ['openid', 'email', 'profile', 'offline_access'],
-      response_types_supported: [
-        'code',
-        'id_token',
-        'code id_token',
-        'id_token token',
-        'code id_token token',
-      ],
-      grant_types_supported: [
-        'authorization_code',
-        'refresh_token',
-        'client_credentials',
-      ],
+      response_types_supported: ['code'],
+      grant_types_supported: grantTypes,
       subject_types_supported: ['public'],
       id_token_signing_alg_values_supported: ['RS256'],
       token_endpoint_auth_methods_supported: [
@@ -593,17 +716,23 @@ export class OidcIdpService {
     const provider = await this.getProviderInstance(applicationId);
     const issuerPath = this.getIssuerPath(organizationId, applicationId);
     const originalUrl: string = req.url;
+
+    console.log(`🔍 [OIDC] Dispatching request. Original URL: ${originalUrl}, Issuer Path: ${issuerPath}`);
+
     req.url = originalUrl.startsWith(issuerPath)
       ? originalUrl.slice(issuerPath.length) || '/'
       : originalUrl;
+
+    console.log(`🔍 [OIDC] Stripped URL: ${req.url}`);
+
     await (provider.app.callback())(req, res);
     req.url = originalUrl;
   }
 
   /**
-   * Clear cached provider instance
+   * Clear cached provider instance (keyed by applicationId)
    */
-  clearProviderCache(organizationId: string): void {
-    this.providerInstances.delete(organizationId);
+  clearProviderCache(applicationId: string): void {
+    this.providerInstances.delete(applicationId);
   }
 }

@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
 import { RegexService } from '../utils/regex.service';
 import { OidcConfigService } from './oidc-config.service';
+import { AuditService } from '../../audit/audit.service';
 
 // Mock Grant for consent flow
 const mockGrant = {
@@ -47,6 +48,10 @@ describe('OidcIdpService', () => {
     clientSecretHash: 'secret-456',
     redirectUris: ['https://example.com/callback'],
     status: 'ACTIVE',
+    allowROPC: false,
+    allowClientCredentials: false,
+    allowRefreshForROPC: false,
+    pkceRequired: true,
   };
 
   const mockUser = {
@@ -106,6 +111,10 @@ describe('OidcIdpService', () => {
     getClaims: jest.fn().mockResolvedValue([]),
   };
 
+  const mockAuditService = {
+    log: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -127,6 +136,10 @@ describe('OidcIdpService', () => {
         {
           provide: OidcConfigService,
           useValue: mockOidcConfigService,
+        },
+        {
+          provide: AuditService,
+          useValue: mockAuditService,
         },
       ],
     }).compile();
@@ -174,6 +187,8 @@ describe('OidcIdpService', () => {
 
   describe('getDiscoveryMetadata', () => {
     it('should return OIDC discovery metadata', async () => {
+      mockPrismaService.application.findUnique.mockResolvedValue(mockApplication);
+
       const metadata = await service.getDiscoveryMetadata('org-1', 'app-1');
 
       expect(metadata.issuer).toBe('http://localhost:3000/api/v1/sso/oidc-idp/org-1/app-1');
@@ -183,6 +198,21 @@ describe('OidcIdpService', () => {
       expect(metadata.token_endpoint).toBe(
         'http://localhost:3000/api/v1/sso/oidc-idp/org-1/app-1/token',
       );
+      expect(metadata.response_types_supported).toEqual(['code']);
+      expect(metadata.grant_types_supported).toEqual(['authorization_code', 'refresh_token']);
+    });
+
+    it('should include password grant when allowROPC is true', async () => {
+      mockPrismaService.application.findUnique.mockResolvedValue({
+        ...mockApplication,
+        allowROPC: true,
+        allowClientCredentials: true,
+      });
+
+      const metadata = await service.getDiscoveryMetadata('org-1', 'app-1');
+
+      expect(metadata.grant_types_supported).toContain('password');
+      expect(metadata.grant_types_supported).toContain('client_credentials');
     });
   });
 

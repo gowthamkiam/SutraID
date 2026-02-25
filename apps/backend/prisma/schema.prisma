@@ -246,6 +246,10 @@ model Application {
   jwks                    Json?
   dpopNonceEnabled        Boolean                      @default(true)
   isAiAgent               Boolean                      @default(false)
+  allowROPC               Boolean                      @default(false)
+  allowClientCredentials  Boolean                      @default(false)
+  allowRefreshForROPC     Boolean                      @default(false)
+  pkceRequired            Boolean                      @default(true)
   samlEntityId            String?
   samlCertificate         String?
   samlPrivateKey          String?

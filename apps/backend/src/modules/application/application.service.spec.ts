@@ -3,6 +3,7 @@ import { ApplicationService } from './application.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationService } from '../organization/organization.service';
 import { ApplicationUtils } from './utils/application.utils';
+import { OidcIdpService } from '../sso/services/oidc-idp.service';
 import {
   NotFoundException,
   BadRequestException,
@@ -42,6 +43,10 @@ describe('ApplicationService', () => {
     })),
   };
 
+  const mockOidcIdpService = {
+    clearProviderCache: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -57,6 +62,10 @@ describe('ApplicationService', () => {
         {
           provide: ApplicationUtils,
           useValue: mockApplicationUtils,
+        },
+        {
+          provide: OidcIdpService,
+          useValue: mockOidcIdpService,
         },
       ],
     }).compile();
@@ -320,6 +329,95 @@ describe('ApplicationService', () => {
         'user-1',
         [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
       );
+    });
+  });
+
+  describe('grant control fields', () => {
+    it('should default grant control fields on create', async () => {
+      const dto = {
+        name: 'Test App',
+        type: 'OIDC' as any,
+        redirectUris: ['https://example.com/callback'],
+      };
+
+      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
+      mockPrismaService.organization.findUnique.mockResolvedValue({
+        id: 'org-1',
+        maxApplications: 10,
+        _count: { applications: 0 },
+      } as any);
+      mockPrismaService.application.create.mockResolvedValue({
+        id: 'app-1',
+        ...dto,
+        clientId: 'app_generated_client',
+        allowROPC: false,
+        allowClientCredentials: false,
+        allowRefreshForROPC: false,
+        pkceRequired: true,
+      } as any);
+
+      await service.create('org-1', 'user-1', dto);
+
+      expect(mockPrismaService.application.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            allowROPC: false,
+            allowClientCredentials: false,
+            allowRefreshForROPC: false,
+            pkceRequired: true,
+          }),
+        }),
+      );
+    });
+
+    it('should reject allowROPC=true for public clients on update', async () => {
+      mockPrismaService.application.findUnique.mockResolvedValue({
+        id: 'app-1',
+        organizationId: 'org-1',
+        isPublicClient: true,
+        allowROPC: false,
+      } as any);
+      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
+
+      await expect(
+        service.update('app-1', 'user-1', { allowROPC: true } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should invalidate provider cache when grant settings change', async () => {
+      mockPrismaService.application.findUnique.mockResolvedValue({
+        id: 'app-1',
+        organizationId: 'org-1',
+        isPublicClient: false,
+        allowROPC: false,
+      } as any);
+      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
+      mockPrismaService.application.update.mockResolvedValue({
+        id: 'app-1',
+        allowClientCredentials: true,
+      } as any);
+
+      await service.update('app-1', 'user-1', { allowClientCredentials: true } as any);
+
+      expect(mockOidcIdpService.clearProviderCache).toHaveBeenCalledWith('app-1');
+    });
+
+    it('should not invalidate cache when non-grant fields change', async () => {
+      mockPrismaService.application.findUnique.mockResolvedValue({
+        id: 'app-1',
+        organizationId: 'org-1',
+        isPublicClient: false,
+        allowROPC: false,
+      } as any);
+      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
+      mockPrismaService.application.update.mockResolvedValue({
+        id: 'app-1',
+        name: 'Updated',
+      } as any);
+
+      await service.update('app-1', 'user-1', { name: 'Updated' } as any);
+
+      expect(mockOidcIdpService.clearProviderCache).not.toHaveBeenCalled();
     });
   });
 });

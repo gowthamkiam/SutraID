@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { SutraLogo } from '../SutraLogo';
 
 export default function DocsNavbar() {
   const [colorMode, setColorMode] = useState<'light' | 'dark'>('light');
@@ -48,14 +49,15 @@ export default function DocsNavbar() {
           href="/"
           style={{
             textDecoration: 'none',
-            fontSize: '1.15rem',
-            fontWeight: 900,
-            letterSpacing: '-0.02em',
+            display: 'inline-flex',
+            alignItems: 'center',
           }}
         >
-          <span style={{ color: '#6366f1' }}>S</span>
-          <span style={{ color: 'var(--text-primary)' }}>utra</span>
-          <span style={{ color: '#6366f1' }}>ID</span>
+          <SutraLogo
+            size={24}
+            fontSize="1.15rem"
+            textColor="var(--text-primary)"
+          />
         </Link>
         <span style={{ color: 'var(--border-color)', fontSize: '1.2rem', fontWeight: 300 }}>
           |
