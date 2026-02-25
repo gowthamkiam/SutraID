@@ -65,3 +65,6 @@ temp/
 
 # Debug
 .pnpm-debug.log
+.vercel
+.env*.local
+.claude
