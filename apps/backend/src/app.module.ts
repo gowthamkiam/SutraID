@@ -11,6 +11,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { PolicyModule } from './modules/policy/policy.module';
 import { DirectoryModule } from './modules/directory/directory.module';
 import { RbacModule } from './modules/rbac/rbac.module';
+import { StatsModule } from './modules/organization/stats/stats.module';
 
 @Module({
   imports: [
@@ -37,6 +38,8 @@ import { RbacModule } from './modules/rbac/rbac.module';
     DirectoryModule,
     // RBAC module (permission-based access control)
     RbacModule,
+    // Stats module (dashboard metrics)
+    StatsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

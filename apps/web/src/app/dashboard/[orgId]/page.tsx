@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, use } from 'react';
-import { OrgRole, roleVisibleTabs } from '@/lib/api';
+import { useMemo, use, useState, useEffect } from 'react';
+import { OrgRole, roleVisibleTabs, usersApi, ssoApi, auditApi, statsApi } from '@/lib/api';
 
 type StatCard = {
   label: string;
@@ -27,13 +27,6 @@ type Activity = {
   time: string;
   icon: string;
 };
-
-const stats: StatCard[] = [
-  { label: 'Total Users', value: '2,543', change: '+12.5%', trend: 'up', icon: '👥' },
-  { label: 'Active Sessions', value: '1,234', change: '+8.2%', trend: 'up', icon: '🟢' },
-  { label: 'SSO Providers', value: '3', change: '0', trend: 'neutral', icon: '🔐' },
-  { label: 'Auth Events (24h)', value: '12.4K', change: '+18.3%', trend: 'up', icon: '📊' },
-];
 
 const quickActionsBase = [
   {
@@ -94,15 +87,110 @@ const quickActionsBase = [
   },
 ];
 
-const recentActivity: Activity[] = [
-  { id: '1', message: 'User john@example.com logged in via SSO', time: '2 min ago', icon: '🔓' },
-  { id: '2', message: 'SSO Provider "Okta" was updated', time: '1 hour ago', icon: '🔐' },
-  { id: '3', message: 'New user sarah@example.com was created', time: '3 hours ago', icon: '👤' },
-  { id: '4', message: 'Magic link sent to admin@example.com', time: '5 hours ago', icon: '✉️' },
-];
-
 export default function DashboardPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = use(params);
+
+  const [dashboardStats, setDashboardStats] = useState({
+    totalUsers: 0,
+    activeSessions: 0,
+    ssoProviders: 0,
+    authEvents: 0,
+  });
+  const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const formatNumber = (num: number): string => {
+    if (num >= 1000) {
+      return new Intl.NumberFormat('en-US').format(num);
+    }
+    return String(num);
+  };
+
+  const formatTimeAgo = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  };
+
+  const getIconForAction = (action: string, result: string): string => {
+    if (result === 'FAILURE') return '❌';
+    if (result === 'DENIED') return '🚫';
+
+    if (action.includes('LOGIN')) return '🔓';
+    if (action.includes('SSO')) return '🔐';
+    if (action.includes('USER_CREATE')) return '👤';
+    if (action.includes('APPLICATION')) return '📱';
+    if (action.includes('PROVIDER')) return '🔐';
+    return '📊';
+  };
+
+  const formatAuditMessage = (log: any): string => {
+    const userEmail = log.metadata?.userEmail || log.metadata?.email || 'Unknown user';
+    const resource = log.resource || '';
+
+    const actionMap: Record<string, string> = {
+      'USER_LOGIN': `User ${userEmail} logged in`,
+      'SSO_LOGIN': `User ${userEmail} logged in via SSO`,
+      'USER_CREATED': `New user ${userEmail} was created`,
+      'SSO_PROVIDER_CREATED': `SSO Provider "${resource}" was created`,
+      'SSO_PROVIDER_UPDATED': `SSO Provider "${resource}" was updated`,
+      'APPLICATION_CREATED': `Application "${resource}" was created`,
+      'MAGIC_LINK_SENT': `Magic link sent to ${userEmail}`,
+    };
+
+    return actionMap[log.action] || `${log.action} - ${resource}`;
+  };
+
+  const transformAuditLogs = (logs: any[]): Activity[] => {
+    return logs.map(log => ({
+      id: log.id,
+      message: formatAuditMessage(log),
+      time: formatTimeAgo(log.createdAt),
+      icon: getIconForAction(log.action, log.result),
+    }));
+  };
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [usersData, providersData, activeSessionsData, auditStatsData, auditLogsData] =
+        await Promise.all([
+          usersApi.list({ page: 1, limit: 1 }),
+          ssoApi.listProviders(orgId),
+          statsApi.getActiveSessions(orgId),
+          auditApi.getStats(orgId, 1),
+          auditApi.getLogs(orgId, { limit: 5 }),
+        ]);
+
+      setDashboardStats({
+        totalUsers: usersData.total,
+        activeSessions: activeSessionsData.activeSessions,
+        ssoProviders: providersData.length,
+        authEvents: auditStatsData.totalEvents,
+      });
+
+      setRecentActivity(transformAuditLogs(auditLogsData.logs));
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+      setError('Failed to load dashboard data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [orgId]);
 
   const role = useMemo(() => {
     if (typeof window === 'undefined') return 'READ_ONLY_ADMIN' as OrgRole;
@@ -123,6 +211,76 @@ export default function DashboardPage({ params }: { params: Promise<{ orgId: str
 
   const visibleKeys = new Set(roleVisibleTabs[role] || roleVisibleTabs.READ_ONLY_ADMIN);
   const visibleQuickActions = quickActions.filter((action) => visibleKeys.has(action.key));
+
+  const stats: StatCard[] = [
+    {
+      label: 'Total Users',
+      value: formatNumber(dashboardStats.totalUsers),
+      change: '',
+      trend: 'neutral',
+      icon: '👥',
+    },
+    {
+      label: 'Active Sessions',
+      value: formatNumber(dashboardStats.activeSessions),
+      change: '',
+      trend: 'neutral',
+      icon: '🟢',
+    },
+    {
+      label: 'SSO Providers',
+      value: String(dashboardStats.ssoProviders),
+      change: '',
+      trend: 'neutral',
+      icon: '🔐',
+    },
+    {
+      label: 'Auth Events (24h)',
+      value: formatNumber(dashboardStats.authEvents),
+      change: '',
+      trend: 'neutral',
+      icon: '📊',
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div>
+        <div style={{ marginBottom: '2rem' }}>
+          <h1 style={{ fontSize: '2rem', fontWeight: 800, margin: 0 }}>Dashboard</h1>
+          <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
+            Welcome back to your organization overview.
+          </p>
+        </div>
+        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
+          Loading dashboard data...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div>
+        <div style={{ marginBottom: '2rem' }}>
+          <h1 style={{ fontSize: '2rem', fontWeight: 800, margin: 0 }}>Dashboard</h1>
+          <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
+            Welcome back to your organization overview.
+          </p>
+        </div>
+        <div style={{
+          textAlign: 'center',
+          padding: '3rem',
+          color: '#ef4444',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '12px',
+        }}>
+          {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -153,19 +311,21 @@ export default function DashboardPage({ params }: { params: Promise<{ orgId: str
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
               <span style={{ fontSize: '1.6rem' }}>{stat.icon}</span>
-              <span
-                style={{
-                  fontSize: '0.8rem',
-                  color:
-                    stat.trend === 'up'
-                      ? '#10b981'
-                      : stat.trend === 'down'
-                        ? '#ef4444'
-                        : 'var(--text-secondary)',
-                }}
-              >
-                {stat.change}
-              </span>
+              {stat.change && (
+                <span
+                  style={{
+                    fontSize: '0.8rem',
+                    color:
+                      stat.trend === 'up'
+                        ? '#10b981'
+                        : stat.trend === 'down'
+                          ? '#ef4444'
+                          : 'var(--text-secondary)',
+                  }}
+                >
+                  {stat.change}
+                </span>
+              )}
             </div>
             <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{stat.label}</div>
             <div style={{ fontSize: '1.9rem', fontWeight: 700, marginTop: '0.25rem' }}>{stat.value}</div>
