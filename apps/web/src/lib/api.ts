@@ -753,12 +753,29 @@ export const oidcConfigApi = {
     return response.json();
   },
 
+  async getClaims(orgId: string, appId: string): Promise<OidcClaim[]> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/claims`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch claims');
+    return response.json();
+  },
+
   async createClaim(orgId: string, appId: string, data: any): Promise<OidcClaim> {
     const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/claims`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
+    if (!response.ok) throw new Error('Failed to create claim');
+    return response.json();
+  },
+
+  async getRegexRules(orgId: string, appId: string): Promise<OidcRegexRule[]> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/regex-rules`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch regex rules');
     return response.json();
   },
 
@@ -768,6 +785,7 @@ export const oidcConfigApi = {
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
+    if (!response.ok) throw new Error('Failed to create regex rule');
     return response.json();
   },
 

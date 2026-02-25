@@ -2,9 +2,9 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { applicationApi, Application, groupsApi, usersApi } from '@/lib/api';
+import { applicationApi, Application, groupsApi, usersApi, oidcConfigApi, OidcClaim, OidcRegexRule } from '@/lib/api';
 
-type Tab = 'general' | 'security' | 'endpoints' | 'guide' | 'assignments';
+type Tab = 'general' | 'security' | 'endpoints' | 'claims' | 'assignments' | 'guide';
 
 export default function ApplicationDetailPage({ params }: { params: Promise<{ orgId: string, id: string }> }) {
   const router = useRouter();
@@ -45,12 +45,24 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
   const [samlSpAcsUrl, setSamlSpAcsUrl] = useState('');
   const [samlNameIdFormat, setSamlNameIdFormat] = useState('');
 
+  // Claims
+  const [claims, setClaims] = useState<OidcClaim[]>([]);
+  const [regexRules, setRegexRules] = useState<OidcRegexRule[]>([]);
+  const [showAddClaim, setShowAddClaim] = useState(false);
+  const [showAddRegexRule, setShowAddRegexRule] = useState(false);
+
   useEffect(() => {
     if (orgId && appId) {
       loadApp();
       loadAssignments();
     }
   }, [orgId, appId]);
+
+  useEffect(() => {
+    if (orgId && appId && activeTab === 'claims' && app?.type === 'OIDC') {
+      loadClaims();
+    }
+  }, [orgId, appId, activeTab, app?.type]);
 
   const loadApp = async () => {
     if (!orgId) return;
@@ -101,6 +113,20 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
       );
     } catch (err: any) {
       setError(err.message || 'Failed to load assignments');
+    }
+  };
+
+  const loadClaims = async () => {
+    if (!orgId) return;
+    try {
+      const [claimsData, regexData] = await Promise.all([
+        oidcConfigApi.getClaims(orgId, appId),
+        oidcConfigApi.getRegexRules(orgId, appId),
+      ]);
+      setClaims(claimsData);
+      setRegexRules(regexData);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load claims');
     }
   };
 
@@ -223,6 +249,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
     { key: 'general', label: 'General', icon: '\u2699\uFE0F' },
     { key: 'security', label: 'Security', icon: '\uD83D\uDD12' },
     { key: 'endpoints', label: 'Endpoints', icon: '\uD83C\uDF10' },
+    ...(app.type === 'OIDC' ? [{ key: 'claims' as Tab, label: 'Claims', icon: '\uD83C\uDFF7\uFE0F' }] : []),
     { key: 'assignments', label: 'Assignments', icon: '\uD83D\uDD17' },
     { key: 'guide', label: 'Integration Guide', icon: '\uD83D\uDCD6' },
   ];
@@ -602,6 +629,21 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
               </div>
             )}
           </div>
+        )}
+
+        {/* Claims Tab */}
+        {activeTab === 'claims' && orgId && app.type === 'OIDC' && (
+          <ClaimsTab
+            orgId={orgId}
+            appId={appId}
+            claims={claims}
+            regexRules={regexRules}
+            onClaimsChange={loadClaims}
+            setError={setError}
+            setSuccess={setSuccess}
+            labelStyle={labelStyle}
+            inputStyle={inputStyle}
+          />
         )}
 
         {/* Integration Guide Tab */}
@@ -1494,6 +1536,391 @@ response = requests.get("https://your-api.com/resource",
                 <span>{item}</span>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================================
+ * Claims Tab Component
+ * Manage custom OIDC claims with regex transformation support
+ * ========================================================================= */
+
+function ClaimsTab({
+  orgId,
+  appId,
+  claims,
+  regexRules,
+  onClaimsChange,
+  setError,
+  setSuccess,
+  labelStyle,
+  inputStyle,
+}: {
+  orgId: string;
+  appId: string;
+  claims: OidcClaim[];
+  regexRules: OidcRegexRule[];
+  onClaimsChange: () => void;
+  setError: (msg: string | null) => void;
+  setSuccess: (msg: string | null) => void;
+  labelStyle: React.CSSProperties;
+  inputStyle: React.CSSProperties;
+}) {
+  const [showAddClaim, setShowAddClaim] = useState(false);
+  const [showAddRegex, setShowAddRegex] = useState(false);
+  const [newClaimName, setNewClaimName] = useState('');
+  const [newClaimAttr, setNewClaimAttr] = useState('');
+  const [newClaimRegexId, setNewClaimRegexId] = useState('');
+  const [newClaimTargets, setNewClaimTargets] = useState<Array<'ID_TOKEN' | 'ACCESS_TOKEN' | 'USERINFO'>>(['ID_TOKEN']);
+  const [newRegexName, setNewRegexName] = useState('');
+  const [newRegexPattern, setNewRegexPattern] = useState('');
+  const [newRegexReplacement, setNewRegexReplacement] = useState('');
+  const [newRegexFlags, setNewRegexFlags] = useState('g');
+
+  const cardStyle: React.CSSProperties = {
+    background: 'var(--bg-card, #161b22)',
+    border: '1px solid var(--border-color, #30363d)',
+    borderRadius: '12px',
+    padding: '1.5rem',
+  };
+
+  const handleAddClaim = async () => {
+    try {
+      await oidcConfigApi.createClaim(orgId, appId, {
+        name: newClaimName,
+        userAttribute: newClaimAttr,
+        regexRuleId: newClaimRegexId || undefined,
+        targetTokens: newClaimTargets,
+      });
+      setSuccess('Claim added successfully');
+      setShowAddClaim(false);
+      setNewClaimName('');
+      setNewClaimAttr('');
+      setNewClaimRegexId('');
+      setNewClaimTargets(['ID_TOKEN']);
+      onClaimsChange();
+    } catch (err: any) {
+      setError(err.message || 'Failed to add claim');
+    }
+  };
+
+  const handleAddRegex = async () => {
+    try {
+      await oidcConfigApi.createRegexRule(orgId, appId, {
+        name: newRegexName,
+        pattern: newRegexPattern,
+        replacement: newRegexReplacement,
+        flags: newRegexFlags,
+      });
+      setSuccess('Regex rule added successfully');
+      setShowAddRegex(false);
+      setNewRegexName('');
+      setNewRegexPattern('');
+      setNewRegexReplacement('');
+      setNewRegexFlags('g');
+      onClaimsChange();
+    } catch (err: any) {
+      setError(err.message || 'Failed to add regex rule');
+    }
+  };
+
+  const toggleTarget = (target: 'ID_TOKEN' | 'ACCESS_TOKEN' | 'USERINFO') => {
+    setNewClaimTargets(prev =>
+      prev.includes(target) ? prev.filter(t => t !== target) : [...prev, target]
+    );
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* Info Banner */}
+      <div style={{
+        background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)',
+        borderRadius: '12px', padding: '1rem',
+      }}>
+        <p style={{ fontSize: '0.85rem', color: '#a5b4fc', margin: 0 }}>
+          Customize token claims by mapping user attributes. Use dot-notation for nested properties
+          (e.g., <code style={{ background: 'rgba(0,0,0,0.3)', padding: '0.15rem 0.4rem', borderRadius: '3px' }}>user.firstName</code>,
+          <code style={{ background: 'rgba(0,0,0,0.3)', padding: '0.15rem 0.4rem', borderRadius: '3px', marginLeft: '0.25rem' }}>user.email</code>).
+          Apply regex rules for transformations.
+        </p>
+      </div>
+
+      {/* Claims List */}
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: '600', margin: 0 }}>Custom Claims</h2>
+          <button
+            onClick={() => setShowAddClaim(!showAddClaim)}
+            style={{
+              padding: '0.5rem 1rem',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              color: '#fff', border: 'none', borderRadius: '6px',
+              cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600',
+            }}
+          >
+            {showAddClaim ? 'Cancel' : '+ Add Claim'}
+          </button>
+        </div>
+
+        {showAddClaim && (
+          <div style={{
+            background: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.15)',
+            borderRadius: '8px', padding: '1rem', marginBottom: '1rem',
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div>
+                <label style={{ ...labelStyle, fontSize: '0.85rem' }}>Claim Name</label>
+                <input
+                  type="text"
+                  value={newClaimName}
+                  onChange={(e) => setNewClaimName(e.target.value)}
+                  placeholder="e.g., givenname, family_name"
+                  style={{ ...inputStyle, fontSize: '0.85rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ ...labelStyle, fontSize: '0.85rem' }}>User Attribute (dot-notation)</label>
+                <input
+                  type="text"
+                  value={newClaimAttr}
+                  onChange={(e) => setNewClaimAttr(e.target.value)}
+                  placeholder="e.g., user.firstName, user.email, groups"
+                  style={{ ...inputStyle, fontSize: '0.85rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ ...labelStyle, fontSize: '0.85rem' }}>Regex Rule (optional)</label>
+                <select
+                  value={newClaimRegexId}
+                  onChange={(e) => setNewClaimRegexId(e.target.value)}
+                  style={{ ...inputStyle, fontSize: '0.85rem' }}
+                >
+                  <option value="">None</option>
+                  {regexRules.map(rule => (
+                    <option key={rule.id} value={rule.id}>{rule.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ ...labelStyle, fontSize: '0.85rem' }}>Target Tokens</label>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {(['ID_TOKEN', 'ACCESS_TOKEN', 'USERINFO'] as const).map(target => (
+                    <button
+                      key={target}
+                      onClick={() => toggleTarget(target)}
+                      style={{
+                        padding: '0.4rem 0.75rem',
+                        background: newClaimTargets.includes(target) ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${newClaimTargets.includes(target) ? '#6366f1' : 'var(--border-color, #30363d)'}`,
+                        borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600',
+                        color: newClaimTargets.includes(target) ? '#a5b4fc' : 'var(--text-secondary, #7d8590)',
+                      }}
+                    >
+                      {target}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={handleAddClaim}
+                disabled={!newClaimName || !newClaimAttr || newClaimTargets.length === 0}
+                style={{
+                  padding: '0.6rem 1.25rem',
+                  background: (!newClaimName || !newClaimAttr || newClaimTargets.length === 0) ? '#4b5563' : '#6366f1',
+                  color: '#fff', border: 'none', borderRadius: '6px',
+                  cursor: (!newClaimName || !newClaimAttr || newClaimTargets.length === 0) ? 'not-allowed' : 'pointer',
+                  fontSize: '0.85rem', fontWeight: '600', alignSelf: 'flex-start',
+                }}
+              >
+                Create Claim
+              </button>
+            </div>
+          </div>
+        )}
+
+        {claims.length === 0 && !showAddClaim && (
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', margin: 0 }}>
+            No custom claims configured. Click &quot;Add Claim&quot; to get started.
+          </p>
+        )}
+
+        {claims.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {claims.map(claim => (
+              <div key={claim.id} style={{
+                background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color, #30363d)',
+                borderRadius: '8px', padding: '0.75rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                      <span style={{ fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{claim.name}</span>
+                      <span style={{ fontSize: '0.75rem', color: '#7d8590' }}>→</span>
+                      <code style={{
+                        fontSize: '0.75rem', fontFamily: 'monospace', color: '#a5b4fc',
+                        background: 'rgba(99, 102, 241, 0.1)', padding: '0.15rem 0.4rem', borderRadius: '3px',
+                      }}>
+                        {claim.userAttribute}
+                      </code>
+                    </div>
+                    {claim.regexRule && (
+                      <div style={{ fontSize: '0.75rem', color: '#7d8590', marginTop: '0.25rem' }}>
+                        Regex: {claim.regexRule.name} ({claim.regexRule.pattern})
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                      {claim.targetTokens.map(target => (
+                        <span key={target} style={{
+                          padding: '0.15rem 0.5rem', borderRadius: '3px', fontSize: '0.65rem', fontWeight: '700',
+                          background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa',
+                        }}>
+                          {target}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Regex Rules */}
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: '600', margin: 0 }}>Regex Transformation Rules</h2>
+          <button
+            onClick={() => setShowAddRegex(!showAddRegex)}
+            style={{
+              padding: '0.5rem 1rem',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              color: '#fff', border: 'none', borderRadius: '6px',
+              cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600',
+            }}
+          >
+            {showAddRegex ? 'Cancel' : '+ Add Rule'}
+          </button>
+        </div>
+
+        {showAddRegex && (
+          <div style={{
+            background: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.15)',
+            borderRadius: '8px', padding: '1rem', marginBottom: '1rem',
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div>
+                <label style={{ ...labelStyle, fontSize: '0.85rem' }}>Rule Name</label>
+                <input
+                  type="text"
+                  value={newRegexName}
+                  onChange={(e) => setNewRegexName(e.target.value)}
+                  placeholder="e.g., Email to Username"
+                  style={{ ...inputStyle, fontSize: '0.85rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ ...labelStyle, fontSize: '0.85rem' }}>Pattern (regex)</label>
+                <input
+                  type="text"
+                  value={newRegexPattern}
+                  onChange={(e) => setNewRegexPattern(e.target.value)}
+                  placeholder="e.g., ^(.+)@.+$"
+                  style={{ ...inputStyle, fontSize: '0.85rem', fontFamily: 'monospace' }}
+                />
+              </div>
+              <div>
+                <label style={{ ...labelStyle, fontSize: '0.85rem' }}>Replacement</label>
+                <input
+                  type="text"
+                  value={newRegexReplacement}
+                  onChange={(e) => setNewRegexReplacement(e.target.value)}
+                  placeholder="e.g., $1"
+                  style={{ ...inputStyle, fontSize: '0.85rem', fontFamily: 'monospace' }}
+                />
+              </div>
+              <div>
+                <label style={{ ...labelStyle, fontSize: '0.85rem' }}>Flags</label>
+                <input
+                  type="text"
+                  value={newRegexFlags}
+                  onChange={(e) => setNewRegexFlags(e.target.value)}
+                  placeholder="e.g., g, gi"
+                  style={{ ...inputStyle, fontSize: '0.85rem' }}
+                />
+              </div>
+              <button
+                onClick={handleAddRegex}
+                disabled={!newRegexName || !newRegexPattern || !newRegexReplacement}
+                style={{
+                  padding: '0.6rem 1.25rem',
+                  background: (!newRegexName || !newRegexPattern || !newRegexReplacement) ? '#4b5563' : '#6366f1',
+                  color: '#fff', border: 'none', borderRadius: '6px',
+                  cursor: (!newRegexName || !newRegexPattern || !newRegexReplacement) ? 'not-allowed' : 'pointer',
+                  fontSize: '0.85rem', fontWeight: '600', alignSelf: 'flex-start',
+                }}
+              >
+                Create Rule
+              </button>
+            </div>
+          </div>
+        )}
+
+        {regexRules.length === 0 && !showAddRegex && (
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', margin: 0 }}>
+            No regex rules configured. Click &quot;Add Rule&quot; to create one.
+          </p>
+        )}
+
+        {regexRules.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {regexRules.map(rule => (
+              <div key={rule.id} style={{
+                background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color, #30363d)',
+                borderRadius: '8px', padding: '0.75rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                      {rule.name}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#7d8590', fontFamily: 'monospace' }}>
+                      Pattern: <code style={{ color: '#a5b4fc' }}>{rule.pattern}</code>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#7d8590', fontFamily: 'monospace' }}>
+                      Replacement: <code style={{ color: '#a5b4fc' }}>{rule.replacement}</code>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#7d8590', fontFamily: 'monospace' }}>
+                      Flags: <code style={{ color: '#a5b4fc' }}>{rule.flags}</code>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Examples */}
+      <div style={{
+        ...cardStyle,
+        background: 'rgba(16, 185, 129, 0.05)',
+        border: '1px solid rgba(16, 185, 129, 0.15)',
+      }}>
+        <h3 style={{ fontSize: '0.95rem', fontWeight: '600', marginTop: 0, marginBottom: '0.75rem', color: '#34d399' }}>
+          Common Examples
+        </h3>
+        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', lineHeight: '1.7' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div><strong style={{ color: '#34d399' }}>givenname:</strong> <code>user.firstName</code></div>
+            <div><strong style={{ color: '#34d399' }}>sn (surname):</strong> <code>user.lastName</code></div>
+            <div><strong style={{ color: '#34d399' }}>username:</strong> <code>user.username</code> or <code>user.email</code> with regex</div>
+            <div><strong style={{ color: '#34d399' }}>email:</strong> <code>user.email</code></div>
+            <div><strong style={{ color: '#34d399' }}>groups:</strong> <code>groups</code> (array)</div>
+            <div><strong style={{ color: '#34d399' }}>department:</strong> <code>user.department</code></div>
           </div>
         </div>
       </div>
