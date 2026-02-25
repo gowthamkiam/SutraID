@@ -424,6 +424,21 @@ export const auditApi = {
 };
 
 // ============================================================================
+// Stats API
+// ============================================================================
+
+export const statsApi = {
+  async getActiveSessions(orgId: string): Promise<{ activeSessions: number; periodHours: number }> {
+    const response = await fetch(
+      `${API_URL}/organizations/${orgId}/stats/active-sessions`,
+      { headers: getAuthHeaders() },
+    );
+    if (!response.ok) throw new Error('Failed to fetch active sessions');
+    return response.json();
+  },
+};
+
+// ============================================================================
 // Policy API
 // ============================================================================
 

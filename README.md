@@ -1,10 +1,10 @@
 # SutraID
 
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Netlify Status](https://api.netlify.com/api/v1/badges/deploy-status.svg)](https://www.netlify.com)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/be04b8f9-2a7f-4d0a-8b12-c40ec8304b55/deploy-status)](https://app.netlify.com/projects/sutraid/deploys)
 
 <a href="https://www.netlify.com">
-  <img src="https://www.netlify.com/assets/badges/netlify-color-accent.svg" alt="Deploys by Netlify" />
+  <img src="https://www.netlify.com/assets/badges/netlify-badge-color-accent.svg" alt="Deploys by Netlify" />
 </a>
 
 ## Overview
