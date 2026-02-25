@@ -753,12 +753,29 @@ export const oidcConfigApi = {
     return response.json();
   },
 
+  async getClaims(orgId: string, appId: string): Promise<OidcClaim[]> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/claims`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch claims');
+    return response.json();
+  },
+
   async createClaim(orgId: string, appId: string, data: any): Promise<OidcClaim> {
     const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/claims`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
+    if (!response.ok) throw new Error('Failed to create claim');
+    return response.json();
+  },
+
+  async getRegexRules(orgId: string, appId: string): Promise<OidcRegexRule[]> {
+    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/regex-rules`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch regex rules');
     return response.json();
   },
 
@@ -768,6 +785,7 @@ export const oidcConfigApi = {
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
+    if (!response.ok) throw new Error('Failed to create regex rule');
     return response.json();
   },
 
@@ -901,15 +919,15 @@ export interface OrgGroup {
 }
 
 export const roleVisibleTabs: Record<OrgRole, string[]> = {
-  SUPER_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'api-access', 'reports', 'settings'],
-  READ_ONLY_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'reports', 'settings'],
-  ORG_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'api-access', 'reports', 'settings'],
+  SUPER_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'oidc-config', 'api-access', 'policies', 'audit', 'settings'],
+  READ_ONLY_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'audit', 'settings'],
+  ORG_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'oidc-config', 'api-access', 'policies', 'audit', 'settings'],
   APP_ADMIN: ['dashboard', 'applications', 'api-access', 'settings'],
   USER_ADMIN: ['dashboard', 'users', 'groups', 'settings'],
   GROUP_MEMBERSHIP_ADMIN: ['dashboard', 'users', 'groups', 'directory', 'settings'],
   HELP_DESK_ADMIN: ['dashboard', 'users', 'settings'],
   MOBILE_ADMIN: ['dashboard', 'applications', 'settings'],
-  REPORT_ADMIN: ['dashboard', 'reports', 'settings'],
+  REPORT_ADMIN: ['dashboard', 'audit', 'settings'],
   API_ACCESS_MANAGEMENT_ADMIN: ['dashboard', 'applications', 'directory', 'api-access', 'settings'],
 };
 

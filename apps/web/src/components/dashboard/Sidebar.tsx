@@ -7,7 +7,9 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Database,
+  FileText,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -35,7 +37,8 @@ const navItems = [
   { icon: Database, label: 'Directory Services', path: '/directory', key: 'directory' },
   { icon: Shield, label: 'OIDC Configuration', path: '/settings/oidc', key: 'oidc-config' },
   { icon: KeyRound, label: 'API Access', path: '/sso/providers', key: 'api-access' },
-  { icon: BarChart3, label: 'Reports', path: '/audit', key: 'reports' },
+  { icon: ClipboardList, label: 'Policies', path: '/policies', key: 'policies' },
+  { icon: FileText, label: 'Audit Logs', path: '/audit', key: 'audit' },
   { icon: Settings, label: 'Settings', path: '/settings', key: 'settings' },
 ];
 

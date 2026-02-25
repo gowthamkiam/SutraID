@@ -239,7 +239,7 @@ model Application {
   redirectUris            Json                         @default("[]")
   grantTypes              Json                         @default("[\"authorization_code\", \"refresh_token\"]")
   responseTypes           Json                         @default("[\"code\"]")
-  scopes                  Json                         @default("[\"openid\", \"profile\", \"email\"]")
+  scopes                  Json                         @default("[\"openid\", \"profile\", \"email\", \"offline_access\"]")
   tokenEndpointAuthMethod String                       @default("client_secret_post")
   isPublicClient          Boolean                      @default(false)
   requireDpop             Boolean                      @default(false)

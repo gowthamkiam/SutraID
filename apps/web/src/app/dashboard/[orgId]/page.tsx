@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, use } from 'react';
 import { OrgRole, roleVisibleTabs } from '@/lib/api';
 
 type StatCard = {
@@ -35,13 +35,13 @@ const stats: StatCard[] = [
   { label: 'Auth Events (24h)', value: '12.4K', change: '+18.3%', trend: 'up', icon: '📊' },
 ];
 
-const quickActions: QuickAction[] = [
+const quickActionsBase = [
   {
     key: 'api-access',
     title: 'SSO Providers',
     description: 'Manage SAML and OIDC integrations',
     icon: '🔐',
-    href: '/dashboard/sso/providers',
+    path: '/sso/providers',
     color: '#6366f1',
   },
   {
@@ -49,7 +49,7 @@ const quickActions: QuickAction[] = [
     title: 'Applications',
     description: 'Configure your applications',
     icon: '📱',
-    href: '/dashboard/applications',
+    path: '/applications',
     color: '#8b5cf6',
   },
   {
@@ -57,31 +57,31 @@ const quickActions: QuickAction[] = [
     title: 'Users',
     description: 'Manage user accounts',
     icon: '👤',
-    href: '/dashboard/users',
+    path: '/users',
     color: '#ec4899',
   },
   {
-    key: 'applications',
+    key: 'oidc-config',
     title: 'Authentication',
     description: 'Configure auth methods',
     icon: '🔑',
-    href: '/dashboard/authentication',
+    path: '/settings/oidc',
     color: '#f59e0b',
   },
   {
-    key: 'reports',
+    key: 'policies',
     title: 'Policies',
     description: 'Authorization rules and access control',
     icon: '📋',
-    href: '/dashboard/policies',
+    path: '/policies',
     color: '#0ea5e9',
   },
   {
-    key: 'reports',
+    key: 'audit',
     title: 'Audit Logs',
     description: 'View security events',
     icon: '📜',
-    href: '/dashboard/audit',
+    path: '/audit',
     color: '#10b981',
   },
   {
@@ -89,7 +89,7 @@ const quickActions: QuickAction[] = [
     title: 'Settings',
     description: 'Organization settings',
     icon: '⚙️',
-    href: '/dashboard/settings',
+    path: '/settings',
     color: '#6b7280',
   },
 ];
@@ -101,7 +101,9 @@ const recentActivity: Activity[] = [
   { id: '4', message: 'Magic link sent to admin@example.com', time: '5 hours ago', icon: '✉️' },
 ];
 
-export default function DashboardPage() {
+export default function DashboardPage({ params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = use(params);
+
   const role = useMemo(() => {
     if (typeof window === 'undefined') return 'READ_ONLY_ADMIN' as OrgRole;
     try {
@@ -112,6 +114,12 @@ export default function DashboardPage() {
       return 'READ_ONLY_ADMIN' as OrgRole;
     }
   }, []);
+
+  const quickActions = useMemo(() =>
+    quickActionsBase.map(action => ({
+      ...action,
+      href: `/dashboard/${orgId}${action.path}`
+    })), [orgId]);
 
   const visibleKeys = new Set(roleVisibleTabs[role] || roleVisibleTabs.READ_ONLY_ADMIN);
   const visibleQuickActions = quickActions.filter((action) => visibleKeys.has(action.key));
