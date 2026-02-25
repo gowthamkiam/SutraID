@@ -74,6 +74,23 @@ export class CreateApplicationDto {
   @IsBoolean()
   isAiAgent?: boolean;
 
+  // Grant type controls
+  @IsOptional()
+  @IsBoolean()
+  allowROPC?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  allowClientCredentials?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  allowRefreshForROPC?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  pkceRequired?: boolean;
+
   // SAML Identity Provider Configuration
   @IsOptional()
   @IsString()

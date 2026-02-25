@@ -29,6 +29,7 @@
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.3.0",
+    "@nestjs/throttler": "^6.5.0",
     "@node-saml/passport-saml": "^5.1.0",
     "@prisma/client": "^5.8.0",
     "@types/passport": "^1.0.17",

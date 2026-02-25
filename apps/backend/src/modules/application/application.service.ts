@@ -8,6 +8,7 @@ import { OrganizationService } from '../organization/organization.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { OrgRole, ApplicationProtocol } from '@prisma/client';
 import { ApplicationUtils } from './utils/application.utils';
+import { OidcIdpService } from '../sso/services/oidc-idp.service';
 
 @Injectable()
 export class ApplicationService {
@@ -15,6 +16,7 @@ export class ApplicationService {
     private prisma: PrismaService,
     private organizationService: OrganizationService,
     private utils: ApplicationUtils,
+    private oidcIdpService: OidcIdpService,
   ) { }
 
   /**
@@ -84,6 +86,10 @@ export class ApplicationService {
         jwks: dto.jwks as any,
         dpopNonceEnabled: dto.dpopNonceEnabled ?? true,
         isAiAgent: dto.isAiAgent ?? false,
+        allowROPC: dto.allowROPC ?? false,
+        allowClientCredentials: dto.allowClientCredentials ?? false,
+        allowRefreshForROPC: dto.allowRefreshForROPC ?? false,
+        pkceRequired: dto.pkceRequired ?? true,
         samlEntityId: dto.samlEntityId,
         samlCertificate: samlCert,
         samlPrivateKey: samlKey,
@@ -169,7 +175,14 @@ export class ApplicationService {
       [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.APP_ADMIN],
     );
 
-    return this.prisma.application.update({
+    // Validate ROPC requires confidential client
+    const effectiveIsPublic = dto.isPublicClient ?? application.isPublicClient;
+    const effectiveAllowROPC = dto.allowROPC ?? application.allowROPC;
+    if (effectiveAllowROPC && effectiveIsPublic) {
+      throw new BadRequestException('ROPC requires a confidential client');
+    }
+
+    const updated = await this.prisma.application.update({
       where: { id: applicationId },
       data: {
         name: dto.name,
@@ -184,6 +197,10 @@ export class ApplicationService {
         requireDpop: dto.requireDpop,
         jwks: dto.jwks,
         dpopNonceEnabled: dto.dpopNonceEnabled,
+        allowROPC: dto.allowROPC,
+        allowClientCredentials: dto.allowClientCredentials,
+        allowRefreshForROPC: dto.allowRefreshForROPC,
+        pkceRequired: dto.pkceRequired,
         samlEntityId: dto.samlEntityId,
         samlSpEntityId: dto.samlSpEntityId,
         samlSpAcsUrl: dto.samlSpAcsUrl,
@@ -191,6 +208,18 @@ export class ApplicationService {
         samlAttributeMapping: dto.samlAttributeMapping,
       },
     });
+
+    // Invalidate cached OIDC provider instance when grant settings change
+    if (
+      dto.allowROPC !== undefined ||
+      dto.allowClientCredentials !== undefined ||
+      dto.allowRefreshForROPC !== undefined ||
+      dto.pkceRequired !== undefined
+    ) {
+      this.oidcIdpService.clearProviderCache(applicationId);
+    }
+
+    return updated;
   }
 
   /**

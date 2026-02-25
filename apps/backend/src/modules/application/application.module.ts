@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { ApplicationController } from './application.controller';
 import { ApplicationService } from './application.service';
 import { OauthController, OpenidConfigurationController } from './oauth.controller';
@@ -11,7 +12,17 @@ import { AuthModule } from '../auth/auth.module';
 import { SsoModule } from '../sso/sso.module';
 
 @Module({
-  imports: [PrismaModule, OrganizationModule, AuthModule, SsoModule],
+  imports: [
+    PrismaModule,
+    OrganizationModule,
+    AuthModule,
+    SsoModule,
+    ThrottlerModule.forRoot([{
+      name: 'ropc',
+      ttl: 60000,
+      limit: 5,
+    }]),
+  ],
   controllers: [
     ApplicationController,
     OauthController,
@@ -23,4 +34,3 @@ import { SsoModule } from '../sso/sso.module';
   exports: [ApplicationService],
 })
 export class ApplicationModule { }
-

@@ -34,6 +34,12 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
   const [assignedGroupIds, setAssignedGroupIds] = useState<string[]>([]);
   const [savingAssignments, setSavingAssignments] = useState(false);
 
+  // Grant type controls
+  const [allowROPC, setAllowROPC] = useState(false);
+  const [allowClientCredentials, setAllowClientCredentials] = useState(false);
+  const [allowRefreshForROPC, setAllowRefreshForROPC] = useState(false);
+  const [pkceRequired, setPkceRequired] = useState(true);
+
   // SAML
   const [samlSpEntityId, setSamlSpEntityId] = useState('');
   const [samlSpAcsUrl, setSamlSpAcsUrl] = useState('');
@@ -60,6 +66,10 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
       setIsPublicClient(data.isPublicClient);
       setRequireDpop(data.requireDpop);
       setIsAiAgent(data.isAiAgent);
+      setAllowROPC(data.allowROPC ?? false);
+      setAllowClientCredentials(data.allowClientCredentials ?? false);
+      setAllowRefreshForROPC(data.allowRefreshForROPC ?? false);
+      setPkceRequired(data.pkceRequired ?? true);
       setSamlSpEntityId(data.samlSpEntityId || '');
       setSamlSpAcsUrl(data.samlSpAcsUrl || '');
       setSamlNameIdFormat(data.samlNameIdFormat || 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress');
@@ -109,6 +119,10 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
         isPublicClient,
         requireDpop,
         isAiAgent,
+        allowROPC,
+        allowClientCredentials,
+        allowRefreshForROPC,
+        pkceRequired,
         samlSpEntityId: samlSpEntityId || undefined,
         samlSpAcsUrl: samlSpAcsUrl || undefined,
         samlNameIdFormat: samlNameIdFormat || undefined,
@@ -442,6 +456,63 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
                 </div>
               </div>
             </div>
+
+            {/* Grant Type Controls */}
+            <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>Grant Type Controls</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <button type="button" onClick={() => setPkceRequired(!pkceRequired)} style={toggleStyle(pkceRequired)}>
+                    {pkceRequired ? '\u25CF ' : '\u25CB '}Require PKCE
+                  </button>
+                  <button type="button" onClick={() => setAllowClientCredentials(!allowClientCredentials)} style={toggleStyle(allowClientCredentials)}>
+                    {allowClientCredentials ? '\u25CF ' : '\u25CB '}Allow Client Credentials
+                  </button>
+                  <button type="button" onClick={() => {
+                    if (isPublicClient && !allowROPC) {
+                      setError('ROPC requires a confidential client. Disable "Public Client" first.');
+                      return;
+                    }
+                    setAllowROPC(!allowROPC);
+                  }} style={toggleStyle(allowROPC)}>
+                    {allowROPC ? '\u25CF ' : '\u25CB '}Allow ROPC (Password Grant)
+                  </button>
+                </div>
+
+                {allowROPC && (
+                  <div style={{
+                    background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)',
+                    borderRadius: '8px', padding: '1rem',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <span style={{
+                        padding: '0.15rem 0.5rem', borderRadius: '3px', fontSize: '0.65rem', fontWeight: '700',
+                        background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', fontFamily: 'system-ui',
+                      }}>LEGACY / HIGH RISK</span>
+                    </div>
+                    <p style={{ fontSize: '0.85rem', color: '#fca5a5', margin: '0 0 0.75rem' }}>
+                      ROPC is deprecated in OAuth 2.1. Use only for legacy systems that cannot support authorization code flow.
+                      ROPC issues access tokens only (no ID token). Rate limiting is enforced (5 attempts/min).
+                    </p>
+                    <button type="button" onClick={() => setAllowRefreshForROPC(!allowRefreshForROPC)} style={toggleStyle(allowRefreshForROPC)}>
+                      {allowRefreshForROPC ? '\u25CF ' : '\u25CB '}Issue Refresh Tokens for ROPC
+                    </button>
+                  </div>
+                )}
+
+                {allowClientCredentials && (
+                  <div style={{
+                    background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)',
+                    borderRadius: '8px', padding: '1rem',
+                  }}>
+                    <p style={{ fontSize: '0.85rem', color: '#34d399', margin: 0 }}>
+                      Client Credentials enabled: machine-to-machine authentication using client_id + client_secret.
+                      Issues access token only (no ID token, no refresh token). sub = client_id.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -618,6 +689,61 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
  * Client-type-aware guide with PKCE flow, quick test URL, and grant types
  * ========================================================================= */
 
+function TokenResultPanel({ result, preStyle }: { result: any; preStyle: React.CSSProperties }) {
+  const decoded = (() => {
+    try {
+      if (!result?.access_token) return null;
+      const parts = result.access_token.split('.');
+      if (parts.length < 2) return null;
+      return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    } catch { return null; }
+  })();
+
+  return (
+    <div style={{ marginTop: '1rem' }}>
+      {result.error && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: '8px', padding: '1rem',
+        }}>
+          <p style={{ fontSize: '0.85rem', color: '#fca5a5', margin: 0 }}>
+            <strong>Error:</strong> {result.error} {result.error_description ? `- ${result.error_description}` : ''}
+          </p>
+        </div>
+      )}
+      {result.access_token && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div>
+            <label style={{ fontWeight: 600, fontSize: '0.8rem', display: 'block', marginBottom: '0.25rem', color: 'var(--text-primary, #e6edf3)' }}>Access Token</label>
+            <pre style={{ ...preStyle, fontSize: '0.7rem', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>{result.access_token}</pre>
+          </div>
+          {decoded && (
+            <div>
+              <label style={{ fontWeight: 600, fontSize: '0.8rem', display: 'block', marginBottom: '0.25rem', color: 'var(--text-primary, #e6edf3)' }}>Decoded Payload</label>
+              <pre style={{ ...preStyle, fontSize: '0.75rem' }}>{JSON.stringify(decoded, null, 2)}</pre>
+            </div>
+          )}
+          {result.refresh_token && (
+            <div>
+              <label style={{ fontWeight: 600, fontSize: '0.8rem', display: 'block', marginBottom: '0.25rem', color: 'var(--text-primary, #e6edf3)' }}>Refresh Token</label>
+              <pre style={{ ...preStyle, fontSize: '0.7rem', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>{result.refresh_token}</pre>
+            </div>
+          )}
+          {!result.id_token && (
+            <p style={{ fontSize: '0.8rem', color: '#7d8590', margin: 0 }}>No ID token issued (expected for this grant type).</p>
+          )}
+          {result.id_token && (
+            <div>
+              <label style={{ fontWeight: 600, fontSize: '0.8rem', display: 'block', marginBottom: '0.25rem', color: 'var(--text-primary, #e6edf3)' }}>ID Token</label>
+              <pre style={{ ...preStyle, fontSize: '0.7rem', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>{result.id_token}</pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IntegrationGuide({
   app,
   orgId,
@@ -635,6 +761,12 @@ function IntegrationGuide({
 }) {
   const [codeVerifier, setCodeVerifier] = useState<string | null>(null);
   const [testUrl, setTestUrl] = useState<string | null>(null);
+  const [ropcUsername, setRopcUsername] = useState('');
+  const [ropcPassword, setRopcPassword] = useState('');
+  const [ropcResult, setRopcResult] = useState<any>(null);
+  const [ccSecret, setCcSecret] = useState('');
+  const [ccResult, setCcResult] = useState<any>(null);
+  const [testLoading, setTestLoading] = useState(false);
 
   const cardStyle: React.CSSProperties = {
     background: 'var(--bg-card, #161b22)',
@@ -732,21 +864,21 @@ function IntegrationGuide({
       type: 'client_credentials',
       version: 'OAuth 2.0 / 2.1',
       useCase: 'Machine-to-machine / AI agent authentication',
-      active: appGrantTypes.includes('client_credentials'),
+      active: app.allowClientCredentials,
     },
     {
       type: 'implicit',
       version: 'OAuth 2.0 only',
-      useCase: 'Legacy SPAs (deprecated in OAuth 2.1)',
+      useCase: 'Legacy SPAs (not supported per OAuth 2.1)',
       active: false,
       deprecated: true,
     },
     {
       type: 'password',
-      version: 'OAuth 2.0 only',
-      useCase: 'Resource Owner Password (deprecated, not supported)',
-      active: false,
-      deprecated: true,
+      version: 'OAuth 2.0 (deprecated in 2.1)',
+      useCase: 'Legacy systems requiring direct username/password auth',
+      active: app.allowROPC,
+      deprecated: !app.allowROPC,
     },
     {
       type: 'urn:ietf:params:oauth:grant-type:device_code',
@@ -891,6 +1023,128 @@ ${applicationApi.getSamlMetadataUrl(orgId, appId)}
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ROPC Quick Test */}
+      {app.allowROPC && (
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: '600', margin: 0 }}>Quick Test: ROPC (Password Grant)</h2>
+            <span style={{
+              padding: '0.15rem 0.5rem', borderRadius: '3px', fontSize: '0.65rem', fontWeight: '700',
+              background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', fontFamily: 'system-ui',
+            }}>LEGACY</span>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', margin: '0 0 1rem' }}>
+            Test the ROPC flow. Issues access_token only (no ID token). All attempts are audit-logged.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <input
+              placeholder="Username (email)"
+              value={ropcUsername}
+              onChange={e => setRopcUsername(e.target.value)}
+              style={{ ...cardStyle, padding: '0.6rem 0.75rem', background: 'var(--bg-primary, #0f1419)', border: '1px solid var(--border-color, #30363d)', borderRadius: '6px', color: 'var(--text-primary, #e6edf3)', fontSize: '0.85rem' }}
+            />
+            <input
+              placeholder="Password"
+              type="password"
+              value={ropcPassword}
+              onChange={e => setRopcPassword(e.target.value)}
+              style={{ ...cardStyle, padding: '0.6rem 0.75rem', background: 'var(--bg-primary, #0f1419)', border: '1px solid var(--border-color, #30363d)', borderRadius: '6px', color: 'var(--text-primary, #e6edf3)', fontSize: '0.85rem' }}
+            />
+            <button
+              onClick={async () => {
+                setTestLoading(true);
+                setRopcResult(null);
+                try {
+                  const response = await fetch(tokenUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                      grant_type: 'password',
+                      client_id: clientId,
+                      username: ropcUsername,
+                      password: ropcPassword,
+                      scope: appScopes,
+                    }),
+                  });
+                  setRopcResult(await response.json());
+                } catch (err: any) {
+                  setRopcResult({ error: 'request_failed', error_description: err.message });
+                } finally {
+                  setTestLoading(false);
+                }
+              }}
+              disabled={testLoading || !ropcUsername || !ropcPassword}
+              style={{
+                padding: '0.65rem 1.25rem', background: 'rgba(239, 68, 68, 0.15)',
+                color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600',
+                opacity: testLoading || !ropcUsername || !ropcPassword ? 0.5 : 1,
+                alignSelf: 'flex-start',
+              }}
+            >
+              {testLoading ? 'Testing...' : 'Test ROPC Grant'}
+            </button>
+          </div>
+          {ropcResult && <TokenResultPanel result={ropcResult} preStyle={preStyle} />}
+        </div>
+      )}
+
+      {/* Client Credentials Quick Test */}
+      {app.allowClientCredentials && !app.isPublicClient && (
+        <div style={cardStyle}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.75rem', marginTop: 0 }}>
+            Quick Test: Client Credentials
+          </h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', margin: '0 0 1rem' }}>
+            Test machine-to-machine authentication. Issues access_token only (no ID token, no refresh token). sub = client_id.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <input
+              placeholder="Client Secret"
+              type="password"
+              value={ccSecret}
+              onChange={e => setCcSecret(e.target.value)}
+              style={{ padding: '0.6rem 0.75rem', background: 'var(--bg-primary, #0f1419)', border: '1px solid var(--border-color, #30363d)', borderRadius: '6px', color: 'var(--text-primary, #e6edf3)', fontSize: '0.85rem' }}
+            />
+            <button
+              onClick={async () => {
+                setTestLoading(true);
+                setCcResult(null);
+                try {
+                  const response = await fetch(tokenUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                      grant_type: 'client_credentials',
+                      client_id: clientId,
+                      client_secret: ccSecret,
+                      scope: appScopes,
+                    }),
+                  });
+                  setCcResult(await response.json());
+                } catch (err: any) {
+                  setCcResult({ error: 'request_failed', error_description: err.message });
+                } finally {
+                  setTestLoading(false);
+                }
+              }}
+              disabled={testLoading || !ccSecret}
+              style={{
+                padding: '0.65rem 1.25rem',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(52, 211, 153, 0.1))',
+                color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)',
+                borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600',
+                opacity: testLoading || !ccSecret ? 0.5 : 1,
+                alignSelf: 'flex-start',
+              }}
+            >
+              {testLoading ? 'Testing...' : 'Test Client Credentials'}
+            </button>
+          </div>
+          {ccResult && <TokenResultPanel result={ccResult} preStyle={preStyle} />}
         </div>
       )}
 
@@ -1230,7 +1484,7 @@ response = requests.get("https://your-api.com/resource",
             {[
               'PKCE required for all clients (S256)',
               'No implicit grant (use auth code + PKCE)',
-              'No password grant',
+              'ROPC disabled by default (legacy opt-in)',
               'Bearer + DPoP token binding',
               'One-time authorization codes',
               'Refresh token rotation',

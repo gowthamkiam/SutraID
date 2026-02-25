@@ -193,6 +193,11 @@ export interface Application {
   jwks?: any;
   dpopNonceEnabled: boolean;
   isAiAgent: boolean;
+  // Grant type controls
+  allowROPC: boolean;
+  allowClientCredentials: boolean;
+  allowRefreshForROPC: boolean;
+  pkceRequired: boolean;
   // SAML
   samlEntityId?: string;
   samlCertificate?: string;
@@ -222,6 +227,11 @@ export interface CreateApplicationDto {
   jwks?: any;
   dpopNonceEnabled?: boolean;
   isAiAgent?: boolean;
+  // Grant type controls
+  allowROPC?: boolean;
+  allowClientCredentials?: boolean;
+  allowRefreshForROPC?: boolean;
+  pkceRequired?: boolean;
   // SAML
   samlEntityId?: string;
   samlSpEntityId?: string;
