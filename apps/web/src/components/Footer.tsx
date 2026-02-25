@@ -134,11 +134,14 @@ export default function Footer() {
           <span style={{
             fontSize: '0.8rem',
           }}>
-            &copy; {new Date().getFullYear()} SutraID. All rights reserved.
+            &copy; {new Date().getFullYear()} SutraID
           </span>
-          <div style={{ display: 'flex', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
             <a href="/privacy" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Privacy</a>
             <a href="/security" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Security</a>
+            <a href="https://www.netlify.com" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center' }}>
+              <img src="https://www.netlify.com/assets/badges/netlify-badge-color-accent.svg" alt="Deploys by Netlify" />
+            </a>
           </div>
         </div>
       </div>

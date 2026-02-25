@@ -919,15 +919,15 @@ export interface OrgGroup {
 }
 
 export const roleVisibleTabs: Record<OrgRole, string[]> = {
-  SUPER_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'api-access', 'reports', 'settings'],
-  READ_ONLY_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'reports', 'settings'],
-  ORG_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'api-access', 'reports', 'settings'],
+  SUPER_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'oidc-config', 'api-access', 'policies', 'audit', 'settings'],
+  READ_ONLY_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'audit', 'settings'],
+  ORG_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'oidc-config', 'api-access', 'policies', 'audit', 'settings'],
   APP_ADMIN: ['dashboard', 'applications', 'api-access', 'settings'],
   USER_ADMIN: ['dashboard', 'users', 'groups', 'settings'],
   GROUP_MEMBERSHIP_ADMIN: ['dashboard', 'users', 'groups', 'directory', 'settings'],
   HELP_DESK_ADMIN: ['dashboard', 'users', 'settings'],
   MOBILE_ADMIN: ['dashboard', 'applications', 'settings'],
-  REPORT_ADMIN: ['dashboard', 'reports', 'settings'],
+  REPORT_ADMIN: ['dashboard', 'audit', 'settings'],
   API_ACCESS_MANAGEMENT_ADMIN: ['dashboard', 'applications', 'directory', 'api-access', 'settings'],
 };
 
