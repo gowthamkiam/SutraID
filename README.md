@@ -1,5 +1,12 @@
 # SutraID
 
+[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/deploy-status.svg)](https://www.netlify.com)
+
+<a href="https://www.netlify.com">
+  <img src="https://www.netlify.com/assets/badges/netlify-color-accent.svg" alt="Deploys by Netlify" />
+</a>
+
 ## Overview
 
 **SutraID** is an **AI-native Customer Identity and Access Management (CIAM) platform** you can self-host.  

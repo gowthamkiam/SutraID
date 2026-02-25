@@ -878,7 +878,7 @@ export class AuthService {
                       </div>
                       <div class="footer">
                         <p>SutraID – AI-Native Authentication</p>
-                        <p>© ${new Date().getFullYear()} SutraID. All rights reserved.</p>
+                        <p>© ${new Date().getFullYear()} SutraID</p>
                         <p><a href="https://sutraid.com/support">Need help?</a> | <a href="https://sutraid.com/privacy">Privacy Policy</a></p>
                       </div>
                     </div>
@@ -973,7 +973,7 @@ export class AuthService {
                     </div>
                     <div class="footer">
                       <p>SutraID - AI-Native Authentication</p>
-                      <p>&copy; ${new Date().getFullYear()} SutraID. All rights reserved.</p>
+                      <p>&copy; ${new Date().getFullYear()} SutraID</p>
                       <p><a href="https://sutraid.com/support">Need help?</a> | <a href="https://sutraid.com/privacy">Privacy Policy</a></p>
                     </div>
                   </div>
