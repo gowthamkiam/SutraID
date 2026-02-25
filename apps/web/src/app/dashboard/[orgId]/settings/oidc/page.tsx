@@ -441,7 +441,7 @@ function SecurityTab({ policy, orgId, appId, onRefresh }: { policy: OidcTokenPol
 
 function KeysTab({ keys, orgId, appId, onRefresh }: { keys: OidcSigningKey[], orgId: string, appId: string, onRefresh: () => void }) {
     const [showUpload, setShowUpload] = useState(false);
-    const [newKey, setNewKey] = useState({ kid: '', algorithm: 'RS256' as const, publicKey: '' });
+    const [newKey, setNewKey] = useState<{ kid: string; algorithm: 'RS256' | 'ES256'; publicKey: string }>({ kid: '', algorithm: 'RS256', publicKey: '' });
 
     const handleUploadKey = async () => {
         if (!newKey.kid || !newKey.publicKey) return;
