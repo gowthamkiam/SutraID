@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx prisma generate && mkdir -p public",
+  "buildCommand": "npx prisma generate && mkdir -p public && echo '{}' > public/.vercel",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "public",
   "framework": null,
