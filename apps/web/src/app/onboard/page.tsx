@@ -3,6 +3,19 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '0.875rem 1rem',
+  border: '1.5px solid #d1d5db',
+  borderRadius: '10px',
+  fontSize: '0.95rem',
+  outline: 'none',
+  transition: 'border-color 0.2s, box-shadow 0.2s',
+  boxSizing: 'border-box',
+  color: '#111827',
+  background: '#fff',
+};
+
 type Step = 'organization' | 'application' | 'members' | 'complete';
 
 interface OrganizationData {
@@ -46,30 +59,21 @@ export default function OnboardPage() {
   const [createdOrgId, setCreatedOrgId] = useState<string | null>(null);
   const [createdApp, setCreatedApp] = useState<any>(null);
 
-  // Auto-generate slug from org name
-  useEffect(() => {
-    if (currentStep === 'organization' && orgData.name && !orgData.slug) {
-      const slug = orgData.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
-      setOrgData((prev) => ({ ...prev, slug }));
-    }
-  }, [orgData.name, currentStep]);
+  // We will auto-generate slug in the onChange handler for the name below
 
   const handleCreateOrganization = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const accessToken = localStorage.getItem('accessToken');
+      const accessToken = localStorage.getItem('sutraid_access_token') || localStorage.getItem('accessToken');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
       const response = await fetch(`${apiUrl}/organizations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify(orgData),
       });
@@ -181,13 +185,14 @@ export default function OnboardPage() {
                 width: '40px',
                 height: '40px',
                 borderRadius: '50%',
-                background: index <= currentIndex ? '#000' : '#e5e7eb',
+                background: index <= currentIndex ? '#4f46e5' : 'rgba(255, 255, 255, 0.1)',
                 color: index <= currentIndex ? '#fff' : '#9ca3af',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontWeight: '600',
                 fontSize: '0.9rem',
+                border: index <= currentIndex ? 'none' : '1px solid rgba(255, 255, 255, 0.2)',
               }}
             >
               {step.number}
@@ -197,7 +202,7 @@ export default function OnboardPage() {
                 style={{
                   width: '80px',
                   height: '2px',
-                  background: index < currentIndex ? '#000' : '#e5e7eb',
+                  background: index < currentIndex ? '#4f46e5' : 'rgba(255, 255, 255, 0.1)',
                   margin: '0 0.5rem',
                 }}
               />
@@ -211,19 +216,31 @@ export default function OnboardPage() {
   return (
     <div
       style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
         minHeight: '100vh',
-        background: '#f9fafb',
-        fontFamily: 'system-ui, sans-serif',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
         padding: '2rem',
+        background: 'linear-gradient(160deg, #0a1628 0%, #0f2035 25%, #0d2847 50%, #0a2a3c 75%, #0e1f2f 100%)',
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
-      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '600px', width: '100%', position: 'relative', zIndex: 1 }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: '700', marginBottom: '0.5rem' }}>
-            🔐 Welcome to SutraID
+          <h1 style={{
+            fontSize: '2.5rem',
+            fontWeight: 700,
+            margin: '0 0 0.5rem 0',
+            letterSpacing: '-0.5px',
+            color: '#ffffff',
+          }}>
+            Welcome to <span style={{ color: '#4f46e5' }}>S</span>utra<span style={{ color: '#4f46e5' }}>ID</span>
           </h1>
-          <p style={{ color: '#666', fontSize: '1.1rem' }}>
+          <p style={{ color: '#9ca3af', fontSize: '1.1rem', margin: 0 }}>
             Let's get your organization set up
           </p>
         </div>
@@ -234,10 +251,10 @@ export default function OnboardPage() {
         {/* Content Card */}
         <div
           style={{
-            background: '#fff',
-            padding: '2.5rem',
-            borderRadius: '12px',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+            background: '#ffffff',
+            padding: '3rem 2.5rem',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)',
           }}
         >
           {error && (
@@ -273,6 +290,7 @@ export default function OnboardPage() {
                       fontSize: '0.9rem',
                       fontWeight: '500',
                       marginBottom: '0.5rem',
+                      color: '#374151',
                     }}
                   >
                     Organization Name *
@@ -280,14 +298,26 @@ export default function OnboardPage() {
                   <input
                     type="text"
                     value={orgData.name}
-                    onChange={(e) => setOrgData({ ...orgData, name: e.target.value })}
+                    onChange={(e) => {
+                      const newName = e.target.value;
+                      setOrgData({
+                        ...orgData,
+                        name: newName,
+                        slug: newName
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, '-')
+                          .replace(/(^-|-$)/g, '')
+                      });
+                    }}
                     placeholder="Acme Inc"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
+                    style={{ ...inputStyle }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#4f46e5';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#d1d5db';
+                      e.target.style.boxShadow = 'none';
                     }}
                   />
                 </div>
@@ -299,6 +329,7 @@ export default function OnboardPage() {
                       fontSize: '0.9rem',
                       fontWeight: '500',
                       marginBottom: '0.5rem',
+                      color: '#374151',
                     }}
                   >
                     URL Slug *
@@ -308,16 +339,17 @@ export default function OnboardPage() {
                     value={orgData.slug}
                     onChange={(e) => setOrgData({ ...orgData, slug: e.target.value })}
                     placeholder="acme-inc"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
-                      fontFamily: 'monospace',
+                    style={{ ...inputStyle, fontFamily: 'monospace' }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#4f46e5';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#d1d5db';
+                      e.target.style.boxShadow = 'none';
                     }}
                   />
-                  <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem' }}>
+                  <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.5rem' }}>
                     This will be used in URLs (lowercase letters, numbers, and hyphens only)
                   </p>
                 </div>
@@ -329,6 +361,7 @@ export default function OnboardPage() {
                       fontSize: '0.9rem',
                       fontWeight: '500',
                       marginBottom: '0.5rem',
+                      color: '#374151',
                     }}
                   >
                     Brand Color
@@ -340,9 +373,10 @@ export default function OnboardPage() {
                     style={{
                       width: '100px',
                       height: '50px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
+                      border: '1.5px solid #d1d5db',
+                      borderRadius: '10px',
                       cursor: 'pointer',
+                      padding: '0.2rem',
                     }}
                   />
                 </div>
@@ -354,14 +388,17 @@ export default function OnboardPage() {
                   disabled={!orgData.name || !orgData.slug || loading}
                   style={{
                     padding: '0.75rem 2rem',
-                    background: orgData.name && orgData.slug ? '#000' : '#d1d5db',
+                    background: orgData.name && orgData.slug ? '#4f46e5' : '#9ca3af',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: '6px',
+                    borderRadius: '50px',
                     fontSize: '1rem',
-                    fontWeight: '500',
+                    fontWeight: '600',
                     cursor: orgData.name && orgData.slug ? 'pointer' : 'not-allowed',
+                    transition: 'background 0.2s',
                   }}
+                  onMouseEnter={(e) => { if (orgData.name && orgData.slug && !loading) e.currentTarget.style.background = '#4338ca'; }}
+                  onMouseLeave={(e) => { if (orgData.name && orgData.slug && !loading) e.currentTarget.style.background = '#4f46e5'; }}
                 >
                   {loading ? 'Creating...' : 'Continue'}
                 </button>
@@ -387,6 +424,7 @@ export default function OnboardPage() {
                       fontSize: '0.9rem',
                       fontWeight: '500',
                       marginBottom: '0.5rem',
+                      color: '#374151',
                     }}
                   >
                     Application Name
@@ -396,12 +434,14 @@ export default function OnboardPage() {
                     value={appData.name}
                     onChange={(e) => setAppData({ ...appData, name: e.target.value })}
                     placeholder="My Web App"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
+                    style={{ ...inputStyle }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#4f46e5';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#d1d5db';
+                      e.target.style.boxShadow = 'none';
                     }}
                   />
                 </div>
@@ -413,6 +453,7 @@ export default function OnboardPage() {
                       fontSize: '0.9rem',
                       fontWeight: '500',
                       marginBottom: '0.5rem',
+                      color: '#374151',
                     }}
                   >
                     Application Type
@@ -422,12 +463,14 @@ export default function OnboardPage() {
                     onChange={(e) =>
                       setAppData({ ...appData, type: e.target.value as any })
                     }
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
+                    style={{ ...inputStyle, cursor: 'pointer' }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#4f46e5';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#d1d5db';
+                      e.target.style.boxShadow = 'none';
                     }}
                   >
                     <option value="WEB">Web Application</option>
@@ -444,6 +487,7 @@ export default function OnboardPage() {
                       fontSize: '0.9rem',
                       fontWeight: '500',
                       marginBottom: '0.5rem',
+                      color: '#374151',
                     }}
                   >
                     Redirect URI
@@ -455,12 +499,14 @@ export default function OnboardPage() {
                       setAppData({ ...appData, redirectUris: [e.target.value] })
                     }
                     placeholder="http://localhost:3000/callback"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
+                    style={{ ...inputStyle }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#4f46e5';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#d1d5db';
+                      e.target.style.boxShadow = 'none';
                     }}
                   />
                 </div>
@@ -478,13 +524,16 @@ export default function OnboardPage() {
                   style={{
                     padding: '0.75rem 2rem',
                     background: '#fff',
-                    color: '#000',
+                    color: '#374151',
                     border: '1px solid #d1d5db',
-                    borderRadius: '6px',
+                    borderRadius: '50px',
                     fontSize: '1rem',
-                    fontWeight: '500',
+                    fontWeight: '600',
                     cursor: 'pointer',
+                    transition: 'all 0.2s',
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
                 >
                   Skip for now
                 </button>
@@ -493,14 +542,17 @@ export default function OnboardPage() {
                   disabled={!appData.name || loading}
                   style={{
                     padding: '0.75rem 2rem',
-                    background: appData.name ? '#000' : '#d1d5db',
+                    background: appData.name ? '#4f46e5' : '#9ca3af',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: '6px',
+                    borderRadius: '50px',
                     fontSize: '1rem',
-                    fontWeight: '500',
+                    fontWeight: '600',
                     cursor: appData.name ? 'pointer' : 'not-allowed',
+                    transition: 'background 0.2s',
                   }}
+                  onMouseEnter={(e) => { if (appData.name && !loading) e.currentTarget.style.background = '#4338ca'; }}
+                  onMouseLeave={(e) => { if (appData.name && !loading) e.currentTarget.style.background = '#4f46e5'; }}
                 >
                   {loading ? 'Creating...' : 'Continue'}
                 </button>
@@ -533,11 +585,14 @@ export default function OnboardPage() {
                         setMembers(newMembers);
                       }}
                       placeholder="colleague@example.com"
-                      style={{
-                        padding: '0.75rem',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '1rem',
+                      style={{ ...inputStyle }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = '#4f46e5';
+                        e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = '#d1d5db';
+                        e.target.style.boxShadow = 'none';
                       }}
                     />
                     <select
@@ -547,11 +602,14 @@ export default function OnboardPage() {
                         newMembers[index].role = e.target.value as any;
                         setMembers(newMembers);
                       }}
-                      style={{
-                        padding: '0.75rem',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '1rem',
+                      style={{ ...inputStyle, cursor: 'pointer' }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = '#4f46e5';
+                        e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = '#d1d5db';
+                        e.target.style.boxShadow = 'none';
                       }}
                     >
                       <option value="ADMIN">Admin</option>
@@ -562,13 +620,19 @@ export default function OnboardPage() {
                       <button
                         onClick={() => setMembers(members.filter((_, i) => i !== index))}
                         style={{
-                          padding: '0.75rem',
+                          padding: '0 0.875rem',
                           background: '#fff',
                           color: '#991b1b',
-                          border: '1px solid #fecaca',
-                          borderRadius: '6px',
+                          border: '1.5px solid #fecaca',
+                          borderRadius: '10px',
                           cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                         }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
                       >
                         ✕
                       </button>
@@ -579,13 +643,23 @@ export default function OnboardPage() {
                 <button
                   onClick={() => setMembers([...members, { email: '', role: 'DEVELOPER' }])}
                   style={{
-                    padding: '0.75rem',
+                    padding: '0.875rem',
                     background: '#fff',
-                    color: '#000',
-                    border: '1px dashed #d1d5db',
-                    borderRadius: '6px',
+                    color: '#374151',
+                    border: '1.5px dashed #d1d5db',
+                    borderRadius: '10px',
                     cursor: 'pointer',
-                    fontSize: '1rem',
+                    fontSize: '0.95rem',
+                    fontWeight: 500,
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#9ca3af';
+                    e.currentTarget.style.background = '#f9fafb';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#d1d5db';
+                    e.currentTarget.style.background = '#fff';
                   }}
                 >
                   + Add another member
@@ -604,13 +678,16 @@ export default function OnboardPage() {
                   style={{
                     padding: '0.75rem 2rem',
                     background: '#fff',
-                    color: '#000',
+                    color: '#374151',
                     border: '1px solid #d1d5db',
-                    borderRadius: '6px',
+                    borderRadius: '50px',
                     fontSize: '1rem',
-                    fontWeight: '500',
+                    fontWeight: '600',
                     cursor: 'pointer',
+                    transition: 'all 0.2s',
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
                 >
                   Skip for now
                 </button>
@@ -619,14 +696,17 @@ export default function OnboardPage() {
                   disabled={loading}
                   style={{
                     padding: '0.75rem 2rem',
-                    background: '#000',
+                    background: loading ? '#9ca3af' : '#4f46e5',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: '6px',
+                    borderRadius: '50px',
                     fontSize: '1rem',
-                    fontWeight: '500',
-                    cursor: 'pointer',
+                    fontWeight: '600',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    transition: 'background 0.2s',
                   }}
+                  onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = '#4338ca'; }}
+                  onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = '#4f46e5'; }}
                 >
                   {loading ? 'Inviting...' : 'Send Invitations'}
                 </button>
@@ -712,14 +792,17 @@ export default function OnboardPage() {
                 onClick={() => router.push('/dashboard')}
                 style={{
                   padding: '0.75rem 2rem',
-                  background: '#000',
+                  background: '#4f46e5',
                   color: '#fff',
                   border: 'none',
-                  borderRadius: '6px',
+                  borderRadius: '50px',
                   fontSize: '1rem',
-                  fontWeight: '500',
+                  fontWeight: '600',
                   cursor: 'pointer',
+                  transition: 'background 0.2s',
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#4338ca'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#4f46e5'}
               >
                 Go to Dashboard
               </button>

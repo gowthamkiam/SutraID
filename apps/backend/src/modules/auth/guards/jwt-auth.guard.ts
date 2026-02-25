@@ -37,9 +37,10 @@ export class JwtAuthGuard implements CanActivate {
 
       // Get user from database via session
       const user = await this.authService.getUserFromToken(payload.jti as string);
-      if (!user.organizationId) {
-        throw new UnauthorizedException('Organization context missing');
-      }
+
+      // We don't throw if user.organizationId is missing here because
+      // users need to be able to create their first organization.
+      // Individual routes that require an org will check it themselves or via another guard.
 
       // Attach user and JWT ID to request
       request.user = {
