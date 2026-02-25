@@ -1,34 +1,34 @@
-import { NestFactory } from '@nestjs/core';
-import { ExpressAdapter } from '@nestjs/platform-express';
-import { RequestMethod, ValidationPipe, INestApplication } from '@nestjs/common';
-import express, { Request, Response } from 'express';
-import cookieParser from 'cookie-parser';
-import { AppModule } from '../src/app.module';
+const { NestFactory } = require('@nestjs/core');
+const { ExpressAdapter } = require('@nestjs/platform-express');
+const { ValidationPipe } = require('@nestjs/common');
+const express = require('express');
+const cookieParser = require('cookie-parser');
+const { AppModule } = require('../dist/app.module');
 
 const server = express();
-let cachedApp: INestApplication | null = null;
+let cachedApp = null;
 
 async function bootstrapServer() {
   if (!cachedApp) {
     const app = await NestFactory.create(
       AppModule,
       new ExpressAdapter(server),
-      { logger: ['error', 'warn', 'log'] }
+      { logger: ['error', 'warn', 'log'] },
     );
 
     app.use(cookieParser());
 
-    (app as any).useBodyParser('json', {
+    app.useBodyParser('json', {
       type: ['application/json', 'application/scim+json', 'application/*+json'],
     });
 
     app.setGlobalPrefix(process.env.API_PREFIX || 'api/v1', {
       exclude: [
-        { path: 'scim/v2/:orgRef', method: RequestMethod.ALL },
-        { path: 'scim/v2/:orgRef/(.*)', method: RequestMethod.ALL },
-        { path: '.well-known/(.*)', method: RequestMethod.ALL },
-        { path: 'oauth', method: RequestMethod.ALL },
-        { path: 'oauth/(.*)', method: RequestMethod.ALL },
+        { path: 'scim/v2/:orgRef', method: 6 },
+        { path: 'scim/v2/:orgRef/(.*)', method: 6 },
+        { path: '.well-known/(.*)', method: 6 },
+        { path: 'oauth', method: 6 },
+        { path: 'oauth/(.*)', method: 6 },
       ],
     });
 
@@ -59,7 +59,7 @@ async function bootstrapServer() {
   return cachedApp;
 }
 
-export default async (req: Request, res: Response) => {
+module.exports = async (req, res) => {
   await bootstrapServer();
   server(req, res);
 };
