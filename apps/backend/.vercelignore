@@ -6,11 +6,7 @@ node_modules
 *.log
 coverage
 test
-src
 .turbo
 .DS_Store
-prisma/migrations
 .git
 .gitignore
-README.md
-*.md
