@@ -1,5 +1,7 @@
 'use client';
 
+import { SutraLogo } from './SutraLogo';
+
 const footerSections = [
   {
     title: 'Product',
@@ -64,17 +66,8 @@ export default function Footer() {
         }}>
           {/* Brand Column */}
           <div>
-            <div style={{
-              fontSize: '1.4rem',
-              fontWeight: 900,
-              letterSpacing: '-0.03em',
-              display: 'flex',
-              alignItems: 'center',
-              marginBottom: '1rem',
-            }}>
-              <span style={{ color: '#6366f1' }}>S</span>
-              <span style={{ color: '#ffffff' }}>utra</span>
-              <span style={{ color: '#6366f1' }}>ID</span>
+            <div style={{ marginBottom: '1rem' }}>
+              <SutraLogo size={28} textColor="#ffffff" />
             </div>
             <p style={{
               color: '#9ca3af',

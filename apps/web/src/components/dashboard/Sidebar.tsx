@@ -16,6 +16,7 @@ import {
   Users,
   UsersRound,
 } from 'lucide-react';
+import { SutraLogoIcon } from '../SutraLogo';
 import { OrgRole, roleVisibleTabs } from '@/lib/api';
 
 interface SidebarProps {
@@ -81,18 +82,7 @@ export default function Sidebar({ collapsed, onToggle, user, onLogout, currentOr
       >
         {!collapsed ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #22d3ee 0%, #3b82f6 100%)',
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <Shield size={18} />
-            </div>
+            <SutraLogoIcon size={36} />
             <div>
               <div style={{ fontWeight: 700, letterSpacing: 0.2 }}>SutraID</div>
               {isSuperAdmin ? (
@@ -116,18 +106,7 @@ export default function Sidebar({ collapsed, onToggle, user, onLogout, currentOr
             </div>
           </div>
         ) : (
-          <div
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #22d3ee 0%, #3b82f6 100%)',
-              display: 'grid',
-              placeItems: 'center',
-            }}
-          >
-            <Shield size={18} />
-          </div>
+          <SutraLogoIcon size={36} />
         )}
 
         {!collapsed && (
