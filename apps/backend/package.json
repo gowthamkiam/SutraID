@@ -8,7 +8,7 @@
     "build": "prisma generate && nest build",
     "start": "node dist/main",
     "start:prod": "node dist/main",
-    "vercel-build": "npx prisma generate && npx @nestjs/cli build",
+    "vercel-build": "npx prisma generate",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "test": "jest --config jest.config.js",
     "test:watch": "jest --config jest.config.js --watch",

@@ -1,27 +1,20 @@
 {
   "version": 2,
-  "name": "sutraid-backend",
-  "buildCommand": "cd ../.. && pnpm install --frozen-lockfile && cd apps/backend && npx prisma generate && npx @nestjs/cli build",
-  "installCommand": "pnpm install --frozen-lockfile",
-  "outputDirectory": "dist",
-  "framework": null,
-  "functions": {
-    "dist/main.js": {
-      "runtime": "nodejs20.x",
-      "maxDuration": 60,
-      "memory": 1024,
-      "includeFiles": "node_modules/@prisma/client/**"
-    }
-  },
-  "routes": [
+  "builds": [
     {
-      "src": "/(.*)",
-      "dest": "/dist/main.js"
+      "src": "api/index.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["dist/**", "node_modules/@prisma/client/**", "node_modules/.prisma/**"]
+      }
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
-  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index.ts"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
