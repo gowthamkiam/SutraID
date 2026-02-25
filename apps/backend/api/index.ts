@@ -1,12 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import { RequestMethod, ValidationPipe } from '@nestjs/common';
-import * as express from 'express';
-import * as cookieParser from 'cookie-parser';
+import { RequestMethod, ValidationPipe, INestApplication } from '@nestjs/common';
+import express, { Request, Response } from 'express';
+import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 
 const server = express();
-let cachedApp;
+let cachedApp: INestApplication | null = null;
 
 async function bootstrapServer() {
   if (!cachedApp) {
@@ -59,7 +59,7 @@ async function bootstrapServer() {
   return cachedApp;
 }
 
-export default async (req, res) => {
+export default async (req: Request, res: Response) => {
   await bootstrapServer();
   server(req, res);
 };
