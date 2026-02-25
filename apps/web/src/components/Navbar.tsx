@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { SutraLogo } from './SutraLogo';
 
 const navLinks = [
   { label: 'Product', href: '#product' },
@@ -52,18 +53,10 @@ export default function Navbar() {
         alignItems: 'center',
         gap: '0.4rem',
       }}>
-        <div style={{
-          fontSize: '1.4rem',
-          fontWeight: 900,
-          letterSpacing: '-0.03em',
-          display: 'flex',
-          alignItems: 'center',
-          transition: 'color 0.3s ease',
-        }}>
-          <span style={{ color: '#6366f1' }}>S</span>
-          <span style={{ color: navTheme === 'dark' ? '#ffffff' : '#111827' }}>utra</span>
-          <span style={{ color: '#6366f1' }}>ID</span>
-        </div>
+        <SutraLogo
+          size={28}
+          textColor={navTheme === 'dark' ? '#ffffff' : '#111827'}
+        />
       </a>
 
       <div style={{
