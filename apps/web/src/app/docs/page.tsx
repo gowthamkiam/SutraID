@@ -60,6 +60,13 @@ const sections = [
     count: 3,
   },
   {
+    title: 'OIDC Configuration',
+    href: '/docs/api-reference/oidc-config',
+    description:
+      'Custom scopes, claims, regex rules, signing keys, and token policy management for OIDC applications.',
+    count: 11,
+  },
+  {
     title: 'Audit Logs',
     href: '/docs/api-reference/audit',
     description:
@@ -144,7 +151,7 @@ export default function DocsHomePage() {
             color: 'var(--text-secondary)',
           }}
         >
-          110 endpoints
+          121 endpoints
         </div>
         <div
           style={{
