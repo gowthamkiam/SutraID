@@ -23,6 +23,7 @@ describe('ApplicationService', () => {
       findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
     },
     organization: {
       findUnique: jest.fn(),
@@ -293,24 +294,27 @@ describe('ApplicationService', () => {
   });
 
   describe('remove', () => {
-    it('should archive application', async () => {
+    it('should delete application', async () => {
       mockPrismaService.application.findUnique.mockResolvedValue({
         id: 'app-1',
         organizationId: 'org-1',
       } as any);
 
       mockOrganizationService.checkPermission.mockResolvedValue({} as any);
-      mockPrismaService.application.update.mockResolvedValue({
+      const mockOidcTokenDeleteMany = jest.fn();
+      (service['prisma'] as any).oidcToken = { deleteMany: mockOidcTokenDeleteMany };
+      mockPrismaService.application.delete = jest.fn().mockResolvedValue({
         id: 'app-1',
-        status: 'ARCHIVED',
       } as any);
 
       const result = await service.remove('app-1', 'user-1');
 
-      expect(result.status).toBe('ARCHIVED');
-      expect(mockPrismaService.application.update).toHaveBeenCalledWith({
+      expect(mockOidcTokenDeleteMany).toHaveBeenCalledWith({
+        where: { applicationId: 'app-1' }
+      });
+      expect(result.id).toBe('app-1');
+      expect(mockPrismaService.application.delete).toHaveBeenCalledWith({
         where: { id: 'app-1' },
-        data: { status: 'ARCHIVED' },
       });
     });
 

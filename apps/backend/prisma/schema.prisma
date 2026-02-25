@@ -175,6 +175,7 @@ model Organization {
   maxApplications    Int                   @default(3)
   samlIdpCertificate String?
   samlIdpPrivateKey  String?
+  customLoginConfig  Json?
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
   applications       Application[]

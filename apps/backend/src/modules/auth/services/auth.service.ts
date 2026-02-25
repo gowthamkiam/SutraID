@@ -12,7 +12,7 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { AuthResponseDto } from '../dto';
+import { AuthResponseDto, OrgLookupResponseDto } from '../dto';
 import { AuditService } from '../../audit/audit.service';
 import { MfaService } from './mfa.service';
 import { Inject, forwardRef } from '@nestjs/common';
@@ -384,6 +384,51 @@ export class AuthService {
     });
 
     return session;
+  }
+
+  async findOrgByIdentifier(identifier: string): Promise<OrgLookupResponseDto> {
+    const trimmed = (identifier || '').trim();
+    if (!trimmed) {
+      throw new BadRequestException('Organization identifier is required');
+    }
+
+    const selectFields = {
+      id: true,
+      name: true,
+      slug: true,
+      logoUrl: true,
+      primaryColor: true,
+      customLoginConfig: true,
+      status: true,
+    };
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let org: any = null;
+
+    if (uuidRegex.test(trimmed)) {
+      org = await this.prisma.organization.findUnique({
+        where: { id: trimmed },
+        select: selectFields,
+      });
+    } else {
+      org = await this.prisma.organization.findFirst({
+        where: { slug: { equals: trimmed, mode: 'insensitive' } },
+        select: selectFields,
+      });
+    }
+
+    if (!org || org.status !== 'ACTIVE') {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return {
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      logoUrl: org.logoUrl,
+      primaryColor: org.primaryColor,
+      customLoginConfig: org.customLoginConfig as OrgLookupResponseDto['customLoginConfig'],
+    };
   }
 
   /**

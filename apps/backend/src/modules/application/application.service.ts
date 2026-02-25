@@ -273,9 +273,13 @@ export class ApplicationService {
       [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
     );
 
-    return this.prisma.application.update({
+    // Clean up orphaned OIDC tokens
+    await (this.prisma as any).oidcToken?.deleteMany({
+      where: { applicationId },
+    });
+
+    return this.prisma.application.delete({
       where: { id: applicationId },
-      data: { status: 'ARCHIVED' },
     });
   }
 

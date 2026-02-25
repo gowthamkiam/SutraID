@@ -1,6 +1,29 @@
 // API client utilities
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
+export interface OrgPublicInfo {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  primaryColor: string;
+  customLoginConfig: {
+    logoUrl?: string;
+    primaryColor?: string;
+    backgroundColor?: string;
+    customCss?: string;
+    customHtmlTemplate?: string;
+  } | null;
+}
+
+export async function orgLookup(identifier: string): Promise<OrgPublicInfo> {
+  const response = await fetch(`${API_URL}/auth/org-lookup/${encodeURIComponent(identifier)}`);
+  if (!response.ok) {
+    throw new Error('Organization not found');
+  }
+  return response.json();
+}
+
 export interface SsoProvider {
   id: string;
   organizationId: string;
