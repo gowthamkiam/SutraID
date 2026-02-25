@@ -94,11 +94,17 @@ export default function OidcSettingsPage() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                    <button style={{
+                    <button onClick={() => {
+                        if (selectedAppId) {
+                            const discoveryUrl = applicationApi.getOidcDiscoveryUrl(orgId!, selectedAppId);
+                            window.open(discoveryUrl, '_blank');
+                        }
+                    }} disabled={!selectedAppId} style={{
                         display: 'flex', alignItems: 'center', gap: '8px',
                         padding: '10px 16px', borderRadius: '10px',
                         background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-                        color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600
+                        color: 'var(--text-primary)', cursor: selectedAppId ? 'pointer' : 'not-allowed',
+                        fontWeight: 600, opacity: selectedAppId ? 1 : 0.5
                     }}>
                         <Database size={18} />
                         Discovery Docs
@@ -282,19 +288,61 @@ function ScopesTab({ scopes, orgId, appId, onRefresh }: { scopes: OidcScope[], o
 }
 
 function ClaimsTab({ claims, regexRules, orgId, appId, onRefresh }: { claims: OidcClaim[], regexRules: OidcRegexRule[], orgId: string, appId: string, onRefresh: () => void }) {
+    const [showNewClaim, setShowNewClaim] = useState(false);
+    const [newClaim, setNewClaim] = useState({ name: '', userAttribute: '', targetTokens: ['ID_TOKEN' as const] });
+
+    const handleAddClaim = async () => {
+        if (!newClaim.name || !newClaim.userAttribute) return;
+        await oidcConfigApi.createClaim(orgId, appId, newClaim);
+        setNewClaim({ name: '', userAttribute: '', targetTokens: ['ID_TOKEN'] });
+        setShowNewClaim(false);
+        onRefresh();
+    };
+
     return (
         <div>
             <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Claim Mappings</h2>
-                <button style={{
+                <button onClick={() => setShowNewClaim(!showNewClaim)} style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
                     padding: '8px 16px', borderRadius: '8px',
                     background: 'var(--btn-primary-bg)', color: 'white',
                     border: 'none', cursor: 'pointer', fontWeight: 600
                 }}>
-                    <Plus size={18} /> New Claim
+                    <Plus size={18} /> {showNewClaim ? 'Cancel' : 'New Claim'}
                 </button>
             </div>
+
+            {showNewClaim && (
+                <div style={{
+                    marginBottom: '24px', padding: '20px', borderRadius: '12px',
+                    background: 'var(--bg-badge)', border: '1px solid var(--border-color)'
+                }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <input
+                            placeholder="Claim name (e.g., given_name, family_name)"
+                            value={newClaim.name}
+                            onChange={e => setNewClaim({ ...newClaim, name: e.target.value })}
+                            style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                        />
+                        <input
+                            placeholder="User attribute (e.g., firstName, email)"
+                            value={newClaim.userAttribute}
+                            onChange={e => setNewClaim({ ...newClaim, userAttribute: e.target.value })}
+                            style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                        />
+                        <button onClick={handleAddClaim} disabled={!newClaim.name || !newClaim.userAttribute} style={{
+                            padding: '10px', borderRadius: '8px',
+                            background: (!newClaim.name || !newClaim.userAttribute) ? '#4b5563' : 'var(--btn-primary-bg)',
+                            color: 'white', border: 'none',
+                            cursor: (!newClaim.name || !newClaim.userAttribute) ? 'not-allowed' : 'pointer',
+                            fontWeight: 600
+                        }}>
+                            Create Claim
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '20px' }}>
                 {claims.map(claim => (
@@ -392,19 +440,70 @@ function SecurityTab({ policy, orgId, appId, onRefresh }: { policy: OidcTokenPol
 }
 
 function KeysTab({ keys, orgId, appId, onRefresh }: { keys: OidcSigningKey[], orgId: string, appId: string, onRefresh: () => void }) {
+    const [showUpload, setShowUpload] = useState(false);
+    const [newKey, setNewKey] = useState({ kid: '', algorithm: 'RS256' as const, publicKey: '' });
+
+    const handleUploadKey = async () => {
+        if (!newKey.kid || !newKey.publicKey) return;
+        await oidcConfigApi.createSigningKey(orgId, appId, newKey);
+        setNewKey({ kid: '', algorithm: 'RS256', publicKey: '' });
+        setShowUpload(false);
+        onRefresh();
+    };
+
     return (
         <div>
             <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Signing Keys (JWS)</h2>
-                <button style={{
+                <button onClick={() => setShowUpload(!showUpload)} style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
                     padding: '8px 16px', borderRadius: '8px',
                     background: 'var(--btn-primary-bg)', color: 'white',
                     border: 'none', cursor: 'pointer', fontWeight: 600
                 }}>
-                    <Plus size={18} /> Upload Key
+                    <Plus size={18} /> {showUpload ? 'Cancel' : 'Upload Key'}
                 </button>
             </div>
+
+            {showUpload && (
+                <div style={{
+                    marginBottom: '24px', padding: '20px', borderRadius: '12px',
+                    background: 'var(--bg-badge)', border: '1px solid var(--border-color)'
+                }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <input
+                            placeholder="Key ID (kid)"
+                            value={newKey.kid}
+                            onChange={e => setNewKey({ ...newKey, kid: e.target.value })}
+                            style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                        />
+                        <select
+                            value={newKey.algorithm}
+                            onChange={e => setNewKey({ ...newKey, algorithm: e.target.value as 'RS256' | 'ES256' })}
+                            style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                        >
+                            <option value="RS256">RS256</option>
+                            <option value="ES256">ES256</option>
+                        </select>
+                        <textarea
+                            placeholder="Public Key (PEM format)"
+                            value={newKey.publicKey}
+                            onChange={e => setNewKey({ ...newKey, publicKey: e.target.value })}
+                            rows={6}
+                            style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)', fontFamily: 'monospace', fontSize: '0.85rem' }}
+                        />
+                        <button onClick={handleUploadKey} disabled={!newKey.kid || !newKey.publicKey} style={{
+                            padding: '10px', borderRadius: '8px',
+                            background: (!newKey.kid || !newKey.publicKey) ? '#4b5563' : 'var(--btn-primary-bg)',
+                            color: 'white', border: 'none',
+                            cursor: (!newKey.kid || !newKey.publicKey) ? 'not-allowed' : 'pointer',
+                            fontWeight: 600
+                        }}>
+                            Upload Key
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {keys.map(key => (

@@ -30,6 +30,7 @@ export default function NewApplicationPage() {
   const [samlSpEntityId, setSamlSpEntityId] = useState('');
   const [samlSpAcsUrl, setSamlSpAcsUrl] = useState('');
   const [samlNameIdFormat, setSamlNameIdFormat] = useState('urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress');
+  const [samlAttributeMapping, setSamlAttributeMapping] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const stored = localStorage.getItem('currentOrgId');
@@ -57,11 +58,12 @@ export default function NewApplicationPage() {
         samlSpEntityId: protocol === 'SAML' ? samlSpEntityId || undefined : undefined,
         samlSpAcsUrl: protocol === 'SAML' ? samlSpAcsUrl || undefined : undefined,
         samlNameIdFormat: protocol === 'SAML' ? samlNameIdFormat : undefined,
+        samlAttributeMapping: protocol === 'SAML' && Object.keys(samlAttributeMapping).length > 0 ? samlAttributeMapping : undefined,
       });
       if (result.clientSecret) {
         setCreatedSecret(result.clientSecret);
       } else {
-        router.push('/dashboard/applications');
+        router.push(`/dashboard/${orgId}/applications`);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to create application');
@@ -131,7 +133,7 @@ export default function NewApplicationPage() {
           </div>
 
           <button
-            onClick={() => router.push('/dashboard/applications')}
+            onClick={() => router.push(`/dashboard/${orgId}/applications`)}
             style={{
               padding: '0.75rem 2rem', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
               color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer',
@@ -155,7 +157,7 @@ export default function NewApplicationPage() {
         padding: '1.25rem 2rem', position: 'sticky', top: 0, zIndex: 10
       }}>
         <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button onClick={() => router.push('/dashboard/applications')} style={{
+          <button onClick={() => router.push(`/dashboard/${orgId}/applications`)} style={{
             background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color, #30363d)',
             borderRadius: '8px', padding: '0.5rem 0.75rem', cursor: 'pointer', fontSize: '1.1rem',
             color: 'var(--text-secondary, #7d8590)'
@@ -260,37 +262,72 @@ export default function NewApplicationPage() {
 
           {/* SAML-specific */}
           {protocol === 'SAML' && (
-            <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem' }}>SAML 2.0 Settings</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label style={labelStyle}>SP Entity ID</label>
-                  <input type="text" value={samlSpEntityId} onChange={(e) => setSamlSpEntityId(e.target.value)}
-                    placeholder="https://app.example.com/saml/metadata" style={inputStyle} />
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary, #6e7681)', marginTop: '0.25rem' }}>
-                    The Entity ID of the Service Provider you are connecting to
-                  </p>
-                </div>
-                <div>
-                  <label style={labelStyle}>SP ACS URL</label>
-                  <input type="text" value={samlSpAcsUrl} onChange={(e) => setSamlSpAcsUrl(e.target.value)}
-                    placeholder="https://app.example.com/saml/acs" style={inputStyle} />
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary, #6e7681)', marginTop: '0.25rem' }}>
-                    Assertion Consumer Service URL where SAML responses are sent
-                  </p>
-                </div>
-                <div>
-                  <label style={labelStyle}>NameID Format</label>
-                  <select value={samlNameIdFormat} onChange={(e) => setSamlNameIdFormat(e.target.value)}
-                    style={{ ...inputStyle, appearance: 'auto' }}>
-                    <option value="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">Email Address</option>
-                    <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent">Persistent</option>
-                    <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">Transient</option>
-                    <option value="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified">Unspecified</option>
-                  </select>
+            <>
+              <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem' }}>SAML 2.0 Settings</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={labelStyle}>SP Entity ID</label>
+                    <input type="text" value={samlSpEntityId} onChange={(e) => setSamlSpEntityId(e.target.value)}
+                      placeholder="https://app.example.com/saml/metadata" style={inputStyle} />
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary, #6e7681)', marginTop: '0.25rem' }}>
+                      The Entity ID of the Service Provider you are connecting to
+                    </p>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>SP ACS URL</label>
+                    <input type="text" value={samlSpAcsUrl} onChange={(e) => setSamlSpAcsUrl(e.target.value)}
+                      placeholder="https://app.example.com/saml/acs" style={inputStyle} />
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary, #6e7681)', marginTop: '0.25rem' }}>
+                      Assertion Consumer Service URL where SAML responses are sent
+                    </p>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>NameID Format</label>
+                    <select value={samlNameIdFormat} onChange={(e) => setSamlNameIdFormat(e.target.value)}
+                      style={{ ...inputStyle, appearance: 'auto' }}>
+                      <option value="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">Email Address</option>
+                      <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent">Persistent</option>
+                      <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">Transient</option>
+                      <option value="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified">Unspecified</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
+
+              <div style={{ background: 'var(--bg-card, #161b22)', border: '1px solid var(--border-color, #30363d)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.5rem' }}>SAML Attribute Mapping</h2>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', marginBottom: '1rem' }}>
+                  Map SutraID user attributes to SAML assertion attributes expected by the Service Provider
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {Object.entries(samlAttributeMapping).map(([spAttr, idpAttr]) => (
+                    <div key={spAttr} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input type="text" value={spAttr} onChange={(e) => {
+                        const newMapping = { ...samlAttributeMapping };
+                        delete newMapping[spAttr];
+                        newMapping[e.target.value] = idpAttr;
+                        setSamlAttributeMapping(newMapping);
+                      }} placeholder="SP Attribute Name" style={{ ...inputStyle, flex: 1 }} />
+                      <span style={{ color: 'var(--text-secondary)' }}>→</span>
+                      <select value={idpAttr} onChange={(e) => setSamlAttributeMapping({ ...samlAttributeMapping, [spAttr]: e.target.value })} style={{ ...inputStyle, flex: 1 }}>
+                        <option value="email">email</option>
+                        <option value="firstName">firstName</option>
+                        <option value="lastName">lastName</option>
+                        <option value="displayName">displayName</option>
+                        <option value="userId">userId</option>
+                      </select>
+                      <button type="button" onClick={() => {
+                        const newMapping = { ...samlAttributeMapping };
+                        delete newMapping[spAttr];
+                        setSamlAttributeMapping(newMapping);
+                      }} style={{ padding: '0.5rem 0.75rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', cursor: 'pointer', fontSize: '0.85rem' }}>✕</button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setSamlAttributeMapping({ ...samlAttributeMapping, '': 'email' })} style={{ padding: '0.6rem 1rem', background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '8px', color: '#a5b4fc', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}>+ Add Attribute Mapping</button>
+                </div>
+              </div>
+            </>
           )}
 
           <button

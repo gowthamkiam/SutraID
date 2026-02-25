@@ -21,6 +21,9 @@ async function bootstrap() {
       { path: '.well-known/(.*)', method: RequestMethod.ALL },
       { path: 'oauth', method: RequestMethod.ALL },
       { path: 'oauth/(.*)', method: RequestMethod.ALL },
+      { path: 'saml/:orgId/:appId/metadata.xml', method: RequestMethod.GET },
+      { path: 'saml/:orgId/:appId/sso', method: RequestMethod.POST },
+      { path: 'guide/:orgSlug/:appId', method: RequestMethod.GET },
     ],
   });
 
