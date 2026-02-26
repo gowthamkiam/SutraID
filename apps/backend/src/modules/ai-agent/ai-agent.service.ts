@@ -22,7 +22,10 @@ export class AiAgentService {
       echo: (params) => params,
     };
 
-    const handler = toolHandlers[dto.tool_name];
+    const handler = Object.prototype.hasOwnProperty.call(toolHandlers, dto.tool_name)
+      ? toolHandlers[dto.tool_name]
+      : null;
+
     if (!handler) {
       return {
         error: `Tool '${dto.tool_name}' not found`,
