@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ssoApi, SsoProvider } from '@/lib/api';
+import { ssoApi, SsoProvider, OrgRole } from '@/lib/api';
+import { useOrg } from '@/components/providers/OrgContextProvider';
+import { hasPermission } from '@/lib/permissions';
 import {
   ShieldCheck,
   Globe,
@@ -80,6 +82,11 @@ const providerTemplates: ProviderTemplate[] = [
 
 
 export default function SsoProvidersPage() {
+  const { orgRole } = useOrg();
+  const canCreate = hasPermission(orgRole as OrgRole, 'sso:create');
+  const canUpdate = hasPermission(orgRole as OrgRole, 'sso:update');
+  const canDelete = hasPermission(orgRole as OrgRole, 'sso:delete');
+
   const [providers, setProviders] = useState<SsoProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -174,23 +181,26 @@ export default function SsoProvidersPage() {
         </div>
         <button
           onClick={() => setShowTemplates(true)}
+          disabled={!canCreate}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            background: 'var(--btn-primary-bg)',
-            color: '#fff',
+            background: canCreate ? 'var(--btn-primary-bg)' : 'var(--btn-disabled-bg, #6b7280)',
+            color: canCreate ? '#fff' : 'var(--btn-disabled-text, #9ca3af)',
             border: 'none',
             padding: '12px 20px',
             borderRadius: '12px',
             fontWeight: '600',
             fontSize: '0.9rem',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
+            cursor: canCreate ? 'pointer' : 'not-allowed',
+            boxShadow: canCreate ? '0 4px 12px rgba(99, 102, 241, 0.25)' : 'none',
             transition: 'transform 0.2s',
+            opacity: canCreate ? 1 : 0.5,
           }}
-          onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-          onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+          onMouseEnter={e => canCreate && (e.currentTarget.style.transform = 'translateY(-2px)')}
+          onMouseLeave={e => canCreate && (e.currentTarget.style.transform = 'translateY(0)')}
+          title={!canCreate ? 'You do not have permission to create SSO connections' : ''}
         >
           <Plus size={18} />
           Add Connection
@@ -283,15 +293,18 @@ export default function SsoProvidersPage() {
           </p>
           <button
             onClick={() => setShowTemplates(true)}
+            disabled={!canCreate}
             style={{
-              background: 'var(--bg-badge)',
+              background: canCreate ? 'var(--bg-badge)' : 'var(--btn-disabled-bg, #6b7280)',
               border: '1px solid var(--border-color)',
-              color: 'var(--text-primary)',
+              color: canCreate ? 'var(--text-primary)' : 'var(--btn-disabled-text, #9ca3af)',
               padding: '10px 24px',
               borderRadius: '10px',
               fontWeight: '600',
-              cursor: 'pointer',
+              cursor: canCreate ? 'pointer' : 'not-allowed',
+              opacity: canCreate ? 1 : 0.5,
             }}
+            title={!canCreate ? 'You do not have permission to create SSO connections' : ''}
           >
             Get Started
           </button>
@@ -357,73 +370,86 @@ export default function SsoProvidersPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '1.5rem' }}>
                     <button
                       onClick={() => router.push(`/dashboard/sso/providers/${provider.id}/edit`)}
+                      disabled={!canUpdate}
                       style={{
                         padding: '8px',
                         background: 'transparent',
                         border: '1px solid var(--border-color)',
                         borderRadius: '8px',
-                        color: 'var(--text-primary)',
+                        color: canUpdate ? 'var(--text-primary)' : 'var(--btn-disabled-text, #9ca3af)',
                         fontSize: '0.85rem',
                         fontWeight: '600',
-                        cursor: 'pointer',
+                        cursor: canUpdate ? 'pointer' : 'not-allowed',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '6px',
+                        opacity: canUpdate ? 1 : 0.5,
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      onMouseEnter={e => canUpdate && (e.currentTarget.style.background = 'var(--bg-hover)')}
+                      onMouseLeave={e => canUpdate && (e.currentTarget.style.background = 'transparent')}
+                      title={!canUpdate ? 'You do not have permission to configure SSO connections' : ''}
                     >
                       <Settings size={14} />
                       Config
                     </button>
                     <button
                       onClick={() => handleToggle(provider)}
+                      disabled={!canUpdate}
                       style={{
                         padding: '8px',
                         background: 'transparent',
                         border: '1px solid var(--border-color)',
                         borderRadius: '8px',
-                        color: provider.enabled ? '#ef4444' : '#10b981',
+                        color: canUpdate ? (provider.enabled ? '#ef4444' : '#10b981') : 'var(--btn-disabled-text, #9ca3af)',
                         fontSize: '0.85rem',
                         fontWeight: '600',
-                        cursor: 'pointer',
+                        cursor: canUpdate ? 'pointer' : 'not-allowed',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '6px',
+                        opacity: canUpdate ? 1 : 0.5,
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      onMouseEnter={e => canUpdate && (e.currentTarget.style.background = 'var(--bg-hover)')}
+                      onMouseLeave={e => canUpdate && (e.currentTarget.style.background = 'transparent')}
+                      title={!canUpdate ? 'You do not have permission to configure SSO connections' : ''}
                     >
                       {provider.enabled ? <X size={14} /> : <CheckCircle2 size={14} />}
                       {provider.enabled ? 'Disable' : 'Enable'}
                     </button>
                     <button
                       onClick={() => handleDelete(provider.id, provider.name)}
+                      disabled={!canDelete}
                       style={{
                         gridColumn: 'span 2',
                         padding: '8px',
                         background: 'transparent',
                         border: '1px solid transparent',
                         borderRadius: '8px',
-                        color: 'var(--text-tertiary)',
+                        color: canDelete ? 'var(--text-tertiary)' : 'var(--btn-disabled-text, #9ca3af)',
                         fontSize: '0.85rem',
-                        cursor: 'pointer',
+                        cursor: canDelete ? 'pointer' : 'not-allowed',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '6px',
                         marginTop: '4px',
+                        opacity: canDelete ? 1 : 0.5,
                       }}
                       onMouseEnter={e => {
-                        e.currentTarget.style.color = '#ef4444';
-                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)';
+                        if (canDelete) {
+                          e.currentTarget.style.color = '#ef4444';
+                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)';
+                        }
                       }}
                       onMouseLeave={e => {
-                        e.currentTarget.style.color = 'var(--text-tertiary)';
-                        e.currentTarget.style.background = 'transparent';
+                        if (canDelete) {
+                          e.currentTarget.style.color = 'var(--text-tertiary)';
+                          e.currentTarget.style.background = 'transparent';
+                        }
                       }}
+                      title={!canDelete ? 'You do not have permission to delete SSO connections' : ''}
                     >
                       <Trash2 size={14} />
                       Delete Connection
@@ -486,15 +512,17 @@ export default function SsoProvidersPage() {
 
                     <button
                       onClick={() => router.push(`/dashboard/sso/providers/${provider.id}/edit`)}
-                      style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}
-                      title="Configure"
+                      disabled={!canUpdate}
+                      style={{ background: 'transparent', border: 'none', color: canUpdate ? 'var(--text-secondary)' : 'var(--btn-disabled-text, #9ca3af)', cursor: canUpdate ? 'pointer' : 'not-allowed', padding: '4px', opacity: canUpdate ? 1 : 0.5 }}
+                      title={canUpdate ? 'Configure' : 'You do not have permission to configure SSO connections'}
                     >
                       <Settings size={18} />
                     </button>
                     <button
                       onClick={() => handleDelete(provider.id, provider.name)}
-                      style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: '4px' }}
-                      title="Delete"
+                      disabled={!canDelete}
+                      style={{ background: 'transparent', border: 'none', color: canDelete ? 'var(--text-tertiary)' : 'var(--btn-disabled-text, #9ca3af)', cursor: canDelete ? 'pointer' : 'not-allowed', padding: '4px', opacity: canDelete ? 1 : 0.5 }}
+                      title={canDelete ? 'Delete' : 'You do not have permission to delete SSO connections'}
                     >
                       <Trash2 size={18} />
                     </button>

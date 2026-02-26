@@ -18,11 +18,14 @@ import {
     Search,
     CheckCircle2
 } from 'lucide-react';
-import { oidcConfigApi, applicationApi, Application, OidcScope, OidcClaim, OidcRegexRule, OidcSigningKey, OidcTokenPolicy } from '@/lib/api';
+import { oidcConfigApi, applicationApi, Application, OidcScope, OidcClaim, OidcRegexRule, OidcSigningKey, OidcTokenPolicy, OrgRole } from '@/lib/api';
 import { useOrg } from '@/components/providers/OrgContextProvider';
+import { hasPermission } from '@/lib/permissions';
 
 export default function OidcSettingsPage() {
-    const { orgId } = useOrg();
+    const { orgId, orgRole } = useOrg();
+    const canUpdate = hasPermission(orgRole as OrgRole, 'settings:update');
+
     const [activeTab, setActiveTab] = useState<'scopes' | 'claims' | 'security' | 'keys' | 'regex'>('scopes');
     const [loading, setLoading] = useState(true);
     const [config, setConfig] = useState<any>(null);
@@ -210,21 +213,21 @@ export default function OidcSettingsPage() {
                 opacity: selectedAppId ? 1 : 0.5,
                 pointerEvents: selectedAppId ? 'auto' : 'none'
             }}>
-                {activeTab === 'scopes' && <ScopesTab scopes={config?.scopes || []} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} />}
-                {activeTab === 'claims' && <ClaimsTab claims={config?.claims || []} regexRules={config?.regexRules || []} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} />}
-                {activeTab === 'regex' && <RegexRulesTab rules={config?.regexRules || []} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} />}
-                {activeTab === 'security' && <SecurityTab policy={config?.tokenPolicy} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} />}
-                {activeTab === 'keys' && <KeysTab keys={config?.signingKeys || []} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} />}
+                {activeTab === 'scopes' && <ScopesTab scopes={config?.scopes || []} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} canUpdate={canUpdate} />}
+                {activeTab === 'claims' && <ClaimsTab claims={config?.claims || []} regexRules={config?.regexRules || []} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} canUpdate={canUpdate} />}
+                {activeTab === 'regex' && <RegexRulesTab rules={config?.regexRules || []} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} canUpdate={canUpdate} />}
+                {activeTab === 'security' && <SecurityTab policy={config?.tokenPolicy} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} canUpdate={canUpdate} />}
+                {activeTab === 'keys' && <KeysTab keys={config?.signingKeys || []} orgId={orgId!} appId={selectedAppId!} onRefresh={() => loadConfig(orgId!, selectedAppId!)} canUpdate={canUpdate} />}
             </main>
         </div>
     );
 }
 
-function ScopesTab({ scopes, orgId, appId, onRefresh }: { scopes: OidcScope[], orgId: string, appId: string, onRefresh: () => void }) {
+function ScopesTab({ scopes, orgId, appId, onRefresh, canUpdate }: { scopes: OidcScope[], orgId: string, appId: string, onRefresh: () => void, canUpdate: boolean }) {
     const [newScope, setNewScope] = useState({ name: '', description: '', isDefault: false });
 
     const handleAdd = async () => {
-        if (!newScope.name) return;
+        if (!newScope.name || !canUpdate) return;
         await oidcConfigApi.createScope(orgId, appId, newScope);
         setNewScope({ name: '', description: '', isDefault: false });
         onRefresh();
@@ -241,12 +244,12 @@ function ScopesTab({ scopes, orgId, appId, onRefresh }: { scopes: OidcScope[], o
                         onChange={e => setNewScope({ ...newScope, name: e.target.value })}
                         style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
                     />
-                    <button onClick={handleAdd} style={{
+                    <button onClick={handleAdd} disabled={!canUpdate} style={{
                         display: 'flex', alignItems: 'center', gap: '8px',
                         padding: '8px 16px', borderRadius: '8px',
-                        background: 'var(--btn-primary-bg)', color: 'white',
-                        border: 'none', cursor: 'pointer', fontWeight: 600
-                    }}>
+                        background: canUpdate ? 'var(--btn-primary-bg)' : 'var(--btn-disabled-bg, #6b7280)', color: canUpdate ? 'white' : 'var(--btn-disabled-text, #9ca3af)',
+                        border: 'none', cursor: canUpdate ? 'pointer' : 'not-allowed', fontWeight: 600, opacity: canUpdate ? 1 : 0.5
+                    }} title={!canUpdate ? 'You do not have permission to manage OIDC settings' : ''}>
                         <Plus size={18} /> Add Scope
                     </button>
                 </div>
@@ -287,12 +290,12 @@ function ScopesTab({ scopes, orgId, appId, onRefresh }: { scopes: OidcScope[], o
     );
 }
 
-function ClaimsTab({ claims, regexRules, orgId, appId, onRefresh }: { claims: OidcClaim[], regexRules: OidcRegexRule[], orgId: string, appId: string, onRefresh: () => void }) {
+function ClaimsTab({ claims, regexRules, orgId, appId, onRefresh, canUpdate }: { claims: OidcClaim[], regexRules: OidcRegexRule[], orgId: string, appId: string, onRefresh: () => void, canUpdate: boolean }) {
     const [showNewClaim, setShowNewClaim] = useState(false);
     const [newClaim, setNewClaim] = useState({ name: '', userAttribute: '', targetTokens: ['ID_TOKEN' as const] });
 
     const handleAddClaim = async () => {
-        if (!newClaim.name || !newClaim.userAttribute) return;
+        if (!newClaim.name || !newClaim.userAttribute || !canUpdate) return;
         await oidcConfigApi.createClaim(orgId, appId, newClaim);
         setNewClaim({ name: '', userAttribute: '', targetTokens: ['ID_TOKEN'] });
         setShowNewClaim(false);
@@ -303,12 +306,12 @@ function ClaimsTab({ claims, regexRules, orgId, appId, onRefresh }: { claims: Oi
         <div>
             <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Claim Mappings</h2>
-                <button onClick={() => setShowNewClaim(!showNewClaim)} style={{
+                <button onClick={() => setShowNewClaim(!showNewClaim)} disabled={!canUpdate} style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
                     padding: '8px 16px', borderRadius: '8px',
-                    background: 'var(--btn-primary-bg)', color: 'white',
-                    border: 'none', cursor: 'pointer', fontWeight: 600
-                }}>
+                    background: canUpdate ? 'var(--btn-primary-bg)' : 'var(--btn-disabled-bg, #6b7280)', color: canUpdate ? 'white' : 'var(--btn-disabled-text, #9ca3af)',
+                    border: 'none', cursor: canUpdate ? 'pointer' : 'not-allowed', fontWeight: 600, opacity: canUpdate ? 1 : 0.5
+                }} title={!canUpdate ? 'You do not have permission to manage OIDC settings' : ''}>
                     <Plus size={18} /> {showNewClaim ? 'Cancel' : 'New Claim'}
                 </button>
             </div>
@@ -380,10 +383,11 @@ function ClaimsTab({ claims, regexRules, orgId, appId, onRefresh }: { claims: Oi
     );
 }
 
-function SecurityTab({ policy, orgId, appId, onRefresh }: { policy: OidcTokenPolicy, orgId: string, appId: string, onRefresh: () => void }) {
+function SecurityTab({ policy, orgId, appId, onRefresh, canUpdate }: { policy: OidcTokenPolicy, orgId: string, appId: string, onRefresh: () => void, canUpdate: boolean }) {
     const [formData, setFormData] = useState(policy || {});
 
     const handleSave = async () => {
+        if (!canUpdate) return;
         await oidcConfigApi.updateTokenPolicy(orgId, appId, formData);
         onRefresh();
     };
@@ -426,12 +430,12 @@ function SecurityTab({ policy, orgId, appId, onRefresh }: { policy: OidcTokenPol
                     </div>
                 </div>
 
-                <button onClick={handleSave} style={{
+                <button onClick={handleSave} disabled={!canUpdate} style={{
                     display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center',
                     padding: '12px', borderRadius: '8px',
-                    background: 'var(--btn-primary-bg)', color: 'white',
-                    border: 'none', cursor: 'pointer', fontWeight: 700, marginTop: '12px'
-                }}>
+                    background: canUpdate ? 'var(--btn-primary-bg)' : 'var(--btn-disabled-bg, #6b7280)', color: canUpdate ? 'white' : 'var(--btn-disabled-text, #9ca3af)',
+                    border: 'none', cursor: canUpdate ? 'pointer' : 'not-allowed', fontWeight: 700, marginTop: '12px', opacity: canUpdate ? 1 : 0.5
+                }} title={!canUpdate ? 'You do not have permission to manage OIDC settings' : ''}>
                     <Save size={18} /> Save Policy
                 </button>
             </div>
@@ -439,12 +443,12 @@ function SecurityTab({ policy, orgId, appId, onRefresh }: { policy: OidcTokenPol
     );
 }
 
-function KeysTab({ keys, orgId, appId, onRefresh }: { keys: OidcSigningKey[], orgId: string, appId: string, onRefresh: () => void }) {
+function KeysTab({ keys, orgId, appId, onRefresh, canUpdate }: { keys: OidcSigningKey[], orgId: string, appId: string, onRefresh: () => void, canUpdate: boolean }) {
     const [showUpload, setShowUpload] = useState(false);
     const [newKey, setNewKey] = useState<{ kid: string; algorithm: 'RS256' | 'ES256'; publicKey: string }>({ kid: '', algorithm: 'RS256', publicKey: '' });
 
     const handleUploadKey = async () => {
-        if (!newKey.kid || !newKey.publicKey) return;
+        if (!newKey.kid || !newKey.publicKey || !canUpdate) return;
         await oidcConfigApi.createSigningKey(orgId, appId, newKey);
         setNewKey({ kid: '', algorithm: 'RS256', publicKey: '' });
         setShowUpload(false);
@@ -455,12 +459,12 @@ function KeysTab({ keys, orgId, appId, onRefresh }: { keys: OidcSigningKey[], or
         <div>
             <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Signing Keys (JWS)</h2>
-                <button onClick={() => setShowUpload(!showUpload)} style={{
+                <button onClick={() => setShowUpload(!showUpload)} disabled={!canUpdate} style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
                     padding: '8px 16px', borderRadius: '8px',
-                    background: 'var(--btn-primary-bg)', color: 'white',
-                    border: 'none', cursor: 'pointer', fontWeight: 600
-                }}>
+                    background: canUpdate ? 'var(--btn-primary-bg)' : 'var(--btn-disabled-bg, #6b7280)', color: canUpdate ? 'white' : 'var(--btn-disabled-text, #9ca3af)',
+                    border: 'none', cursor: canUpdate ? 'pointer' : 'not-allowed', fontWeight: 600, opacity: canUpdate ? 1 : 0.5
+                }} title={!canUpdate ? 'You do not have permission to manage OIDC settings' : ''}>
                     <Plus size={18} /> {showUpload ? 'Cancel' : 'Upload Key'}
                 </button>
             </div>
@@ -541,13 +545,13 @@ function KeysTab({ keys, orgId, appId, onRefresh }: { keys: OidcSigningKey[], or
     );
 }
 
-function RegexRulesTab({ rules, orgId, appId, onRefresh }: { rules: OidcRegexRule[], orgId: string, appId: string, onRefresh: () => void }) {
+function RegexRulesTab({ rules, orgId, appId, onRefresh, canUpdate }: { rules: OidcRegexRule[], orgId: string, appId: string, onRefresh: () => void, canUpdate: boolean }) {
     const [newRule, setNewRule] = useState({ name: '', pattern: '', replacement: '', flags: 'g' });
     const [testInput, setTestInput] = useState('');
     const [testResult, setTestResult] = useState('');
 
     const handleAdd = async () => {
-        if (!newRule.name || !newRule.pattern) return;
+        if (!newRule.name || !newRule.pattern || !canUpdate) return;
         await oidcConfigApi.createRegexRule(orgId, appId, newRule);
         setNewRule({ name: '', pattern: '', replacement: '', flags: 'g' });
         onRefresh();
@@ -594,11 +598,11 @@ function RegexRulesTab({ rules, orgId, appId, onRefresh }: { rules: OidcRegexRul
                             onChange={e => setNewRule({ ...newRule, replacement: e.target.value })}
                             style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)', fontFamily: 'monospace' }}
                         />
-                        <button onClick={handleAdd} style={{
+                        <button onClick={handleAdd} disabled={!canUpdate} style={{
                             padding: '12px', borderRadius: '8px',
-                            background: 'var(--btn-primary-bg)', color: 'white',
-                            border: 'none', cursor: 'pointer', fontWeight: 700
-                        }}>
+                            background: canUpdate ? 'var(--btn-primary-bg)' : 'var(--btn-disabled-bg, #6b7280)', color: canUpdate ? 'white' : 'var(--btn-disabled-text, #9ca3af)',
+                            border: 'none', cursor: canUpdate ? 'pointer' : 'not-allowed', fontWeight: 700, opacity: canUpdate ? 1 : 0.5
+                        }} title={!canUpdate ? 'You do not have permission to manage OIDC settings' : ''}>
                             Save Rule
                         </button>
                     </div>
