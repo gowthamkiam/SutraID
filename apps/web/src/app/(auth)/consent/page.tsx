@@ -68,8 +68,8 @@ function ConsentPageContent() {
 
         const data = await response.json();
         setInteraction(data);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load consent request');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load consent request');
       } finally {
         setLoading(false);
       }

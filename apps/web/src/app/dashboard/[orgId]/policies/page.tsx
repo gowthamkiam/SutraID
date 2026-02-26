@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { policyApi, Policy, CreatePolicyDto, OrgRole } from '@/lib/api';
 import { useOrg } from '@/components/providers/OrgContextProvider';
 import { hasPermission } from '@/lib/permissions';
@@ -191,9 +192,9 @@ export default function PoliciesPage() {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
-            <a href="/dashboard" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.85rem' }}>
+            <Link href="/dashboard" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.85rem' }}>
               ← Back to Dashboard
-            </a>
+            </Link>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary, #111827)', margin: '0.5rem 0 0' }}>
               Policies
             </h1>

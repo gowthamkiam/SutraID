@@ -204,7 +204,7 @@ export default function OnboardPage() {
             Welcome to <span style={{ color: '#4f46e5' }}>S</span>utra<span style={{ color: '#4f46e5' }}>ID</span>
           </h1>
           <p style={{ color: '#9ca3af', fontSize: '1.1rem', margin: 0 }}>
-            Let's get your organization set up
+            Let&apos;s get your organization set up
           </p>
         </div>
 
@@ -598,7 +598,7 @@ export default function OnboardPage() {
                 Check your email!
               </h2>
               <p style={{ color: '#4b5563', fontSize: '1.1rem', marginBottom: '2rem' }}>
-                We've sent a magic link to <strong>{adminEmail}</strong>.
+                We&apos;ve sent a magic link to <strong>{adminEmail}</strong>.
               </p>
               <p style={{ color: '#666', fontSize: '1.1rem', marginBottom: '2rem' }}>
                 Click the link in the email to automatically verify your account and access your new dashboard.

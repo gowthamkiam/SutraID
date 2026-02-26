@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { ssoApi } from '@/lib/api';
 
 export interface CustomLoginConfig {
@@ -381,14 +382,14 @@ export default function LoginForm({ organizationId, organizationName, branding }
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <label htmlFor="password" style={labelStyle}>Password</label>
                 {mode === 'password' && (
-                  <a
+                  <Link
                     href="/forgot-password"
                     style={{ fontSize: '0.8rem', color: accent, textDecoration: 'none', fontWeight: 500, marginBottom: '0.5rem' }}
                     onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
                     onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
                   >
                     Forgot password?
-                  </a>
+                  </Link>
                 )}
               </div>
               <input
@@ -509,15 +510,15 @@ export default function LoginForm({ organizationId, organizationName, branding }
                 Sign in with password
               </button>
               <div style={{ marginTop: '0.75rem' }}>
-                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>{"Don't have an account? "}</span>
-                <a
+                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>Don&apos;t have an account? </span>
+                <Link
                   href="/onboard"
                   style={{ color: accent, fontSize: '0.85rem', fontWeight: 500, textDecoration: 'none' }}
                   onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
                   onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
                 >
                   Sign up for a new organization
-                </a>
+                </Link>
               </div>
             </>
           )}
@@ -534,15 +535,15 @@ export default function LoginForm({ organizationId, organizationName, branding }
                 Sign in with magic link
               </button>
               <div style={{ marginTop: '0.75rem' }}>
-                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>{"Don't have an account? "}</span>
-                <a
+                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>Don&apos;t have an account? </span>
+                <Link
                   href="/onboard"
                   style={{ color: accent, fontSize: '0.85rem', fontWeight: 500, textDecoration: 'none' }}
                   onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
                   onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
                 >
                   Sign up for a new organization
-                </a>
+                </Link>
               </div>
             </>
           )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 const steps = [
     {
@@ -78,9 +79,9 @@ export default function IntegrationGuide() {
                     <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Guides</span>
                 </div>
                 <div style={{ display: 'flex', gap: '2rem', fontSize: '0.9rem', fontWeight: 500, color: '#64748b' }}>
-                    <a href="/" style={{ textDecoration: 'none', color: 'inherit' }}>Product</a>
-                    <a href="/dashboard" style={{ textDecoration: 'none', color: 'inherit' }}>Console</a>
-                    <a href="#" style={{ textDecoration: 'none', color: '#6366f1', fontWeight: 700 }}>Integration Guide</a>
+                    <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>Product</Link>
+                    <Link href="/dashboard" style={{ textDecoration: 'none', color: 'inherit' }}>Console</Link>
+                    <Link href="#" style={{ textDecoration: 'none', color: '#6366f1', fontWeight: 700 }}>Integration Guide</Link>
                 </div>
             </nav>
 
@@ -155,7 +156,7 @@ export default function IntegrationGuide() {
                         }}>
                             <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem', fontWeight: 800 }}>Animations Outline</h4>
                             <p style={{ fontSize: '0.85rem', color: '#64748b', lineHeight: 1.5, margin: 0 }}>
-                                Our marketing GIFs follow the <strong>"Sutra Flow"</strong>: Signup → Policy Config → Agent Onboarding → Successful Auth.
+                                Our marketing GIFs follow the <strong>&quot;Sutra Flow&quot;</strong>: Signup → Policy Config → Agent Onboarding → Successful Auth.
                             </p>
                         </div>
                     </div>
@@ -188,7 +189,7 @@ await sutra.organizations.configure({
                             <div>
                                 <h2 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '1.5rem' }}>Humans & AI Agents</h2>
                                 <p style={{ fontSize: '1.1rem', color: '#64748b', lineHeight: 1.6, marginBottom: '2rem' }}>
-                                    SutraID is the first platform to treat AI agents as first-class citizens. Whether it's a teammate or an LLM-powered bot, onboarding is seamless.
+                                    SutraID is the first platform to treat AI agents as first-class citizens. Whether it&apos;s a teammate or an LLM-powered bot, onboarding is seamless.
                                 </p>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
                                     <div style={{ padding: '1.25rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
@@ -245,7 +246,7 @@ window.location.href = sutra.getLoginUrl({
                                     <div style={{ color: '#fff', fontSize: '0.95rem', fontFamily: 'monospace' }}>
                                         <div>IF (user.risk_score {'>'} 0.4) </div>
                                         <div style={{ paddingLeft: '2rem', color: '#fbbf24' }}>REQUIRE passkey_mfa</div>
-                                        <div style={{ marginTop: '0.5rem' }}>IF (agent.type === 'AI' && resource.tier === 'SECURE')</div>
+                                        <div style={{ marginTop: '0.5rem' }}>IF (agent.type === &apos;AI&apos; && resource.tier === &apos;SECURE&apos;)</div>
                                         <div style={{ paddingLeft: '2rem', color: '#6366f1' }}>REQUEST jit_approval FROM manager</div>
                                     </div>
                                 </div>
@@ -315,16 +316,16 @@ const { decision, reason } = await sutra.policies.evaluate({
                 <h2 style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '1rem', letterSpacing: '-0.02em' }}>Ready to Integrate?</h2>
                 <p style={{ fontSize: '1.2rem', opacity: 0.9, marginBottom: '2.5rem' }}>Join 500+ teams building the future of AI-native authentication.</p>
                 <div style={{ display: 'flex', justifySelf: 'center', gap: '1rem' }}>
-                    <a href="/login" style={{
+                    <Link href="/login" style={{
                         background: '#fff', color: '#4338ca', padding: '1rem 2.5rem',
                         borderRadius: '12px', fontWeight: 700, textDecoration: 'none',
                         fontSize: '1.1rem'
-                    }}>Start Building Free</a>
-                    <a href="#" style={{
+                    }}>Start Building Free</Link>
+                    <Link href="#" style={{
                         background: 'rgba(255,255,255,0.1)', color: '#fff', padding: '1rem 2.5rem',
                         borderRadius: '12px', fontWeight: 700, textDecoration: 'none',
                         fontSize: '1.1rem', border: '1px solid rgba(255,255,255,0.2)'
-                    }}>View Full API Reference</a>
+                    }}>View Full API Reference</Link>
                 </div>
             </section>
 

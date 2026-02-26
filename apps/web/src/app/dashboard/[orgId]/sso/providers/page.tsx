@@ -626,7 +626,7 @@ export default function SsoProvidersPage() {
 
             <div style={{ padding: '1.5rem 2rem', borderTop: '1px solid var(--border-color)', background: 'var(--bg-badge)', display: 'flex', justifyContent: 'center' }}>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', margin: 0 }}>
-                Don't see your provider? Use <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Generic SAML</span> or <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Generic OIDC</span>.
+                Don&apos;t see your provider? Use <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Generic SAML</span> or <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Generic OIDC</span>.
               </p>
             </div>
           </div>

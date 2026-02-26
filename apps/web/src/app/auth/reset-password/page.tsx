@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 function ResetPasswordContent() {
   const searchParams = useSearchParams();
@@ -82,12 +83,12 @@ function ResetPasswordContent() {
           <p style={{ color: '#6b7280', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
             No reset token was provided. Please request a new password reset.
           </p>
-          <a href="/forgot-password" style={{
+          <Link href="/forgot-password" style={{
             display: 'inline-block', padding: '0.8rem 2rem', background: '#4f46e5', color: '#fff',
             textDecoration: 'none', borderRadius: '50px', fontSize: '0.95rem', fontWeight: 600,
           }}>
             Request New Link
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -141,12 +142,12 @@ function ResetPasswordContent() {
             <p style={{ color: '#374151', fontSize: '0.95rem', marginBottom: '2rem', lineHeight: 1.6 }}>
               Your password has been reset successfully. You can now sign in with your new password.
             </p>
-            <a href="/login" style={{
+            <Link href="/login" style={{
               display: 'inline-block', padding: '0.8rem 2rem', background: '#4f46e5', color: '#fff',
               textDecoration: 'none', borderRadius: '50px', fontSize: '0.95rem', fontWeight: 600,
             }}>
               Sign In
-            </a>
+            </Link>
           </div>
         ) : (
           <>
@@ -246,14 +247,14 @@ function ResetPasswordContent() {
             )}
 
             <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-              <a href="/login" style={{
+              <Link href="/login" style={{
                 color: '#4f46e5', fontSize: '0.9rem', textDecoration: 'none', fontWeight: 500,
               }}
                 onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
                 onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
               >
                 Back to Sign In
-              </a>
+              </Link>
             </div>
           </>
         )}

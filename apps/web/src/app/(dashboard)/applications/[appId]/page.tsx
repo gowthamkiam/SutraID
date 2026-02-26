@@ -515,7 +515,7 @@ export default function ApplicationDetailsPage() {
                   Client Secret
                 </label>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #8b949e)', marginBottom: '0.75rem' }}>
-                  The client secret is only shown once during creation. If you've lost it, you can rotate it.
+                  The client secret is only shown once during creation. If you&apos;ve lost it, you can rotate it.
                 </p>
                 <button
                   onClick={handleRotateSecret}

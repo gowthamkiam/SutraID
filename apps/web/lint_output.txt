@@ -1,0 +1,309 @@
+
+> @sutraid/web@0.1.0 lint
+> next lint
+
+`next lint` is deprecated and will be removed in Next.js 16.
+For new projects, use create-next-app to choose your preferred linter.
+For existing projects, migrate to the ESLint CLI:
+npx @next/codemod@canary next-lint-to-eslint-cli .
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/sanju/iglabs/SutraID/pnpm-lock.yaml as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/sanju/iglabs/SutraID/apps/web/package-lock.json
+
+
+./src/app/(auth)/consent/page.tsx
+112:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+258:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/app/(dashboard)/applications/[appId]/page.tsx
+81:6  Warning: React Hook useEffect has a missing dependency: 'loadApplication'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+107:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+150:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+183:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+210:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/(dashboard)/applications/[appId]/sso/page.tsx
+101:21  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+141:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+185:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+222:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+259:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/(dashboard)/applications/new/page.tsx
+53:48  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+129:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/(dashboard)/applications/page.tsx
+79:6  Warning: React Hook useEffect has a missing dependency: 'loadApplications'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+99:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+127:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/auth/change-password/page.tsx
+54:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/auth/consent/page.tsx
+45:6  Warning: React Hook useEffect has missing dependencies: 'appId' and 'loadInteraction'. Either include them or remove the dependency array.  react-hooks/exhaustive-deps
+66:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+98:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+154:15  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/app/auth/reset-password/page.tsx
+42:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/auth/verify/page.tsx
+56:21  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+185:13  Error: Do not use an `<a>` element to navigate to `/login/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+
+./src/app/dashboard/[orgId]/applications/[id]/page.tsx
+34:44  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+35:46  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+54:10  Warning: 'showAddClaim' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+54:24  Warning: 'setShowAddClaim' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+55:10  Warning: 'showAddRegexRule' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+55:28  Warning: 'setShowAddRegexRule' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+62:6  Warning: React Hook useEffect has missing dependencies: 'loadApp' and 'loadAssignments'. Either include them or remove the dependency array.  react-hooks/exhaustive-deps
+68:6  Warning: React Hook useEffect has a missing dependency: 'loadClaims'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+91:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+109:23  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+109:63  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+110:20  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+114:23  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+114:63  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+115:20  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+117:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+131:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+165:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+182:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+209:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+767:59  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+841:48  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+843:44  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+873:9  Warning: 'discoveryUrl' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+1200:31  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+1255:31  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+1690:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+1710:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/dashboard/[orgId]/applications/new/page.tsx
+78:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/dashboard/[orgId]/applications/page.tsx
+10:38  Warning: 'orgLoading' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+22:6  Warning: React Hook useEffect has a missing dependency: 'loadApps'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+31:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+43:11  Warning: 'verifier' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+70:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/dashboard/[orgId]/audit/page.tsx
+36:38  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+43:6  Warning: React Hook useEffect has missing dependencies: 'loadLogs' and 'loadStats'. Either include them or remove the dependency array.  react-hooks/exhaustive-deps
+58:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+120:38  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+235:45  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+235:76  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+235:108  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/dashboard/[orgId]/auth-policies/page.tsx
+9:5  Warning: 'Shield' is defined but never used.  @typescript-eslint/no-unused-vars
+10:5  Warning: 'KeyRound' is defined but never used.  @typescript-eslint/no-unused-vars
+18:5  Warning: 'Globe' is defined but never used.  @typescript-eslint/no-unused-vars
+26:11  Warning: 'orgId' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+41:27  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+60:23  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+236:70  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/dashboard/[orgId]/directory/page.tsx
+9:5  Warning: 'Shield' is defined but never used.  @typescript-eslint/no-unused-vars
+11:13  Warning: 'LinkIcon' is defined but never used.  @typescript-eslint/no-unused-vars
+16:5  Warning: 'Info' is defined but never used.  @typescript-eslint/no-unused-vars
+17:5  Warning: 'ChevronRight' is defined but never used.  @typescript-eslint/no-unused-vars
+18:5  Warning: 'Search' is defined but never used.  @typescript-eslint/no-unused-vars
+102:23  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+119:23  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+136:23  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/dashboard/[orgId]/groups/page.tsx
+14:40  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+15:38  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+22:52  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+46:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+56:6  Warning: React Hook useEffect has a missing dependency: 'loadData'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+64:29  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+70:39  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+71:51  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+154:61  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+155:66  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/dashboard/[orgId]/layout.tsx
+19:38  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/dashboard/[orgId]/page.tsx
+15:6  Warning: 'QuickAction' is defined but never used.  @typescript-eslint/no-unused-vars
+136:36  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+153:37  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+193:6  Warning: React Hook useEffect has a missing dependency: 'loadDashboardData'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/app/dashboard/[orgId]/policies/page.tsx
+39:48  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+64:6  Warning: React Hook useEffect has a missing dependency: 'loadPolicies'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+72:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+133:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+143:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+153:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+167:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+194:13  Error: Do not use an `<a>` element to navigate to `/dashboard/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+194:13  Error: Do not use an `<a>` element to navigate to `/dashboard/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+300:95  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/dashboard/[orgId]/settings/oidc/page.tsx
+9:5  Warning: 'Info' is defined but never used.  @typescript-eslint/no-unused-vars
+31:42  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+39:8  Warning: React Hook useEffect has a missing dependency: 'loadInitialData'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+139:67  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+293:30  Warning: 'regexRules' is defined but never used.  @typescript-eslint/no-unused-vars
+564:23  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/dashboard/[orgId]/settings/page.tsx
+3:21  Warning: 'useMemo' is defined but never used.  @typescript-eslint/no-unused-vars
+42:21  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+72:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/dashboard/[orgId]/sso/providers/[id]/edit/page.tsx
+5:18  Warning: 'SsoProvider' is defined but never used.  @typescript-eslint/no-unused-vars
+8:3  Warning: 'Globe' is defined but never used.  @typescript-eslint/no-unused-vars
+12:3  Warning: 'Info' is defined but never used.  @typescript-eslint/no-unused-vars
+13:3  Warning: 'CheckCircle2' is defined but never used.  @typescript-eslint/no-unused-vars
+16:3  Warning: 'FileCode' is defined but never used.  @typescript-eslint/no-unused-vars
+23:6  Warning: 'ProviderType' is defined but never used.  @typescript-eslint/no-unused-vars
+28:9  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+89:6  Warning: React Hook useEffect has a missing dependency: 'loadProvider'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+115:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+155:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+161:46  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/dashboard/[orgId]/sso/providers/new/page.tsx
+3:20  Warning: 'useEffect' is defined but never used.  @typescript-eslint/no-unused-vars
+21:6  Warning: 'ProviderType' is defined but never used.  @typescript-eslint/no-unused-vars
+26:9  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+92:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+107:46  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/dashboard/[orgId]/sso/providers/page.tsx
+16:3  Warning: 'MoreVertical' is defined but never used.  @typescript-eslint/no-unused-vars
+18:3  Warning: 'Play' is defined but never used.  @typescript-eslint/no-unused-vars
+25:3  Warning: 'ExternalLink' is defined but never used.  @typescript-eslint/no-unused-vars
+35:9  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+93:10  Warning: 'deleting' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+94:10  Warning: 'testing' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+94:19  Warning: 'setTesting' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+95:10  Warning: 'testResult' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+95:22  Warning: 'setTestResult' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+95:48  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+105:6  Warning: React Hook useEffect has a missing dependency: 'loadProviders'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+114:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+128:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+140:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+629:20  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+
+./src/app/dashboard/[orgId]/users/page.tsx
+29:38  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+30:40  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+40:50  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+78:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+88:6  Warning: React Hook useEffect has a missing dependency: 'loadData'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+140:27  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+148:38  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+149:52  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+219:59  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+220:65  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/forgot-password/page.tsx
+26:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+100:69  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+110:13  Error: Do not use an `<a>` element to navigate to `/login/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+135:46  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+224:13  Error: Do not use an `<a>` element to navigate to `/login/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+
+./src/app/integration-guide/page.tsx
+81:21  Error: Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+82:21  Error: Do not use an `<a>` element to navigate to `/dashboard/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+82:21  Error: Do not use an `<a>` element to navigate to `/dashboard/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+158:71  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+158:82  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+191:121  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+248:97  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+248:100  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+248:123  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+248:130  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+318:21  Error: Do not use an `<a>` element to navigate to `/login/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+
+./src/app/login/page.tsx
+38:6  Warning: React Hook useEffect has a missing dependency: 'resolveAndRedirect'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/app/onboard/page.tsx
+3:20  Warning: 'useEffect' is defined but never used.  @typescript-eslint/no-unused-vars
+33:11  Warning: 'MemberData' is defined but never used.  @typescript-eslint/no-unused-vars
+39:9  Warning: 'router' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+65:13  Warning: 'accessToken' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+75:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+125:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+207:16  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+425:72  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+601:19  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+
+./src/app/page.tsx
+5:3  Warning: 'Lock' is defined but never used.  @typescript-eslint/no-unused-vars
+9:3  Warning: 'ShieldAlert' is defined but never used.  @typescript-eslint/no-unused-vars
+13:3  Warning: 'Cpu' is defined but never used.  @typescript-eslint/no-unused-vars
+14:3  Warning: 'Layers' is defined but never used.  @typescript-eslint/no-unused-vars
+15:3  Warning: 'Share2' is defined but never used.  @typescript-eslint/no-unused-vars
+17:3  Warning: 'Star' is defined but never used.  @typescript-eslint/no-unused-vars
+141:10  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/components/auth/LoginForm.tsx
+81:31  Warning: '_accessToken' is defined but never used.  @typescript-eslint/no-unused-vars
+203:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+237:19  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+273:11  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/dashboard/DashboardNavbar.tsx
+3:35  Warning: 'User' is defined but never used.  @typescript-eslint/no-unused-vars
+9:11  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+17:11  Warning: 'breadcrumbs' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/dashboard/Sidebar.tsx
+7:3  Warning: 'BarChart3' is defined but never used.  @typescript-eslint/no-unused-vars
+27:9  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/components/providers/OrgContextProvider.tsx
+18:11  Warning: 'router' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/lib/api.ts
+216:25  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+230:41  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+250:10  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+263:41  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+398:28  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+438:57  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+476:30  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+489:31  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+564:30  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+583:37  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+591:37  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+591:51  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+668:35  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+696:28  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+777:58  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+785:57  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+802:57  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+820:61  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+830:62  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+854:43  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+862:43  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+862:57  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules

@@ -621,7 +621,7 @@ export default function ApplicationSsoPage() {
                     marginBottom: '16px',
                   }}
                 >
-                  Enter your Service Provider's SAML configuration:
+                  Enter your Service Provider&apos;s SAML configuration:
                 </p>
 
                 <form onSubmit={handleSamlSave}>

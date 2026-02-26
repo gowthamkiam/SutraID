@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import Link from 'next/link';
 
 const features = [
   {
@@ -205,7 +206,7 @@ export default function HomePage() {
           </p>
 
           <div style={{ display: 'flex', gap: '1.25rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a href="/login" style={{
+            <Link href="/login" style={{
               textDecoration: 'none',
               background: '#6366f1',
               color: '#fff',
@@ -226,8 +227,8 @@ export default function HomePage() {
               }}
             >
               Get Started Free
-            </a>
-            <a href="/integration-guide" style={{
+            </Link>
+            <Link href="/integration-guide" style={{
               textDecoration: 'none',
               background: 'rgba(255, 255, 255, 0.05)',
               color: '#e5e7eb',
@@ -248,7 +249,7 @@ export default function HomePage() {
               }}
             >
               View Documentation
-            </a>
+            </Link>
           </div>
         </div>
       </section>
@@ -948,7 +949,7 @@ export default function HomePage() {
             }}>
               Join developers building the future of authentication with a fully open-source, self-hostable platform.
             </p>
-            <a href="/login" style={{
+            <Link href="/login" style={{
               textDecoration: 'none',
               background: '#6366f1',
               color: '#fff',
@@ -970,7 +971,7 @@ export default function HomePage() {
               }}
             >
               Get Started Self-Hosting
-            </a>
+            </Link>
           </div>
         </section>
 

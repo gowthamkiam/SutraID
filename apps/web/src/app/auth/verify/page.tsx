@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 function VerifyContent() {
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
@@ -182,7 +183,7 @@ function VerifyContent() {
             }}>
               {message}
             </p>
-            <a
+            <Link
               href="/login"
               style={{
                 display: 'inline-block',
@@ -199,7 +200,7 @@ function VerifyContent() {
               onMouseLeave={(e) => e.currentTarget.style.background = '#4f46e5'}
             >
               Try Again
-            </a>
+            </Link>
           </>
         )}
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { SutraLogo } from './SutraLogo';
 
 const navLinks = [
@@ -47,7 +48,7 @@ export default function Navbar() {
         transition: 'all 0.3s ease',
       }}
     >
-      <a href="/" style={{
+      <Link href="/" style={{
         textDecoration: 'none',
         display: 'flex',
         alignItems: 'center',
@@ -57,7 +58,7 @@ export default function Navbar() {
           size={28}
           textColor={navTheme === 'dark' ? '#ffffff' : '#111827'}
         />
-      </a>
+      </Link>
 
       <div style={{
         display: 'flex',
@@ -70,7 +71,7 @@ export default function Navbar() {
           alignItems: 'center',
         }}>
           {navLinks.map((link) => (
-            <a
+            <Link
               key={link.href}
               href={link.href}
               style={{
@@ -84,12 +85,12 @@ export default function Navbar() {
               onMouseLeave={(e) => (e.currentTarget.style.color = navTheme === 'dark' ? 'rgba(255, 255, 255, 0.7)' : '#4b5563')}
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </div>
 
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <a href="/login" style={{
+          <Link href="/login" style={{
             textDecoration: 'none',
             color: navTheme === 'dark' ? '#ffffff' : '#111827',
             fontSize: '0.9rem',
@@ -97,8 +98,8 @@ export default function Navbar() {
             padding: '0.5rem 1rem',
           }}>
             Log in
-          </a>
-          <a href="/login" style={{
+          </Link>
+          <Link href="/login" style={{
             textDecoration: 'none',
             background: '#6366f1',
             color: '#fff',
@@ -119,7 +120,7 @@ export default function Navbar() {
             }}
           >
             Get Started
-          </a>
+          </Link>
         </div>
 
         <button
@@ -179,7 +180,7 @@ export default function Navbar() {
             </a>
           ))}
           <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '1rem', display: 'flex', gap: '1rem' }}>
-            <a href="/login" style={{
+            <Link href="/login" style={{
               textDecoration: 'none',
               color: '#111827',
               fontSize: '1rem',
@@ -187,8 +188,8 @@ export default function Navbar() {
               padding: '0.5rem 1rem',
             }}>
               Log in
-            </a>
-            <a href="/login" style={{
+            </Link>
+            <Link href="/login" style={{
               textDecoration: 'none',
               background: '#6366f1',
               color: '#fff',
@@ -200,7 +201,7 @@ export default function Navbar() {
               flex: 1,
             }}>
               Get Started
-            </a>
+            </Link>
           </div>
         </div>
       )}

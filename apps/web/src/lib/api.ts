@@ -213,7 +213,7 @@ export interface Application {
   tokenEndpointAuthMethod: string;
   isPublicClient: boolean;
   requireDpop: boolean;
-  jwks?: any;
+  jwks?: Record<string, any>;
   dpopNonceEnabled: boolean;
   isAiAgent: boolean;
   // Grant type controls
