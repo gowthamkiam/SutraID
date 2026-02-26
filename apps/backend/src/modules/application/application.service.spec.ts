@@ -9,6 +9,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { OrgRole } from '@prisma/client';
 
 describe('ApplicationService', () => {
@@ -48,6 +49,14 @@ describe('ApplicationService', () => {
     clearProviderCache: jest.fn(),
   };
 
+  const mockConfigService = {
+    get: jest.fn((key: string) => {
+      if (key === 'BACKEND_URL') return 'http://localhost:3000';
+      if (key === 'API_PREFIX') return 'api/v1';
+      return undefined;
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -67,6 +76,10 @@ describe('ApplicationService', () => {
         {
           provide: OidcIdpService,
           useValue: mockOidcIdpService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
         },
       ],
     }).compile();

@@ -3,9 +3,11 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationService } from '../organization/organization.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
+import { CreateAiAgentDto } from './dto/create-ai-agent.dto';
 import { OrgRole, ApplicationProtocol } from '@prisma/client';
 import { ApplicationUtils } from './utils/application.utils';
 import { OidcIdpService } from '../sso/services/oidc-idp.service';
@@ -17,6 +19,7 @@ export class ApplicationService {
     private organizationService: OrganizationService,
     private utils: ApplicationUtils,
     private oidcIdpService: OidcIdpService,
+    private config: ConfigService,
   ) { }
 
   /**
@@ -106,6 +109,85 @@ export class ApplicationService {
       ...application,
       clientSecret, // Return plaintext secret once
     };
+  }
+
+  /**
+   * Create an AI Agent application
+   */
+  async createAiAgent(
+    organizationId: string,
+    actorId: string,
+    dto: CreateAiAgentDto,
+  ) {
+    await this.organizationService.checkPermission(organizationId, actorId, [
+      OrgRole.SUPER_ADMIN,
+      OrgRole.ORG_ADMIN,
+      OrgRole.APP_ADMIN,
+    ]);
+
+    const createDto: CreateApplicationDto = {
+      name: dto.name,
+      description: dto.description,
+      type: ApplicationProtocol.OIDC,
+      isAiAgent: true,
+      allowClientCredentials: true,
+      grantTypes: ['client_credentials'],
+      scopes: dto.scopes || ['ai:tool:call', 'ai:memory:read'],
+      tokenEndpointAuthMethod: dto.tokenEndpointAuthMethod || 'client_secret_post',
+      requireDpop: dto.requireDpop ?? false,
+      jwks: dto.jwks,
+      redirectUris: [],
+      pkceRequired: false,
+      aiAgentMetadata: {
+        agentVersion: dto.agentVersion,
+        maxTokenLifetime: dto.maxTokenLifetime || 3600,
+      },
+    };
+
+    const application = await this.create(organizationId, actorId, createDto);
+
+    const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
+    const apiPrefix = this.config.get<string>('API_PREFIX') || 'api/v1';
+
+    return {
+      agent_id: application.clientId,
+      client_id: application.clientId,
+      client_secret: application.clientSecret,
+      scopes: createDto.scopes,
+      token_endpoint: `${baseUrl}/${apiPrefix}/oauth/token`,
+      introspection_endpoint: `${baseUrl}/${apiPrefix}/oauth/introspect`,
+    };
+  }
+
+  /**
+   * List all AI Agent applications
+   */
+  async listAiAgents(organizationId: string, actorId: string) {
+    await this.organizationService.checkPermission(organizationId, actorId, [
+      OrgRole.SUPER_ADMIN,
+      OrgRole.ORG_ADMIN,
+      OrgRole.APP_ADMIN,
+      OrgRole.READ_ONLY_ADMIN,
+    ]);
+
+    return this.prisma.application.findMany({
+      where: {
+        organizationId,
+        isAiAgent: true,
+        status: { not: 'ARCHIVED' },
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        clientId: true,
+        scopes: true,
+        aiAgentMetadata: true,
+        createdAt: true,
+        status: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   /**

@@ -763,6 +763,157 @@ export default function HomePage() {
         </section>
       </div>
 
+      {/* AI Agent Demo Section */}
+      <section style={{
+        padding: '8rem 2rem',
+        background: '#ffffff',
+        borderTop: '1px solid #e5e7eb',
+      }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '24px',
+            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 2rem',
+            boxShadow: '0 20px 40px rgba(16, 185, 129, 0.2)',
+          }}>
+            <Bot size={40} />
+          </div>
+
+          <h2 style={{
+            fontSize: 'clamp(2rem, 4vw, 3rem)',
+            fontWeight: 950,
+            color: '#111827',
+            margin: '0 0 1.5rem',
+            letterSpacing: '-0.03em',
+          }}>
+            Identity for AI Agents
+          </h2>
+
+          <p style={{
+            fontSize: '1.25rem',
+            color: '#4b5563',
+            lineHeight: 1.7,
+            margin: '0 0 3rem',
+            maxWidth: '700px',
+            marginLeft: 'auto',
+            marginRight: 'auto',
+          }}>
+            SutraID provides OAuth 2.1 compliant authentication for AI agents using client credentials flow. Secure, standardized, and ready to integrate.
+          </p>
+
+          <div style={{
+            background: '#f9fafb',
+            border: '1px solid #e5e7eb',
+            borderRadius: '24px',
+            padding: '2.5rem',
+            marginBottom: '2.5rem',
+            textAlign: 'left',
+          }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: '2rem',
+            }}>
+              <div>
+                <div style={{
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  color: '#10b981',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '0.75rem',
+                }}>
+                  Features
+                </div>
+                <ul style={{
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: 0,
+                  fontSize: '1rem',
+                  color: '#374151',
+                  lineHeight: 2,
+                }}>
+                  <li>✓ OAuth 2.1 Client Credentials</li>
+                  <li>✓ JWT Token Validation</li>
+                  <li>✓ Token Introspection</li>
+                  <li>✓ Scope-based Access Control</li>
+                </ul>
+              </div>
+              <div>
+                <div style={{
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  color: '#10b981',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '0.75rem',
+                }}>
+                  Technologies
+                </div>
+                <ul style={{
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: 0,
+                  fontSize: '1rem',
+                  color: '#374151',
+                  lineHeight: 2,
+                }}>
+                  <li>✓ Node.js + TypeScript</li>
+                  <li>✓ Commander CLI</li>
+                  <li>✓ Jose (JWT validation)</li>
+                  <li>✓ Axios HTTP Client</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <a
+            href="https://github.com/gowthamkiam/SutraID/tree/main/examples/ai-agent-demo"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              textDecoration: 'none',
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: '#fff',
+              fontSize: '1.1rem',
+              fontWeight: 800,
+              padding: '1.25rem 3rem',
+              borderRadius: '16px',
+              boxShadow: '0 10px 30px rgba(16, 185, 129, 0.3)',
+              transition: 'all 0.3s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 15px 40px rgba(16, 185, 129, 0.4)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 10px 30px rgba(16, 185, 129, 0.3)';
+            }}
+          >
+            Try AI Agent Demo
+            <ArrowRight size={20} />
+          </a>
+
+          <div style={{
+            marginTop: '2rem',
+            fontSize: '0.95rem',
+            color: '#6b7280',
+          }}>
+            Complete working example with step-by-step guide
+          </div>
+        </div>
+      </section>
+
       {/* Bottom Transition (Clean cut to dark) */}
       <div style={{ height: '80px', background: '#ffffff' }} />
 

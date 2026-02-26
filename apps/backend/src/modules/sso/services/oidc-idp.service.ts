@@ -125,6 +125,26 @@ export class OidcIdpService {
         return this.findAccount(applicationId, sub);
       },
 
+      // Extra access token claims for AI agents
+      extraAccessTokenClaims: async (ctx: any, token: any) => {
+        const claims: any = {};
+
+        if (application.isAiAgent && ctx.oidc?.grant?.type === 'client_credentials') {
+          claims.typ = 'ai_agent';
+          claims.agent_id = application.clientId;
+          claims.org_id = application.organizationId;
+          claims.org_name = application.organization?.name;
+
+          if (application.aiAgentMetadata) {
+            const metadata = application.aiAgentMetadata as any;
+            if (metadata.agentVersion) claims.agent_version = metadata.agentVersion;
+            if (metadata.toolCapabilities) claims.tool_capabilities = metadata.toolCapabilities;
+          }
+        }
+
+        return claims;
+      },
+
       // OAuth 2.1: only authorization code flow (no implicit)
       responseTypes: ['code'],
 
@@ -142,12 +162,10 @@ export class OidcIdpService {
         userinfo: '/userinfo',
       },
 
-      // PKCE: always required for public clients, configurable for confidential
+      // PKCE: OAuth 2.1 requires PKCE for all authorization_code flows
       pkce: {
-        required: (_ctx: any, _client: any) => {
-          if (!application.clientSecretHash) return true;
-          return application.pkceRequired;
-        },
+        required: (_ctx: any, _client: any) => true,
+        methods: ['S256'], // Only SHA-256, no 'plain' method
       },
 
       // Interaction URL — points to backend auto-confirm endpoint so the

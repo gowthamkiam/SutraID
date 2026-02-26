@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OidcIdpService } from '../sso/services/oidc-idp.service';
 import { ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 describe('OauthController', () => {
   let controller: OauthController;
@@ -25,6 +26,14 @@ describe('OauthController', () => {
     create: jest.fn(),
   };
 
+  const mockConfigService = {
+    get: jest.fn((key: string) => {
+      if (key === 'BACKEND_URL') return 'http://localhost:3000';
+      if (key === 'API_PREFIX') return 'api/v1';
+      return undefined;
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [ThrottlerModule.forRoot([{ name: 'ropc', ttl: 60000, limit: 5 }])],
@@ -33,6 +42,7 @@ describe('OauthController', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: OidcIdpService, useValue: mockOidcIdpService },
         { provide: ApplicationService, useValue: mockApplicationService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
