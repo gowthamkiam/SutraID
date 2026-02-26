@@ -85,7 +85,7 @@ export class OidcIdpService {
             ? application.redirectUris as string[]
             : ['https://localhost/cb'],
           response_types: ['code'],
-          token_endpoint_auth_method: application.clientSecretHash ? 'client_secret_post' : 'none',
+          token_endpoint_auth_method: 'none',
           scope: 'openid profile email offline_access',
         }];
       })(),

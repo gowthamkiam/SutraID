@@ -49,6 +49,8 @@ export class OauthController {
             select: {
                 id: true,
                 organizationId: true,
+                clientSecretHash: true,
+                isPublicClient: true,
                 allowROPC: true,
                 allowClientCredentials: true,
             },
@@ -56,6 +58,30 @@ export class OauthController {
 
         if (!application) {
             throw new UnauthorizedException('Invalid client_id');
+        }
+
+        // Verify client credentials before delegating to oidc-provider
+        if (!application.isPublicClient && application.clientSecretHash) {
+            let clientSecret: string | null = null;
+            if (req.headers.authorization?.startsWith('Basic ')) {
+                const decoded = Buffer.from(req.headers.authorization.split(' ')[1], 'base64').toString();
+                clientSecret = decoded.split(':')[1];
+            } else if (req.body?.client_secret) {
+                clientSecret = req.body.client_secret;
+            }
+            if (!clientSecret) {
+                return res.status(401).json({
+                    error: 'invalid_client',
+                    error_description: 'client_secret is required',
+                });
+            }
+            const secretHash = crypto.createHash('sha256').update(clientSecret).digest('hex');
+            if (secretHash !== application.clientSecretHash) {
+                return res.status(401).json({
+                    error: 'invalid_client',
+                    error_description: 'client authentication failed',
+                });
+            }
         }
 
         // Pre-validate grant type before delegating to oidc-provider
