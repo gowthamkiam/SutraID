@@ -59,7 +59,7 @@ export class ApplicationService {
 
     if (dto.type === ApplicationProtocol.OIDC) {
       clientId = this.utils.generateClientId();
-      if (!dto.isPublicClient && !dto.isAiAgent) {
+      if (!dto.isPublicClient) {
         clientSecret = this.utils.generateClientSecret();
         clientSecretHash = this.utils.hashSecret(clientSecret);
       }
@@ -147,15 +147,14 @@ export class ApplicationService {
     const application = await this.create(organizationId, actorId, createDto);
 
     const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
-    const apiPrefix = this.config.get<string>('API_PREFIX') || 'api/v1';
 
     return {
       agent_id: application.clientId,
       client_id: application.clientId,
       client_secret: application.clientSecret,
       scopes: createDto.scopes,
-      token_endpoint: `${baseUrl}/${apiPrefix}/oauth/token`,
-      introspection_endpoint: `${baseUrl}/${apiPrefix}/oauth/introspect`,
+      token_endpoint: `${baseUrl}/oauth/token`,
+      introspection_endpoint: `${baseUrl}/oauth/introspect`,
     };
   }
 

@@ -34,7 +34,7 @@ export class SutraIdAgentClient {
   async getAccessToken(): Promise<TokenResponse> {
     try {
       const response = await axios.post(
-        `${this.baseUrl}/api/v1/oauth/token`,
+        `${this.baseUrl}/oauth/token`,
         new URLSearchParams({
           grant_type: 'client_credentials',
           client_id: this.clientId,
@@ -98,7 +98,7 @@ export class SutraIdAgentClient {
   async introspectToken(token: string): Promise<IntrospectionResponse> {
     try {
       const response = await axios.post(
-        `${this.baseUrl}/api/v1/oauth/introspect`,
+        `${this.baseUrl}/oauth/introspect`,
         { token },
         {
           auth: {
@@ -118,7 +118,7 @@ export class SutraIdAgentClient {
   async revokeToken(token: string): Promise<void> {
     try {
       const response = await axios.post(
-        `${this.baseUrl}/api/v1/oauth/revoke`,
+        `${this.baseUrl}/oauth/revoke`,
         { token },
         {
           auth: {
