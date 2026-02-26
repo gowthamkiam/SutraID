@@ -75,6 +75,12 @@ export class OidcConfigService {
         });
     }
 
+    async getSigningKeysWithPrivate(applicationId: string) {
+        return this.prisma.oidcSigningKey.findMany({
+            where: { applicationId },
+        });
+    }
+
     // Token Policy
     async updateTokenPolicy(applicationId: string, dto: UpdateOidcTokenPolicyDto) {
         return this.prisma.oidcTokenPolicy.upsert({

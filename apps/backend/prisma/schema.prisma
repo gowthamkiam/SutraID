@@ -176,6 +176,8 @@ model Organization {
   samlIdpCertificate String?
   samlIdpPrivateKey  String?
   customLoginConfig  Json?
+  mfaRequired        Boolean               @default(false)
+  mfaGracePeriodDays Int                   @default(7)
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
   applications       Application[]
@@ -247,6 +249,7 @@ model Application {
   jwks                    Json?
   dpopNonceEnabled        Boolean                      @default(true)
   isAiAgent               Boolean                      @default(false)
+  aiAgentMetadata         Json?
   allowROPC               Boolean                      @default(false)
   allowClientCredentials  Boolean                      @default(false)
   allowRefreshForROPC     Boolean                      @default(false)

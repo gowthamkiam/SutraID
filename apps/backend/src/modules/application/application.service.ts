@@ -3,9 +3,11 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationService } from '../organization/organization.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
+import { CreateAiAgentDto } from './dto/create-ai-agent.dto';
 import { OrgRole, ApplicationProtocol } from '@prisma/client';
 import { ApplicationUtils } from './utils/application.utils';
 import { OidcIdpService } from '../sso/services/oidc-idp.service';
@@ -17,6 +19,7 @@ export class ApplicationService {
     private organizationService: OrganizationService,
     private utils: ApplicationUtils,
     private oidcIdpService: OidcIdpService,
+    private config: ConfigService,
   ) { }
 
   /**
@@ -56,7 +59,7 @@ export class ApplicationService {
 
     if (dto.type === ApplicationProtocol.OIDC) {
       clientId = this.utils.generateClientId();
-      if (!dto.isPublicClient && !dto.isAiAgent) {
+      if (!dto.isPublicClient) {
         clientSecret = this.utils.generateClientSecret();
         clientSecretHash = this.utils.hashSecret(clientSecret);
       }
@@ -102,10 +105,103 @@ export class ApplicationService {
       },
     });
 
+    // Auto-generate default JWKS signing key for OIDC applications
+    if (dto.type === ApplicationProtocol.OIDC) {
+      const keyPair = await this.utils.generateSigningKeyPair();
+      await this.prisma.oidcSigningKey.create({
+        data: {
+          applicationId: application.id,
+          kid: keyPair.kid,
+          algorithm: keyPair.algorithm as any,
+          publicKey: keyPair.publicKey,
+          privateKey: keyPair.privateKey,
+          isDefault: true,
+        },
+      });
+    }
+
     return {
       ...application,
       clientSecret, // Return plaintext secret once
     };
+  }
+
+  /**
+   * Create an AI Agent application
+   */
+  async createAiAgent(
+    organizationId: string,
+    actorId: string,
+    dto: CreateAiAgentDto,
+  ) {
+    await this.organizationService.checkPermission(organizationId, actorId, [
+      OrgRole.SUPER_ADMIN,
+      OrgRole.ORG_ADMIN,
+      OrgRole.APP_ADMIN,
+    ]);
+
+    const createDto: CreateApplicationDto = {
+      name: dto.name,
+      description: dto.description,
+      type: ApplicationProtocol.OIDC,
+      isAiAgent: true,
+      allowClientCredentials: true,
+      grantTypes: ['client_credentials'],
+      scopes: dto.scopes || ['ai:tool:call', 'ai:memory:read'],
+      tokenEndpointAuthMethod: dto.tokenEndpointAuthMethod || 'client_secret_post',
+      requireDpop: dto.requireDpop ?? false,
+      jwks: dto.jwks,
+      redirectUris: [],
+      pkceRequired: false,
+      aiAgentMetadata: {
+        agentVersion: dto.agentVersion,
+        maxTokenLifetime: dto.maxTokenLifetime || 3600,
+      },
+    };
+
+    const application = await this.create(organizationId, actorId, createDto);
+
+    const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
+
+    return {
+      agent_id: application.clientId,
+      client_id: application.clientId,
+      client_secret: application.clientSecret,
+      scopes: createDto.scopes,
+      token_endpoint: `${baseUrl}/oauth/token`,
+      introspection_endpoint: `${baseUrl}/oauth/introspect`,
+    };
+  }
+
+  /**
+   * List all AI Agent applications
+   */
+  async listAiAgents(organizationId: string, actorId: string) {
+    await this.organizationService.checkPermission(organizationId, actorId, [
+      OrgRole.SUPER_ADMIN,
+      OrgRole.ORG_ADMIN,
+      OrgRole.APP_ADMIN,
+      OrgRole.READ_ONLY_ADMIN,
+    ]);
+
+    return this.prisma.application.findMany({
+      where: {
+        organizationId,
+        isAiAgent: true,
+        status: { not: 'ARCHIVED' },
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        clientId: true,
+        scopes: true,
+        aiAgentMetadata: true,
+        createdAt: true,
+        status: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   /**
@@ -254,6 +350,81 @@ export class ApplicationService {
       clientId: application.clientId,
       clientSecret,
       message: 'Client secret rotated successfully.',
+    };
+  }
+
+  /**
+   * List signing keys for an application (public info only)
+   */
+  async listSigningKeys(applicationId: string, actorId: string) {
+    const application = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+
+    await this.organizationService.checkPermission(
+      application.organizationId,
+      actorId,
+      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.APP_ADMIN, OrgRole.READ_ONLY_ADMIN],
+    );
+
+    return this.prisma.oidcSigningKey.findMany({
+      where: { applicationId },
+      select: {
+        id: true,
+        kid: true,
+        algorithm: true,
+        isDefault: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Rotate signing key — generates a new key and deactivates the old default
+   */
+  async rotateSigningKey(applicationId: string, actorId: string) {
+    const application = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+    if (application.type !== ApplicationProtocol.OIDC) {
+      throw new BadRequestException('Signing key rotation is only for OIDC applications');
+    }
+
+    await this.organizationService.checkPermission(
+      application.organizationId,
+      actorId,
+      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
+    );
+
+    // Unset current default
+    await this.prisma.oidcSigningKey.updateMany({
+      where: { applicationId, isDefault: true },
+      data: { isDefault: false },
+    });
+
+    // Generate new key
+    const keyPair = await this.utils.generateSigningKeyPair();
+    const newKey = await this.prisma.oidcSigningKey.create({
+      data: {
+        applicationId,
+        kid: keyPair.kid,
+        algorithm: keyPair.algorithm as any,
+        publicKey: keyPair.publicKey,
+        privateKey: keyPair.privateKey,
+        isDefault: true,
+      },
+      select: { id: true, kid: true, algorithm: true, isDefault: true, createdAt: true },
+    });
+
+    // Clear cached provider so new key takes effect
+    this.oidcIdpService.clearProviderCache(applicationId);
+
+    return {
+      ...newKey,
+      message: 'Signing key rotated successfully.',
     };
   }
 

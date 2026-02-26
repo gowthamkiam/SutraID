@@ -56,7 +56,7 @@ export class OidcIdpService {
     // Load dynamic configuration (now at app level)
     const [tokenPolicy, signingKeys, customScopes, customClaims] = await Promise.all([
       this.oidcConfigService.getTokenPolicy(applicationId),
-      this.oidcConfigService.getSigningKeys(applicationId),
+      this.oidcConfigService.getSigningKeysWithPrivate(applicationId),
       this.oidcConfigService.getScopes(applicationId),
       this.oidcConfigService.getClaims(applicationId),
     ]);
@@ -81,23 +81,31 @@ export class OidcIdpService {
           client_id: application.clientId,
           client_secret: application.clientSecretHash || undefined,
           grant_types: clientGrants,
-          redirect_uris: application.redirectUris as string[],
+          redirect_uris: (application.redirectUris as string[]).length > 0
+            ? application.redirectUris as string[]
+            : ['https://localhost/cb'],
           response_types: ['code'],
           token_endpoint_auth_method: application.clientSecretHash ? 'client_secret_post' : 'none',
-          scope: 'openid profile email offline_access',
+          scope: Array.from(new Set([
+            'openid', 'profile', 'email', 'offline_access',
+            ...(application.scopes as string[] || []),
+          ])).join(' '),
         }];
       })(),
 
-      // JWKS (Organization-specific keys)
+      // JWKS — private keys needed for signing tokens
       jwks: signingKeys.length > 0 ? {
-        keys: signingKeys.map((k: any) => ({
-          kty: 'RSA',
-          kid: k.kid,
-          n: k.publicKey,
-          e: 'AQAB',
-          alg: k.algorithm,
-          use: 'sig',
-        })),
+        keys: signingKeys.map((k: any) => {
+          try {
+            return JSON.parse(k.privateKey);
+          } catch {
+            // Legacy format fallback: raw key components
+            return {
+              kty: 'RSA', kid: k.kid, n: k.publicKey,
+              e: 'AQAB', alg: k.algorithm, use: 'sig',
+            };
+          }
+        }),
       } : undefined,
 
       // Features
@@ -106,6 +114,7 @@ export class OidcIdpService {
         registration: { enabled: false }, // Dynamic client registration disabled for now
         revocation: { enabled: true },
         introspection: { enabled: true },
+        ...(application.allowClientCredentials ? { clientCredentials: { enabled: true } } : {}),
       },
 
       // Issue JWT access tokens (self-contained, verifiable without introspection)
@@ -113,16 +122,43 @@ export class OidcIdpService {
         AccessToken: 'jwt',
       },
 
-      // Claims
+      // Claims — register app-level scopes (e.g. ai:tool:call) so oidc-provider
+      // doesn't strip them as unknown
       claims: {
         openid: ['sub'],
         email: ['email', 'email_verified'],
         profile: ['name', 'given_name', 'family_name', 'updated_at'],
+        ...(application.scopes as string[] || []).reduce((acc: any, s: string) => {
+          if (!['openid', 'profile', 'email', 'offline_access'].includes(s)) {
+            acc[s] = [];
+          }
+          return acc;
+        }, {}),
       },
 
       // Find account by ID
       findAccount: async (ctx: any, sub: string): Promise<any> => {
         return this.findAccount(applicationId, sub);
+      },
+
+      // Extra access token claims for AI agents
+      extraAccessTokenClaims: async (ctx: any, token: any) => {
+        const claims: any = {};
+
+        if (application.isAiAgent && ctx.oidc?.grant?.type === 'client_credentials') {
+          claims.typ = 'ai_agent';
+          claims.agent_id = application.clientId;
+          claims.org_id = application.organizationId;
+          claims.org_name = application.organization?.name;
+
+          if (application.aiAgentMetadata) {
+            const metadata = application.aiAgentMetadata as any;
+            if (metadata.agentVersion) claims.agent_version = metadata.agentVersion;
+            if (metadata.toolCapabilities) claims.tool_capabilities = metadata.toolCapabilities;
+          }
+        }
+
+        return claims;
       },
 
       // OAuth 2.1: only authorization code flow (no implicit)
@@ -142,12 +178,10 @@ export class OidcIdpService {
         userinfo: '/userinfo',
       },
 
-      // PKCE: always required for public clients, configurable for confidential
+      // PKCE: OAuth 2.1 requires PKCE for all authorization_code flows
       pkce: {
-        required: (_ctx: any, _client: any) => {
-          if (!application.clientSecretHash) return true;
-          return application.pkceRequired;
-        },
+        required: (_ctx: any, _client: any) => true,
+        methods: ['S256'], // Only SHA-256, no 'plain' method
       },
 
       // Interaction URL — points to backend auto-confirm endpoint so the

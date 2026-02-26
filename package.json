@@ -19,7 +19,8 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "sbom:generate": "bash scripts/generate-sbom.sh"
   },
   "devDependencies": {
     "prettier": "^3.2.4",

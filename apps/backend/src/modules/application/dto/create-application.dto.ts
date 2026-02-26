@@ -9,6 +9,7 @@ import {
   IsUrl,
 } from 'class-validator';
 import { ApplicationProtocol } from '@prisma/client';
+import { IsValidRedirectUri } from '../validators/redirect-uri.validator';
 
 export class CreateApplicationDto {
   @IsString()
@@ -30,6 +31,7 @@ export class CreateApplicationDto {
   // OAuth/OIDC settings
   @IsArray()
   @IsString({ each: true })
+  @IsValidRedirectUri()
   @IsOptional()
   redirectUris?: string[];
 
@@ -73,6 +75,10 @@ export class CreateApplicationDto {
   @IsOptional()
   @IsBoolean()
   isAiAgent?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  aiAgentMetadata?: Record<string, any>;
 
   // Grant type controls
   @IsOptional()

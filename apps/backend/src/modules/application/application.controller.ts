@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApplicationService } from './application.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
+import { CreateAiAgentDto } from './dto/create-ai-agent.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AssignUsersDto } from './dto/assign-users.dto';
 import { AssignGroupsDto } from './dto/assign-groups.dto';
@@ -54,6 +55,30 @@ export class ApplicationController {
   @Post(':appId/rotate-secret')
   async rotateSecret(@Request() req: any, @Param('appId') appId: string) {
     return this.applicationService.rotateSecret(appId, req.user.id);
+  }
+
+  @Get(':appId/signing-keys')
+  async listSigningKeys(@Request() req: any, @Param('appId') appId: string) {
+    return this.applicationService.listSigningKeys(appId, req.user.id);
+  }
+
+  @Post(':appId/rotate-signing-key')
+  async rotateSigningKey(@Request() req: any, @Param('appId') appId: string) {
+    return this.applicationService.rotateSigningKey(appId, req.user.id);
+  }
+
+  @Post('ai-agents')
+  async createAiAgent(
+    @Request() req: any,
+    @Param('orgId') orgId: string,
+    @Body() dto: CreateAiAgentDto,
+  ) {
+    return this.applicationService.createAiAgent(orgId, req.user.id, dto);
+  }
+
+  @Get('ai-agents')
+  async listAiAgents(@Request() req: any, @Param('orgId') orgId: string) {
+    return this.applicationService.listAiAgents(orgId, req.user.id);
   }
 
   @Delete(':appId')

@@ -17,6 +17,8 @@ import { ApplicationService } from './application.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OidcIdpService } from '../sso/services/oidc-idp.service';
 import { RopcRateLimitGuard } from './guards/ropc-rate-limit.guard';
+import { jwtVerify, createRemoteJWKSet, decodeJwt } from 'jose';
+import * as crypto from 'crypto';
 
 @Controller('oauth')
 export class OauthController {
@@ -24,6 +26,7 @@ export class OauthController {
         private applicationService: ApplicationService,
         private prisma: PrismaService,
         private oidcIdpService: OidcIdpService,
+        private config: ConfigService,
     ) { }
 
     /**
@@ -46,6 +49,8 @@ export class OauthController {
             select: {
                 id: true,
                 organizationId: true,
+                clientSecretHash: true,
+                isPublicClient: true,
                 allowROPC: true,
                 allowClientCredentials: true,
             },
@@ -53,6 +58,39 @@ export class OauthController {
 
         if (!application) {
             throw new UnauthorizedException('Invalid client_id');
+        }
+
+        // Verify client credentials before delegating to oidc-provider
+        if (!application.isPublicClient && application.clientSecretHash) {
+            let clientSecret: string | null = null;
+            if (req.headers.authorization?.startsWith('Basic ')) {
+                const decoded = Buffer.from(req.headers.authorization.split(' ')[1], 'base64').toString();
+                clientSecret = decoded.split(':')[1];
+            } else if (req.body?.client_secret) {
+                clientSecret = req.body.client_secret;
+            }
+            if (!clientSecret) {
+                return res.status(401).json({
+                    error: 'invalid_client',
+                    error_description: 'client_secret is required',
+                });
+            }
+            const secretHash = crypto.createHash('sha256').update(clientSecret).digest('hex');
+            if (secretHash !== application.clientSecretHash) {
+                return res.status(401).json({
+                    error: 'invalid_client',
+                    error_description: 'client authentication failed',
+                });
+            }
+            // Replace plaintext secret with hash so oidc-provider's check passes
+            // (oidc-provider has client_secret = hash, so body must also send hash)
+            if (req.body?.client_secret) {
+                req.body.client_secret = application.clientSecretHash;
+            }
+            if (req.headers.authorization?.startsWith('Basic ')) {
+                const encoded = Buffer.from(`${clientId}:${application.clientSecretHash}`).toString('base64');
+                req.headers.authorization = `Basic ${encoded}`;
+            }
         }
 
         // Pre-validate grant type before delegating to oidc-provider
@@ -95,22 +133,145 @@ export class OauthController {
      * Introspection Endpoint (RFC 7662)
      */
     @Post('introspect')
-    async introspect(@Body() body: any) {
-        // Authenticate caller (confidential client)
-        return {
-            active: true,
-            scope: 'openid profile email',
-            client_id: body.client_id,
-            exp: Math.floor(Date.now() / 1000) + 3600,
-        };
+    async introspect(
+        @Body() body: { token: string; token_type_hint?: string; client_id?: string; client_secret?: string },
+        @Headers('authorization') authHeader: string,
+    ) {
+        const clientId = this.extractClientIdFromIntrospection(authHeader, body);
+        if (!clientId) {
+            throw new UnauthorizedException('Client authentication required');
+        }
+
+        const application = await this.prisma.application.findUnique({
+            where: { clientId },
+            include: { organization: true },
+        });
+
+        if (!application) {
+            throw new UnauthorizedException('Invalid client');
+        }
+
+        await this.verifyClientCredentials(application, body, authHeader);
+
+        try {
+            const jwksUrl = await this.getJWKSUrl(application.organizationId, application.id);
+            const JWKS = createRemoteJWKSet(new URL(jwksUrl));
+            const { payload } = await jwtVerify(body.token, JWKS);
+
+            const revoked = await this.prisma.oidcToken.findFirst({
+                where: {
+                    tokenId: payload.jti as string,
+                    consumed: true,
+                },
+            });
+
+            if (revoked) {
+                return { active: false };
+            }
+
+            const response: any = {
+                active: true,
+                scope: payload.scope,
+                client_id: (payload.client_id || payload.azp) as string,
+                token_type: 'Bearer',
+                exp: payload.exp,
+                iat: payload.iat,
+                sub: payload.sub,
+                iss: payload.iss,
+                aud: payload.aud,
+            };
+
+            if (payload.typ === 'ai_agent') {
+                response.agent_id = payload.agent_id;
+                response.agent_version = payload.agent_version;
+                response.org_id = payload.org_id;
+            }
+
+            return response;
+        } catch (err) {
+            return { active: false };
+        }
     }
 
     /**
      * Revocation Endpoint (RFC 7009)
      */
     @Post('revoke')
-    async revoke(@Body() body: any) {
+    async revoke(
+        @Body() body: { token: string; token_type_hint?: string; client_id?: string; client_secret?: string },
+        @Headers('authorization') authHeader: string,
+    ) {
+        const clientId = this.extractClientIdFromIntrospection(authHeader, body);
+        if (!clientId) {
+            throw new UnauthorizedException('Client authentication required');
+        }
+
+        const application = await this.prisma.application.findUnique({
+            where: { clientId },
+        });
+
+        if (!application) {
+            throw new UnauthorizedException('Invalid client');
+        }
+
+        await this.verifyClientCredentials(application, body, authHeader);
+
+        try {
+            const decoded = decodeJwt(body.token);
+            if (decoded.jti) {
+                await this.prisma.oidcToken.updateMany({
+                    where: {
+                        tokenId: decoded.jti as string,
+                        applicationId: application.id,
+                    },
+                    data: {
+                        consumed: true,
+                        consumedAt: new Date(),
+                    },
+                });
+            }
+        } catch (err) {
+        }
+
         return { status: 'revoked' };
+    }
+
+    private extractClientIdFromIntrospection(authHeader: string | undefined, body: any): string | null {
+        if (authHeader && authHeader.startsWith('Basic ')) {
+            const decoded = Buffer.from(authHeader.split(' ')[1], 'base64').toString();
+            return decoded.split(':')[0];
+        }
+        return body.client_id || null;
+    }
+
+    private async verifyClientCredentials(
+        application: any,
+        body: any,
+        authHeader: string | undefined,
+    ): Promise<void> {
+        let clientSecret: string | null = null;
+
+        if (authHeader && authHeader.startsWith('Basic ')) {
+            const decoded = Buffer.from(authHeader.split(' ')[1], 'base64').toString();
+            clientSecret = decoded.split(':')[1];
+        } else if (body.client_secret) {
+            clientSecret = body.client_secret;
+        }
+
+        if (!clientSecret) {
+            throw new UnauthorizedException('Client secret required');
+        }
+
+        const secretHash = crypto.createHash('sha256').update(clientSecret).digest('hex');
+        if (secretHash !== application.clientSecretHash) {
+            throw new UnauthorizedException('Invalid client credentials');
+        }
+    }
+
+    private async getJWKSUrl(organizationId: string, applicationId: string): Promise<string> {
+        const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
+        const apiPrefix = this.config.get<string>('API_PREFIX') || 'api/v1';
+        return `${baseUrl}/${apiPrefix}/sso/oidc-idp/${organizationId}/${applicationId}/jwks`;
     }
 
     /**

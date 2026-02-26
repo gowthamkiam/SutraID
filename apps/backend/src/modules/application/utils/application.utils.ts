@@ -1,5 +1,6 @@
 import * as crypto from 'crypto';
 import { Injectable } from '@nestjs/common';
+import { generateKeyPair, exportJWK } from 'jose';
 
 @Injectable()
 export class ApplicationUtils {
@@ -29,6 +30,19 @@ export class ApplicationUtils {
      * Note: In a production environment, you might use a library like node-forge 
      * or a certificate authority service.
      */
+    async generateSigningKeyPair(algorithm: 'RS256' | 'ES256' = 'RS256') {
+        const { publicKey, privateKey } = await generateKeyPair(algorithm);
+        const publicJwk = await exportJWK(publicKey);
+        const privateJwk = await exportJWK(privateKey);
+        const kid = `sig-${crypto.randomBytes(8).toString('hex')}`;
+        return {
+            kid,
+            algorithm,
+            publicKey: JSON.stringify(publicJwk),
+            privateKey: JSON.stringify({ ...privateJwk, kid, alg: algorithm, use: 'sig' }),
+        };
+    }
+
     generateSamlCertificates() {
         // This is a placeholder for actual certificate generation logic.
         // In a real implementation, you would use node-forge or similar.

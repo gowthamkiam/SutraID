@@ -416,7 +416,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
                       </div>
                     </div>
                   )}
-                  {!app.isPublicClient && !app.isAiAgent && (
+                  {!app.isPublicClient && (
                     <div>
                       <label style={labelStyle}>Client Secret</label>
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', margin: '0 0 0.5rem' }}>

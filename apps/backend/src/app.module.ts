@@ -13,6 +13,7 @@ import { DirectoryModule } from './modules/directory/directory.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { StatsModule } from './modules/organization/stats/stats.module';
 import { OnboardModule } from './modules/onboard/onboard.module';
+import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
 
 @Module({
   imports: [
@@ -43,6 +44,8 @@ import { OnboardModule } from './modules/onboard/onboard.module';
     StatsModule,
     // Unauthenticated initial onboarding
     OnboardModule,
+    // AI Agent module (AI agent identity & protected endpoints)
+    AiAgentModule,
   ],
   controllers: [AppController],
   providers: [AppService],
