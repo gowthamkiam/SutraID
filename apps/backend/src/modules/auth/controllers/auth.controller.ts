@@ -11,6 +11,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from '../services/auth.service';
 import {
   MagicLinkRequestDto,
@@ -24,6 +25,7 @@ import {
   OrgLookupResponseDto,
 } from '../dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { AuthRateLimitGuard } from '../guards/auth-rate-limit.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -41,6 +43,8 @@ export class AuthController {
    * Request a magic link to be sent to email
    */
   @Post('magic-link')
+  @UseGuards(AuthRateLimitGuard)
+  @Throttle({ default: { limit: 3, ttl: 300000 } })
   @HttpCode(HttpStatus.OK)
   async requestMagicLink(
     @Body() dto: MagicLinkRequestDto,
@@ -77,6 +81,8 @@ export class AuthController {
    * Login with email and password
    */
   @Post('login')
+  @UseGuards(AuthRateLimitGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginPasswordDto,
@@ -100,6 +106,8 @@ export class AuthController {
    * Request a password reset email
    */
   @Post('forgot-password')
+  @UseGuards(AuthRateLimitGuard)
+  @Throttle({ default: { limit: 3, ttl: 900000 } })
   @HttpCode(HttpStatus.OK)
   async forgotPassword(
     @Body() dto: ForgotPasswordDto,

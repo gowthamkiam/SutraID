@@ -176,6 +176,8 @@ model Organization {
   samlIdpCertificate String?
   samlIdpPrivateKey  String?
   customLoginConfig  Json?
+  mfaRequired        Boolean               @default(false)
+  mfaGracePeriodDays Int                   @default(7)
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
   applications       Application[]
