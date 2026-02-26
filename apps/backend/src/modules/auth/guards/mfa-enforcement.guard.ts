@@ -36,7 +36,7 @@ export class MfaEnforcementGuard implements CanActivate {
         where: { id: user.id },
       });
 
-      if (!userRecord?.mfaEnabled) {
+      if (userRecord && !userRecord.mfaEnabled) {
         // Check grace period
         const accountAge = Date.now() - userRecord.createdAt.getTime();
         const gracePeriodMs = org.mfaGracePeriodDays * 24 * 60 * 60 * 1000;
