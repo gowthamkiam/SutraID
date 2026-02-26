@@ -81,7 +81,9 @@ export class OidcIdpService {
           client_id: application.clientId,
           client_secret: application.clientSecretHash || undefined,
           grant_types: clientGrants,
-          redirect_uris: application.redirectUris as string[],
+          redirect_uris: (application.redirectUris as string[]).length > 0
+            ? application.redirectUris as string[]
+            : ['https://localhost/cb'],
           response_types: ['code'],
           token_endpoint_auth_method: application.clientSecretHash ? 'client_secret_post' : 'none',
           scope: 'openid profile email offline_access',
