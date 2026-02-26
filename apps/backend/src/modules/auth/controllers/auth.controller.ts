@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Body,
+  Param,
   UseGuards,
   Request,
   Res,
@@ -20,12 +21,20 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
   ChangePasswordDto,
+  OrgLookupResponseDto,
 } from '../dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
+
+  @Get('org-lookup/:identifier')
+  async orgLookup(
+    @Param('identifier') identifier: string,
+  ): Promise<OrgLookupResponseDto> {
+    return await this.authService.findOrgByIdentifier(identifier);
+  }
 
   /**
    * POST /api/v1/auth/magic-link

@@ -266,7 +266,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
       }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <button onClick={() => router.push('/dashboard/applications')} style={{
+            <button onClick={() => router.push(`/dashboard/${orgId}/applications`)} style={{
               background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color, #30363d)',
               borderRadius: '8px', padding: '0.5rem 0.75rem', cursor: 'pointer', fontSize: '1.1rem',
               color: 'var(--text-secondary, #7d8590)'
@@ -932,8 +932,53 @@ function IntegrationGuide({
   ];
 
   if (app.type === 'SAML') {
+    const metadataUrl = applicationApi.getSamlMetadataUrl(orgId, appId);
+    const ssoUrl = applicationApi.getSamlSsoUrl(orgId, appId);
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={cardStyle}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.75rem', marginTop: 0 }}>
+            Quick Link
+          </h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', margin: '0 0 1rem' }}>
+            Test the SAML SSO flow by opening the metadata URL or SSO endpoint in your browser.
+          </p>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button
+              onClick={() => window.open(metadataUrl, '_blank')}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: '600',
+                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+              }}
+            >
+              Open Metadata XML
+            </button>
+            <button
+              onClick={() => copyToClipboard(metadataUrl)}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: 'rgba(255,255,255,0.05)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border-color, #30363d)',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: '600',
+              }}
+            >
+              Copy Metadata URL
+            </button>
+          </div>
+        </div>
+
         <div style={cardStyle}>
           <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem', marginTop: 0 }}>
             SAML 2.0 Integration Guide
@@ -942,16 +987,23 @@ function IntegrationGuide({
             <div>
               <label style={labelStyle}>IdP Metadata XML</label>
               <pre style={{ ...preStyle, color: '#60a5fa' }}>{`<!-- Download from: -->
-${applicationApi.getSamlMetadataUrl(orgId, appId)}
+${metadataUrl}
 
 <!-- Or configure your SP with: -->
-<IDPSSODescriptor>
-  SSO URL: ${applicationApi.getSamlSsoUrl(orgId, appId)}
-  NameID Format: ${samlNameIdFormat}
+<IDPSSODescriptor WantAuthnRequestsSigned="true" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+  <KeyDescriptor use="signing">
+    <ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+      <ds:X509Data>
+        <ds:X509Certificate>[Certificate included in metadata.xml]</ds:X509Certificate>
+      </ds:X509Data>
+    </ds:KeyInfo>
+  </KeyDescriptor>
+  <NameIDFormat>${samlNameIdFormat}</NameIDFormat>
+  <SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="${ssoUrl}"/>
 </IDPSSODescriptor>`}</pre>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', margin: 0 }}>
-              Import the IdP Metadata URL into your Service Provider to complete the SAML configuration.
+              Import the IdP Metadata URL into your Service Provider to complete the SAML configuration. The signing certificate is automatically included in the metadata.
             </p>
           </div>
         </div>

@@ -12,6 +12,7 @@ import { PolicyModule } from './modules/policy/policy.module';
 import { DirectoryModule } from './modules/directory/directory.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { StatsModule } from './modules/organization/stats/stats.module';
+import { OnboardModule } from './modules/onboard/onboard.module';
 
 @Module({
   imports: [
@@ -40,6 +41,8 @@ import { StatsModule } from './modules/organization/stats/stats.module';
     RbacModule,
     // Stats module (dashboard metrics)
     StatsModule,
+    // Unauthenticated initial onboarding
+    OnboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

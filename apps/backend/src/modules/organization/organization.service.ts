@@ -11,12 +11,13 @@ import {
   UpdateOrganizationDto,
   InviteMemberDto,
   UpdateMemberRoleDto,
+  CustomizeLoginDto,
 } from './dto';
 import { OrgRole, MemberStatus } from '@prisma/client';
 
 @Injectable()
 export class OrganizationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Create a new organization with the creator as SUPER_ADMIN
@@ -443,5 +444,30 @@ export class OrganizationService {
     });
 
     return membership?.status === MemberStatus.ACTIVE ? membership.role : null;
+  }
+
+  async customizeLogin(orgId: string, userId: string, dto: CustomizeLoginDto) {
+    await this.checkPermission(orgId, userId, [OrgRole.SUPER_ADMIN]);
+
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+    });
+
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    const existing = (org.customLoginConfig as Record<string, unknown>) || {};
+    const merged = { ...existing };
+    if (dto.logoUrl !== undefined) merged.logoUrl = dto.logoUrl;
+    if (dto.primaryColor !== undefined) merged.primaryColor = dto.primaryColor;
+    if (dto.backgroundColor !== undefined) merged.backgroundColor = dto.backgroundColor;
+    if (dto.customCss !== undefined) merged.customCss = dto.customCss;
+    if (dto.customHtmlTemplate !== undefined) merged.customHtmlTemplate = dto.customHtmlTemplate;
+
+    return this.prisma.organization.update({
+      where: { id: orgId },
+      data: { customLoginConfig: merged as any },
+    });
   }
 }

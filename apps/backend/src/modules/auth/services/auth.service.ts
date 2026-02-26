@@ -12,7 +12,7 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { AuthResponseDto } from '../dto';
+import { AuthResponseDto, OrgLookupResponseDto } from '../dto';
 import { AuditService } from '../../audit/audit.service';
 import { MfaService } from './mfa.service';
 import { Inject, forwardRef } from '@nestjs/common';
@@ -384,6 +384,51 @@ export class AuthService {
     });
 
     return session;
+  }
+
+  async findOrgByIdentifier(identifier: string): Promise<OrgLookupResponseDto> {
+    const trimmed = (identifier || '').trim();
+    if (!trimmed) {
+      throw new BadRequestException('Organization identifier is required');
+    }
+
+    const selectFields = {
+      id: true,
+      name: true,
+      slug: true,
+      logoUrl: true,
+      primaryColor: true,
+      customLoginConfig: true,
+      status: true,
+    };
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let org: any = null;
+
+    if (uuidRegex.test(trimmed)) {
+      org = await this.prisma.organization.findUnique({
+        where: { id: trimmed },
+        select: selectFields,
+      });
+    } else {
+      org = await this.prisma.organization.findFirst({
+        where: { slug: { equals: trimmed, mode: 'insensitive' } },
+        select: selectFields,
+      });
+    }
+
+    if (!org || org.status !== 'ACTIVE') {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return {
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      logoUrl: org.logoUrl,
+      primaryColor: org.primaryColor,
+      customLoginConfig: org.customLoginConfig as OrgLookupResponseDto['customLoginConfig'],
+    };
   }
 
   /**
@@ -1001,7 +1046,7 @@ export class AuthService {
   /**
    * Get user from JWT token
    */
-  async getUserFromToken(jti: string): Promise<any> {
+  async getUserFromToken(jti: string, orgId?: string): Promise<any> {
     const session = await this.prisma.session.findUnique({
       where: { accessToken: jti },
       include: { user: true },
@@ -1015,17 +1060,31 @@ export class AuthService {
       throw new UnauthorizedException('Session expired');
     }
 
+    // Build the query to find the membership
+    const membershipWhere: any = {
+      userId: session.userId,
+      status: 'ACTIVE',
+    };
+
+    // Strict tenant boundary check: if the JWT token claims an organization,
+    // we MUST ensure this session's identity actually belongs to THAT exact organization.
+    if (orgId) {
+      membershipWhere.organizationId = orgId;
+    }
+
     const membership = await this.prisma.organizationMember.findFirst({
-      where: {
-        userId: session.userId,
-        status: 'ACTIVE',
-      },
+      where: membershipWhere,
       include: {
         organization: {
           select: { id: true, name: true, slug: true },
         },
       },
     });
+
+    // If a token explicitly requests access to an org, but they have no membership, reject it.
+    if (orgId && !membership) {
+      throw new UnauthorizedException('User is not an active member of the requested organization');
+    }
 
     return {
       ...session.user,

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -15,6 +16,7 @@ import {
   UpdateOrganizationDto,
   InviteMemberDto,
   UpdateMemberRoleDto,
+  CustomizeLoginDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -83,5 +85,14 @@ export class OrganizationController {
     @Param('memberId') memberId: string,
   ) {
     return this.organizationService.removeMember(orgId, memberId, req.user.id);
+  }
+
+  @Patch(':orgId/customize-login')
+  async customizeLogin(
+    @Request() req: any,
+    @Param('orgId') orgId: string,
+    @Body() dto: CustomizeLoginDto,
+  ) {
+    return this.organizationService.customizeLogin(orgId, req.user.id, dto);
   }
 }
