@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { OrgRole, OrganizationProfile, organizationSettingsApi } from '@/lib/api';
+import { useOrg } from '@/components/providers/OrgContextProvider';
+import { hasPermission } from '@/lib/permissions';
 
 const tabs = [
   { key: 'organization_info', label: 'Organization Info' },
@@ -15,6 +17,9 @@ const tabs = [
 type TabKey = (typeof tabs)[number]['key'];
 
 export default function SettingsPage() {
+  const { orgRole } = useOrg();
+  const canEdit = hasPermission(orgRole as OrgRole, 'settings:update');
+
   const [org, setOrg] = useState<OrganizationProfile | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('organization_info');
   const [loading, setLoading] = useState(true);
@@ -24,19 +29,6 @@ export default function SettingsPage() {
 
   const [orgName, setOrgName] = useState('');
   const [settings, setSettings] = useState<Record<string, string>>({});
-
-  const role = useMemo(() => {
-    if (typeof window === 'undefined') return 'READ_ONLY_ADMIN' as OrgRole;
-    const userRaw = localStorage.getItem('user');
-    if (!userRaw) return 'READ_ONLY_ADMIN' as OrgRole;
-    try {
-      return (JSON.parse(userRaw).role || 'READ_ONLY_ADMIN') as OrgRole;
-    } catch {
-      return 'READ_ONLY_ADMIN' as OrgRole;
-    }
-  }, []);
-
-  const canEdit = role === 'SUPER_ADMIN';
 
   useEffect(() => {
     const load = async () => {
@@ -63,7 +55,7 @@ export default function SettingsPage() {
 
   const save = async () => {
     if (!canEdit) {
-      setError('Only SUPER_ADMIN can update organization settings.');
+      setError('You do not have permission to update organization settings.');
       return;
     }
     setSaving(true);
@@ -106,8 +98,7 @@ export default function SettingsPage() {
           <div style={{ color: 'var(--text-secondary)', marginTop: 4 }}>Enterprise company settings</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {role === 'SUPER_ADMIN' ? <span style={superAdminBadge}>SUPER ADMIN</span> : null}
-          <button onClick={save} disabled={!canEdit || saving} style={btnPrimary}>
+          <button onClick={save} disabled={!canEdit || saving} style={canEdit ? btnPrimary : btnDisabled} title={!canEdit ? 'You do not have permission to update organization settings' : ''}>
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
@@ -274,14 +265,14 @@ const btnPrimary: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-const superAdminBadge: React.CSSProperties = {
-  background: 'rgba(34, 211, 238, 0.18)',
-  color: '#67e8f9',
-  border: '1px solid rgba(34, 211, 238, 0.35)',
-  fontWeight: 700,
-  borderRadius: 999,
-  padding: '0.25rem 0.7rem',
-  fontSize: '0.72rem',
+const btnDisabled: React.CSSProperties = {
+  background: 'var(--btn-disabled-bg, #6b7280)',
+  color: 'var(--btn-disabled-text, #9ca3af)',
+  border: 'none',
+  borderRadius: 10,
+  padding: '0.55rem 1rem',
+  cursor: 'not-allowed',
+  opacity: 0.5,
 };
 
 const sectionGrid: React.CSSProperties = {

@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import Image from 'next/image';
 import { SutraLogo } from './SutraLogo';
 
 const footerSections = [
@@ -99,7 +101,7 @@ export default function Footer() {
               <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', listStyle: 'none', padding: 0, margin: 0 }}>
                 {section.links.map((link) => (
                   <li key={link.label}>
-                    <a
+                    <Link
                       href={link.href}
                       style={{
                         textDecoration: 'none',
@@ -111,7 +113,7 @@ export default function Footer() {
                       onMouseLeave={(e) => (e.currentTarget.style.color = '#9ca3af')}
                     >
                       {link.label}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -137,10 +139,10 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} SutraID
           </span>
           <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-            <a href="/privacy" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Privacy</a>
-            <a href="/security" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Security</a>
+            <Link href="/privacy" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Privacy</Link>
+            <Link href="/security" style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem', textDecoration: 'none' }}>Security</Link>
             <a href="https://www.netlify.com" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center' }}>
-              <img src="https://www.netlify.com/assets/badges/netlify-badge-color-accent.svg" alt="Deploys by Netlify" />
+              <Image src="https://www.netlify.com/assets/badges/netlify-badge-color-accent.svg" alt="Deploys by Netlify" width={114} height={20} />
             </a>
           </div>
         </div>

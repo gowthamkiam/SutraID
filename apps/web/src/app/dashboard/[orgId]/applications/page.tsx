@@ -2,11 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { applicationApi, Application } from '@/lib/api';
+import { applicationApi, Application, OrgRole } from '@/lib/api';
 import { useOrg } from '@/components/providers/OrgContextProvider';
+import { hasPermission } from '@/lib/permissions';
 
 export default function ApplicationsPage() {
-  const { orgId, isLoading: orgLoading } = useOrg();
+  const { orgId, orgRole, isLoading: orgLoading } = useOrg();
+  const canCreate = hasPermission(orgRole as OrgRole, 'apps:create');
+  const canDelete = hasPermission(orgRole as OrgRole, 'apps:delete');
+
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +58,10 @@ export default function ApplicationsPage() {
   };
 
   const handleDelete = async (appId: string) => {
+    if (!canDelete) {
+      alert('You do not have permission to delete applications');
+      return;
+    }
     if (!confirm('Are you sure you want to archive this application?')) return;
     if (!orgId) return;
     try {
@@ -138,16 +146,20 @@ export default function ApplicationsPage() {
             </div>
           </div>
           <button
-            onClick={() => router.push(`/dashboard/${orgId}/applications/new`)}
+            onClick={() => canCreate && router.push(`/dashboard/${orgId}/applications/new`)}
+            disabled={!canCreate}
+            title={!canCreate ? 'Read-only administrators cannot create applications' : ''}
             style={{
               padding: '0.75rem 1.5rem',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              background: canCreate ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : '#6b7280',
               color: '#fff', border: 'none', borderRadius: '8px',
-              cursor: 'pointer', fontSize: '0.95rem', fontWeight: '600',
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)', transition: 'transform 0.2s, box-shadow 0.2s'
+              cursor: canCreate ? 'pointer' : 'not-allowed', fontSize: '0.95rem', fontWeight: '600',
+              boxShadow: canCreate ? '0 4px 12px rgba(99, 102, 241, 0.3)' : 'none',
+              opacity: canCreate ? 1 : 0.5,
+              transition: 'transform 0.2s, box-shadow 0.2s'
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+            onMouseEnter={(e) => { if (canCreate) e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={(e) => { if (canCreate) e.currentTarget.style.transform = 'translateY(0)'; }}
           >
             + New Application
           </button>
@@ -208,11 +220,17 @@ export default function ApplicationsPage() {
               Create your first application to enable OAuth 2.1 (OIDC) or SAML 2.0 Identity Provider features.
             </p>
             <button
-              onClick={() => router.push(`/dashboard/${orgId}/applications/new`)}
+              onClick={() => canCreate && router.push(`/dashboard/${orgId}/applications/new`)}
+              disabled={!canCreate}
+              title={!canCreate ? 'Read-only administrators cannot create applications' : ''}
               style={{
-                padding: '0.75rem 2rem', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer',
-                fontSize: '1rem', fontWeight: '600', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                padding: '0.75rem 2rem',
+                background: canCreate ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : '#6b7280',
+                color: '#fff', border: 'none', borderRadius: '8px',
+                cursor: canCreate ? 'pointer' : 'not-allowed',
+                fontSize: '1rem', fontWeight: '600',
+                boxShadow: canCreate ? '0 4px 12px rgba(99, 102, 241, 0.3)' : 'none',
+                opacity: canCreate ? 1 : 0.5
               }}
             >
               + Create Your First Application
@@ -333,12 +351,19 @@ export default function ApplicationsPage() {
                     </button>
                   )}
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(app.id); }}
+                    onClick={(e) => { e.stopPropagation(); canDelete && handleDelete(app.id); }}
+                    disabled={!canDelete}
+                    title={!canDelete ? 'You do not have permission to delete applications' : ''}
                     style={{
-                      padding: '0.5rem', background: 'rgba(239, 68, 68, 0.15)',
-                      color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.3)',
-                      borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500', transition: 'all 0.2s',
-                      gridColumn: app.type === 'OIDC' ? 'span 2' : 'auto'
+                      padding: '0.5rem',
+                      background: canDelete ? 'rgba(239, 68, 68, 0.15)' : 'rgba(107, 114, 128, 0.15)',
+                      color: canDelete ? '#fca5a5' : '#9ca3af',
+                      border: canDelete ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(107, 114, 128, 0.3)',
+                      borderRadius: '6px',
+                      cursor: canDelete ? 'pointer' : 'not-allowed',
+                      fontSize: '0.85rem', fontWeight: '500', transition: 'all 0.2s',
+                      gridColumn: app.type === 'OIDC' ? 'span 2' : 'auto',
+                      opacity: canDelete ? 1 : 0.5
                     }}
                   >
                     Archive

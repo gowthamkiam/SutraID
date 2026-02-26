@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { policyApi, Policy, CreatePolicyDto } from '@/lib/api';
+import Link from 'next/link';
+import { policyApi, Policy, CreatePolicyDto, OrgRole } from '@/lib/api';
+import { useOrg } from '@/components/providers/OrgContextProvider';
+import { hasPermission } from '@/lib/permissions';
 
 const effectColors: Record<string, { bg: string; text: string; border: string }> = {
   ALLOW: { bg: '#ecfdf5', text: '#065f46', border: '#a7f3d0' },
@@ -9,6 +12,11 @@ const effectColors: Record<string, { bg: string; text: string; border: string }>
 };
 
 export default function PoliciesPage() {
+  const { orgRole } = useOrg();
+  const canCreate = hasPermission(orgRole as OrgRole, 'policies:create');
+  const canUpdate = hasPermission(orgRole as OrgRole, 'policies:update');
+  const canDelete = hasPermission(orgRole as OrgRole, 'policies:delete');
+
   const [orgId, setOrgId] = useState<string | null>(null);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,9 +192,9 @@ export default function PoliciesPage() {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
-            <a href="/dashboard" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.85rem' }}>
+            <Link href="/dashboard" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.85rem' }}>
               ← Back to Dashboard
-            </a>
+            </Link>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary, #111827)', margin: '0.5rem 0 0' }}>
               Policies
             </h1>
@@ -206,9 +214,14 @@ export default function PoliciesPage() {
             </button>
             <button
               onClick={() => { resetForm(); setShowCreate(true); }}
+              disabled={!canCreate}
+              title={!canCreate ? 'You do not have permission to create policies' : ''}
               style={{
                 padding: '0.6rem 1.2rem', borderRadius: '8px', border: 'none',
-                background: '#4f46e5', color: '#fff', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
+                background: canCreate ? '#4f46e5' : '#6b7280',
+                color: '#fff', fontSize: '0.875rem', fontWeight: 600,
+                cursor: canCreate ? 'pointer' : 'not-allowed',
+                opacity: canCreate ? 1 : 0.5,
               }}
             >
               + Create Policy
@@ -407,18 +420,30 @@ export default function PoliciesPage() {
                       </button>
                       <button
                         onClick={() => openEdit(policy)}
+                        disabled={!canUpdate}
+                        title={!canUpdate ? 'You do not have permission to edit policies' : ''}
                         style={{
                           padding: '0.4rem 0.7rem', borderRadius: '6px', border: '1px solid #d1d5db',
-                          background: '#fff', color: '#374151', fontSize: '0.8rem', cursor: 'pointer',
+                          background: canUpdate ? '#fff' : '#f3f4f6',
+                          color: canUpdate ? '#374151' : '#9ca3af',
+                          fontSize: '0.8rem',
+                          cursor: canUpdate ? 'pointer' : 'not-allowed',
+                          opacity: canUpdate ? 1 : 0.5,
                         }}
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(policy.id)}
+                        disabled={!canDelete}
+                        title={!canDelete ? 'You do not have permission to delete policies' : ''}
                         style={{
                           padding: '0.4rem 0.7rem', borderRadius: '6px', border: '1px solid #fecaca',
-                          background: '#fff', color: '#991b1b', fontSize: '0.8rem', cursor: 'pointer',
+                          background: canDelete ? '#fff' : '#f3f4f6',
+                          color: canDelete ? '#991b1b' : '#9ca3af',
+                          fontSize: '0.8rem',
+                          cursor: canDelete ? 'pointer' : 'not-allowed',
+                          opacity: canDelete ? 1 : 0.5,
                         }}
                       >
                         Delete

@@ -14,6 +14,7 @@ describe('OnboardService', () => {
     const mockPrisma = {
         organization: {
             findUnique: jest.fn(),
+            findFirst: jest.fn(),
             create: jest.fn(),
         },
         user: {

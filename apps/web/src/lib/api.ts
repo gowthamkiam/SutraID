@@ -213,7 +213,7 @@ export interface Application {
   tokenEndpointAuthMethod: string;
   isPublicClient: boolean;
   requireDpop: boolean;
-  jwks?: any;
+  jwks?: Record<string, any>;
   dpopNonceEnabled: boolean;
   isAiAgent: boolean;
   // Grant type controls
@@ -957,9 +957,9 @@ export interface OrgGroup {
 }
 
 export const roleVisibleTabs: Record<OrgRole, string[]> = {
-  SUPER_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'oidc-config', 'api-access', 'policies', 'audit', 'settings'],
-  READ_ONLY_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'audit', 'settings'],
-  ORG_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'oidc-config', 'api-access', 'policies', 'audit', 'settings'],
+  SUPER_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'oidc-config', 'api-access', 'auth-policies', 'policies', 'audit', 'settings'],
+  READ_ONLY_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'auth-policies', 'audit', 'settings'],
+  ORG_ADMIN: ['dashboard', 'applications', 'users', 'groups', 'directory', 'oidc-config', 'api-access', 'auth-policies', 'policies', 'audit', 'settings'],
   APP_ADMIN: ['dashboard', 'applications', 'api-access', 'settings'],
   USER_ADMIN: ['dashboard', 'users', 'groups', 'settings'],
   GROUP_MEMBERSHIP_ADMIN: ['dashboard', 'users', 'groups', 'directory', 'settings'],

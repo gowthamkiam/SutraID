@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { ssoApi, CreateSsoProviderDto } from '@/lib/api';
 import {
   ShieldCheck,
@@ -74,12 +74,8 @@ export default function NewSsoProviderPage() {
     attributeMapping: {},
   });
 
-  const [orgId, setOrgId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('currentOrgId');
-    if (stored) setOrgId(stored);
-  }, []);
+  const params = useParams();
+  const orgId = params.orgId as string;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +88,7 @@ export default function NewSsoProviderPage() {
 
     try {
       await ssoApi.createProvider(orgId, formData as CreateSsoProviderDto);
-      router.push('/dashboard/sso/providers');
+      router.push(`/dashboard/${orgId}/sso/providers`);
     } catch (err: any) {
       setError(err.message || 'Failed to create SSO provider');
       setSubmitting(false);
@@ -128,7 +124,7 @@ export default function NewSsoProviderPage() {
       {/* Back Button & Title */}
       <div style={{ marginBottom: '2rem' }}>
         <button
-          onClick={() => router.push('/dashboard/sso/providers')}
+          onClick={() => router.push(`/dashboard/${orgId}/sso/providers`)}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -526,7 +522,7 @@ export default function NewSsoProviderPage() {
         }}>
           <button
             type="button"
-            onClick={() => router.push('/dashboard/sso/providers')}
+            onClick={() => router.push(`/dashboard/${orgId}/sso/providers`)}
             disabled={submitting}
             style={{
               padding: '12px 24px',

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { directoryApi, organizationSettingsApi } from '@/lib/api';
+import { directoryApi, organizationSettingsApi, OrgRole } from '@/lib/api';
+import { useOrg } from '@/components/providers/OrgContextProvider';
+import { hasPermission } from '@/lib/permissions';
 import {
     Layers,
     Shield,
@@ -19,6 +21,9 @@ import {
 type DirectoryMode = 'SCIM' | 'LDAP';
 
 export default function DirectoryPage() {
+    const { orgRole } = useOrg();
+    const canUpdate = hasPermission(orgRole as OrgRole, 'directory:update');
+
     const [mode, setMode] = useState<DirectoryMode>('SCIM');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
@@ -358,21 +363,23 @@ export default function DirectoryPage() {
 
                         <button
                             onClick={handleGenerateToken}
-                            disabled={loading}
+                            disabled={loading || !canUpdate}
                             style={{
                                 padding: '1rem 1.5rem',
-                                background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                                color: '#fff',
+                                background: canUpdate ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' : 'var(--btn-disabled-bg, #6b7280)',
+                                color: canUpdate ? '#fff' : 'var(--btn-disabled-text, #9ca3af)',
                                 border: 'none',
                                 borderRadius: '12px',
                                 fontSize: '0.95rem',
                                 fontWeight: 600,
-                                cursor: 'pointer',
+                                cursor: (loading || !canUpdate) ? 'not-allowed' : 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.75rem',
-                                boxShadow: '0 4px 12px rgba(79, 70, 229, 0.2)'
+                                boxShadow: canUpdate ? '0 4px 12px rgba(79, 70, 229, 0.2)' : 'none',
+                                opacity: canUpdate ? 1 : 0.5,
                             }}
+                            title={!canUpdate ? 'You do not have permission to manage directory integration' : ''}
                         >
                             <RefreshCcw size={18} className={loading ? 'animate-spin' : ''} />
                             {scimToken ? 'Regenerate Token' : 'Generate SCIM Token'}
@@ -424,40 +431,44 @@ export default function DirectoryPage() {
                         <div style={{ display: 'flex', gap: '1rem' }}>
                             <button
                                 onClick={handleLdapSave}
-                                disabled={loading}
+                                disabled={loading || !canUpdate}
                                 style={{
                                     flex: 1,
                                     padding: '1rem',
-                                    background: '#6366f1',
-                                    color: '#fff',
+                                    background: canUpdate ? '#6366f1' : 'var(--btn-disabled-bg, #6b7280)',
+                                    color: canUpdate ? '#fff' : 'var(--btn-disabled-text, #9ca3af)',
                                     border: 'none',
                                     borderRadius: '12px',
                                     fontWeight: 600,
-                                    cursor: 'pointer',
+                                    cursor: (loading || !canUpdate) ? 'not-allowed' : 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     gap: '0.75rem',
-                                    opacity: loading ? 0.7 : 1
-                                }}>
+                                    opacity: canUpdate ? (loading ? 0.7 : 1) : 0.5
+                                }}
+                                title={!canUpdate ? 'You do not have permission to manage directory integration' : ''}
+                            >
                                 <Server size={18} /> {loading ? 'Testing...' : 'Save and Test Connection'}
                             </button>
                             <button
                                 onClick={handleLdapSync}
-                                disabled={loading}
+                                disabled={loading || !canUpdate}
                                 style={{
                                     padding: '1rem 2rem',
-                                    background: '#fff',
-                                    color: '#374151',
+                                    background: canUpdate ? '#fff' : 'var(--btn-disabled-bg, #6b7280)',
+                                    color: canUpdate ? '#374151' : 'var(--btn-disabled-text, #9ca3af)',
                                     border: '1.5px solid #e5e7eb',
                                     borderRadius: '12px',
                                     fontWeight: 600,
-                                    cursor: 'pointer',
+                                    cursor: (loading || !canUpdate) ? 'not-allowed' : 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '0.75rem',
-                                    opacity: loading ? 0.7 : 1
-                                }}>
+                                    opacity: canUpdate ? (loading ? 0.7 : 1) : 0.5
+                                }}
+                                title={!canUpdate ? 'You do not have permission to manage directory integration' : ''}
+                            >
                                 <RefreshCcw size={18} className={loading ? 'animate-spin' : ''} /> Sync Now
                             </button>
                         </div>

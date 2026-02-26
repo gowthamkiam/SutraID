@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -97,7 +98,7 @@ export default function ForgotPasswordPage() {
               lineHeight: 1.6,
               marginBottom: '1.5rem',
             }}>
-              If an account exists with <strong>{email}</strong>, we've sent a password reset link.
+              If an account exists with <strong>{email}</strong>, we&apos;ve sent a password reset link.
               Check your email and follow the instructions.
             </p>
             <p style={{
@@ -107,7 +108,7 @@ export default function ForgotPasswordPage() {
             }}>
               The link expires in 15 minutes.
             </p>
-            <a
+            <Link
               href="/login"
               style={{
                 display: 'inline-block',
@@ -121,7 +122,7 @@ export default function ForgotPasswordPage() {
               }}
             >
               Back to Sign In
-            </a>
+            </Link>
           </div>
         ) : (
           <>
@@ -132,7 +133,7 @@ export default function ForgotPasswordPage() {
               marginBottom: '1.5rem',
               lineHeight: 1.5,
             }}>
-              Enter your email address and we'll send you a link to reset your password.
+              Enter your email address and we&apos;ll send you a link to reset your password.
             </p>
 
             <form onSubmit={handleSubmit}>
@@ -221,7 +222,7 @@ export default function ForgotPasswordPage() {
 
         {!sent && (
           <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-            <a
+            <Link
               href="/login"
               style={{
                 color: '#4f46e5',
@@ -233,7 +234,7 @@ export default function ForgotPasswordPage() {
               onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
             >
               Back to Sign In
-            </a>
+            </Link>
           </div>
         )}
       </div>

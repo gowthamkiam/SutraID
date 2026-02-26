@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { applicationApi, Application, OrgRole, groupsApi, usersApi } from '@/lib/api';
+import { useOrg } from '@/components/providers/OrgContextProvider';
+import { hasPermission } from '@/lib/permissions';
 
 const roles: OrgRole[] = [
   'SUPER_ADMIN',
@@ -19,6 +21,11 @@ const roles: OrgRole[] = [
 type OnboardingMethod = 'MAGIC_LINK' | 'TEMP_PASSWORD';
 
 export default function UsersPage() {
+  const { orgRole } = useOrg();
+  const canCreate = hasPermission(orgRole as OrgRole, 'users:create');
+  const canUpdate = hasPermission(orgRole as OrgRole, 'users:update');
+  const canDelete = hasPermission(orgRole as OrgRole, 'users:delete');
+
   const [users, setUsers] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -160,7 +167,14 @@ export default function UsersPage() {
           <h1 style={{ margin: 0, fontSize: '1.75rem' }}>Users</h1>
           <p style={{ margin: '0.25rem 0 0', color: 'var(--text-secondary)' }}>Organization-scoped user administration</p>
         </div>
-        <button onClick={() => { resetForm(); setOpenCreate(true); }} style={btnPrimary}>Create User</button>
+        <button
+          onClick={() => { resetForm(); setOpenCreate(true); }}
+          style={canCreate ? btnPrimary : btnDisabled}
+          disabled={!canCreate}
+          title={!canCreate ? 'Read-only administrators cannot create users' : ''}
+        >
+          Create User
+        </button>
       </div>
 
       <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -209,8 +223,22 @@ export default function UsersPage() {
                   {user.mustChangePassword ? <span style={mustChangeBadge}>PW Reset Required</span> : null}
                 </td>
                 <td style={tdStyle}>
-                  <button onClick={() => openEdit(user)} style={linkBtn}>Edit</button>
-                  <button onClick={() => onDelete(user.id)} style={dangerBtn}>Delete</button>
+                  <button
+                    onClick={() => openEdit(user)}
+                    style={canUpdate ? linkBtn : btnDisabled}
+                    disabled={!canUpdate}
+                    title={!canUpdate ? 'Read-only administrators cannot edit users' : ''}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => onDelete(user.id)}
+                    style={canDelete ? dangerBtn : btnDisabled}
+                    disabled={!canDelete}
+                    title={!canDelete ? 'Read-only administrators cannot delete users' : ''}
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}
@@ -462,4 +490,14 @@ const errorStyle: React.CSSProperties = {
   padding: '0.6rem 0.8rem',
   borderRadius: 8,
   marginBottom: '0.8rem',
+};
+
+const btnDisabled: React.CSSProperties = {
+  background: 'var(--btn-disabled-bg, #6b7280)',
+  color: 'var(--btn-disabled-text, #9ca3af)',
+  border: 'none',
+  borderRadius: 8,
+  padding: '0.6rem 1rem',
+  cursor: 'not-allowed',
+  opacity: 0.5,
 };

@@ -34,6 +34,7 @@
     "@nestjs/throttler": "^6.5.0",
     "@node-saml/passport-saml": "^5.1.0",
     "@prisma/client": "^5.8.0",
+    "@simplewebauthn/server": "^13.2.3",
     "@types/passport": "^1.0.17",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",

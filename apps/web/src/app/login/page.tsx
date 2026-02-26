@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -179,15 +180,15 @@ export default function LoginPage() {
         )}
 
         <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-          <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>{"Don't have an organization? "}</span>
-          <a
+          <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>Don&apos;t have an organization? </span>
+          <Link
             href="/onboard"
             style={{ color: '#4f46e5', fontSize: '0.85rem', fontWeight: 500, textDecoration: 'none' }}
             onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
             onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
           >
             Get started
-          </a>
+          </Link>
         </div>
       </div>
     </div>

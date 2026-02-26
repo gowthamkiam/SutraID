@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import LoginForm, { CustomLoginConfig } from '@/components/auth/LoginForm';
 
@@ -111,14 +112,14 @@ export default function OrgLoginPage() {
 
       {/* Back to org finder */}
       <div style={{ marginTop: '1.5rem', textAlign: 'center', zIndex: 1 }}>
-        <a
+        <Link
           href="/login"
           style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', textDecoration: 'none' }}
           onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
           onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
         >
           Not your organization? Go back
-        </a>
+        </Link>
       </div>
     </div>
   );

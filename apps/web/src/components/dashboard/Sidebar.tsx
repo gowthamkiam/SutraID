@@ -35,9 +35,9 @@ const navItems = [
   { icon: Users, label: 'Users', path: '/users', key: 'users' },
   { icon: UsersRound, label: 'Groups', path: '/groups', key: 'groups' },
   { icon: Database, label: 'Directory Services', path: '/directory', key: 'directory' },
-  { icon: Shield, label: 'OIDC Configuration', path: '/settings/oidc', key: 'oidc-config' },
-  { icon: KeyRound, label: 'API Access', path: '/sso/providers', key: 'api-access' },
-  { icon: ClipboardList, label: 'Policies', path: '/policies', key: 'policies' },
+  { icon: KeyRound, label: 'SSO Providers', path: '/sso/providers', key: 'api-access' },
+  { icon: Shield, label: 'Sign-in Policy', path: '/auth-policies', key: 'auth-policies' },
+  { icon: ClipboardList, label: 'Authorization Policies', path: '/policies', key: 'policies' },
   { icon: FileText, label: 'Audit Logs', path: '/audit', key: 'audit' },
   { icon: Settings, label: 'Settings', path: '/settings', key: 'settings' },
 ];

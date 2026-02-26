@@ -455,20 +455,24 @@ model AuditLog {
 }
 
 model MfaMethod {
-  id               String    @id @default(uuid())
-  userId           String
-  type             MfaType   @default(TOTP)
-  name             String    @default("Authenticator App")
-  totpSecret       String?
-  totpEncryptionIv String?
-  totpAuthTag      String?
-  backupCodes      String[]
-  verified         Boolean   @default(false)
-  enabled          Boolean   @default(true)
-  lastUsedAt       DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String    @id @default(uuid())
+  userId                String
+  type                  MfaType   @default(TOTP)
+  name                  String    @default("Authenticator App")
+  totpSecret            String?
+  totpEncryptionIv      String?
+  totpAuthTag           String?
+  backupCodes           String[]
+  webAuthnCredentialID  String?   @unique
+  webAuthnPublicKey     String?
+  webAuthnCounter       Int?      @default(0)
+  webAuthnTransports    String[]  @default([])
+  verified              Boolean   @default(false)
+  enabled               Boolean   @default(true)
+  lastUsedAt            DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([userId, enabled])
@@ -652,6 +656,7 @@ enum AuditResult {
 
 enum MfaType {
   TOTP
+  FIDO2
 }
 
 enum ClaimTarget {
