@@ -68,3 +68,7 @@ temp/
 .vercel
 .env*.local
 .claude
+
+# SBOM files
+sbom*.json
+**/sbom*.json
