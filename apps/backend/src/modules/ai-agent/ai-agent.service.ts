@@ -22,9 +22,12 @@ export class AiAgentService {
       echo: (params) => params,
     };
 
-    const handler = Object.prototype.hasOwnProperty.call(toolHandlers, dto.tool_name)
-      ? toolHandlers[dto.tool_name]
-      : null;
+    let handler: ((params: any) => any) | null = null;
+    if (dto.tool_name === 'calculator') {
+      handler = toolHandlers.calculator;
+    } else if (dto.tool_name === 'echo') {
+      handler = toolHandlers.echo;
+    }
 
     if (!handler) {
       return {

@@ -1,0 +1,6 @@
+name: "SutraID CodeQL Config"
+
+paths-ignore:
+  - 'examples/**'
+  - '**/node_modules/**'
+  - 'dist/**'
