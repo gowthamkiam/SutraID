@@ -238,10 +238,10 @@ export default function OnboardPage() {
           {/* Step 1: Organization */}
           {currentStep === 'organization' && (
             <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: '700', color: '#111827', letterSpacing: '-0.5px', marginBottom: '0.5rem' }}>
                 Create your organization
               </h2>
-              <p style={{ color: '#666', marginBottom: '2rem' }}>
+              <p style={{ color: '#4b5563', fontSize: '1.05rem', marginBottom: '2rem' }}>
                 This will be the workspace for your team
               </p>
 
@@ -295,21 +295,19 @@ export default function OnboardPage() {
                       color: '#374151',
                     }}
                   >
-                    URL Slug *
+                    URL Slug
                   </label>
                   <input
                     type="text"
                     value={orgData.slug}
-                    onChange={(e) => setOrgData({ ...orgData, slug: e.target.value })}
+                    disabled
                     placeholder="acme-inc"
-                    style={{ ...inputStyle, fontFamily: 'monospace' }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#4f46e5';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#d1d5db';
-                      e.target.style.boxShadow = 'none';
+                    style={{
+                      ...inputStyle,
+                      fontFamily: 'monospace',
+                      background: '#f3f4f6',
+                      color: '#6b7280',
+                      cursor: 'not-allowed'
                     }}
                   />
                   <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.5rem' }}>
@@ -372,10 +370,10 @@ export default function OnboardPage() {
           {/* Step 2: Application */}
           {currentStep === 'application' && (
             <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: '700', color: '#111827', letterSpacing: '-0.5px', marginBottom: '0.5rem' }}>
                 Create your first application
               </h2>
-              <p style={{ color: '#666', marginBottom: '2rem' }}>
+              <p style={{ color: '#4b5563', fontSize: '1.05rem', marginBottom: '2rem' }}>
                 Register an app that will use SutraID for authentication (optional)
               </p>
 
@@ -526,10 +524,10 @@ export default function OnboardPage() {
           {/* Step 3: Members */}
           {currentStep === 'members' && (
             <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: '700', color: '#111827', letterSpacing: '-0.5px', marginBottom: '0.5rem' }}>
                 Setup Administrator
               </h2>
-              <p style={{ color: '#666', marginBottom: '2rem' }}>
+              <p style={{ color: '#4b5563', fontSize: '1.05rem', marginBottom: '2rem' }}>
                 Enter the email address for the initial organization administrator.
               </p>
 
@@ -596,10 +594,10 @@ export default function OnboardPage() {
           {currentStep === 'complete' && (
             <div style={{ textAlign: 'center', padding: '2rem 0' }}>
               <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✉️</div>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: '600', marginBottom: '1rem' }}>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: '700', color: '#111827', letterSpacing: '-0.5px', marginBottom: '1rem' }}>
                 Check your email!
               </h2>
-              <p style={{ color: '#666', fontSize: '1.1rem', marginBottom: '2rem' }}>
+              <p style={{ color: '#4b5563', fontSize: '1.1rem', marginBottom: '2rem' }}>
                 We've sent a magic link to <strong>{adminEmail}</strong>.
               </p>
               <p style={{ color: '#666', fontSize: '1.1rem', marginBottom: '2rem' }}>

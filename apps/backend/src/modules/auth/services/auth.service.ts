@@ -1046,7 +1046,7 @@ export class AuthService {
   /**
    * Get user from JWT token
    */
-  async getUserFromToken(jti: string): Promise<any> {
+  async getUserFromToken(jti: string, orgId?: string): Promise<any> {
     const session = await this.prisma.session.findUnique({
       where: { accessToken: jti },
       include: { user: true },
@@ -1060,17 +1060,31 @@ export class AuthService {
       throw new UnauthorizedException('Session expired');
     }
 
+    // Build the query to find the membership
+    const membershipWhere: any = {
+      userId: session.userId,
+      status: 'ACTIVE',
+    };
+
+    // Strict tenant boundary check: if the JWT token claims an organization,
+    // we MUST ensure this session's identity actually belongs to THAT exact organization.
+    if (orgId) {
+      membershipWhere.organizationId = orgId;
+    }
+
     const membership = await this.prisma.organizationMember.findFirst({
-      where: {
-        userId: session.userId,
-        status: 'ACTIVE',
-      },
+      where: membershipWhere,
       include: {
         organization: {
           select: { id: true, name: true, slug: true },
         },
       },
     });
+
+    // If a token explicitly requests access to an org, but they have no membership, reject it.
+    if (orgId && !membership) {
+      throw new UnauthorizedException('User is not an active member of the requested organization');
+    }
 
     return {
       ...session.user,

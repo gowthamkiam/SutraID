@@ -16,18 +16,33 @@ export class OnboardService {
     async onboard(dto: OnboardDto) {
         const { organization, application, adminEmail } = dto;
 
-        // 1. Check if organization slug exists
-        const existingOrg = await this.prisma.organization.findUnique({
+        // 1. Check if organization slug or name exists
+        const existingOrgSlug = await this.prisma.organization.findUnique({
             where: { slug: organization.slug },
         });
-        if (existingOrg) {
+        if (existingOrgSlug) {
             throw new ConflictException('Organization slug is already taken');
         }
 
+        const existingOrgName = await this.prisma.organization.findUnique({
+            where: { name: organization.name },
+        });
+        if (existingOrgName) {
+            throw new ConflictException('Organization name is already taken');
+        }
+
         try {
-            // 2. Find or create the user via prisma transaction or sequenced queries
-            // We'll do it sequentially to handle authService correctly, or just use prisma directly
-            let user = await this.prisma.user.findUnique({ where: { email: adminEmail } });
+            // 2. Find or create the user
+            let user = await this.prisma.user.findUnique({
+                where: { email: adminEmail },
+                include: { organizationMembers: { where: { status: 'ACTIVE' } } },
+            });
+
+            // STRICT 1-ORG-PER-ADMIN Check
+            if (user && user.organizationMembers && user.organizationMembers.length > 0) {
+                throw new ConflictException('This admin email is already associated with an organization. Multiple organization ownership is not allowed.');
+            }
+
             if (!user) {
                 user = await this.prisma.user.create({
                     data: {
@@ -35,8 +50,10 @@ export class OnboardService {
                         emailVerified: false,
                         status: 'ACTIVE',
                     },
-                });
+                }) as any;
             }
+
+            if (!user) throw new InternalServerErrorException('Failed to create or find user');
 
             // 3. Create the Organization
             const org = await this.prisma.organization.create({
