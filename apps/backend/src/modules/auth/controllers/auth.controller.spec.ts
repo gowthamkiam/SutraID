@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from '../services/auth.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { AuthRateLimitGuard } from '../guards/auth-rate-limit.guard';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -29,6 +30,8 @@ describe('AuthController', () => {
       ],
     })
       .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: jest.fn(() => true) })
+      .overrideGuard(AuthRateLimitGuard)
       .useValue({ canActivate: jest.fn(() => true) })
       .compile();
 
