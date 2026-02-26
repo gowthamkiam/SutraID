@@ -106,6 +106,7 @@ export class OidcIdpService {
         registration: { enabled: false }, // Dynamic client registration disabled for now
         revocation: { enabled: true },
         introspection: { enabled: true },
+        ...(application.allowClientCredentials ? { clientCredentials: { enabled: true } } : {}),
       },
 
       // Issue JWT access tokens (self-contained, verifiable without introspection)
