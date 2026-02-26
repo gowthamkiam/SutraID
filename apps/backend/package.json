@@ -52,7 +52,7 @@
     "prisma": "^5.8.0",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.1.14",
-    "resend": "^3.0.0",
+    "resend": "^6.9.2",
     "rxjs": "^7.8.1",
     "samlify": "^2.10.2",
     "xml2js": "^0.6.2",
