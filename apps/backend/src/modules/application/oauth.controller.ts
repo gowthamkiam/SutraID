@@ -82,6 +82,15 @@ export class OauthController {
                     error_description: 'client authentication failed',
                 });
             }
+            // Replace plaintext secret with hash so oidc-provider's check passes
+            // (oidc-provider has client_secret = hash, so body must also send hash)
+            if (req.body?.client_secret) {
+                req.body.client_secret = application.clientSecretHash;
+            }
+            if (req.headers.authorization?.startsWith('Basic ')) {
+                const encoded = Buffer.from(`${clientId}:${application.clientSecretHash}`).toString('base64');
+                req.headers.authorization = `Basic ${encoded}`;
+            }
         }
 
         // Pre-validate grant type before delegating to oidc-provider
