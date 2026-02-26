@@ -2,11 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { applicationApi, Application } from '@/lib/api';
+import { applicationApi, Application, OrgRole } from '@/lib/api';
 import { useOrg } from '@/components/providers/OrgContextProvider';
+import { hasPermission } from '@/lib/permissions';
 
 export default function ApplicationsPage() {
-  const { orgId, isLoading: orgLoading } = useOrg();
+  const { orgId, orgRole, isLoading: orgLoading } = useOrg();
+  const canCreate = hasPermission(orgRole as OrgRole, 'apps:create');
+  const canDelete = hasPermission(orgRole as OrgRole, 'apps:delete');
+
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -138,16 +142,20 @@ export default function ApplicationsPage() {
             </div>
           </div>
           <button
-            onClick={() => router.push(`/dashboard/${orgId}/applications/new`)}
+            onClick={() => canCreate && router.push(`/dashboard/${orgId}/applications/new`)}
+            disabled={!canCreate}
+            title={!canCreate ? 'Read-only administrators cannot create applications' : ''}
             style={{
               padding: '0.75rem 1.5rem',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              background: canCreate ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : '#6b7280',
               color: '#fff', border: 'none', borderRadius: '8px',
-              cursor: 'pointer', fontSize: '0.95rem', fontWeight: '600',
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)', transition: 'transform 0.2s, box-shadow 0.2s'
+              cursor: canCreate ? 'pointer' : 'not-allowed', fontSize: '0.95rem', fontWeight: '600',
+              boxShadow: canCreate ? '0 4px 12px rgba(99, 102, 241, 0.3)' : 'none',
+              opacity: canCreate ? 1 : 0.5,
+              transition: 'transform 0.2s, box-shadow 0.2s'
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+            onMouseEnter={(e) => { if (canCreate) e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={(e) => { if (canCreate) e.currentTarget.style.transform = 'translateY(0)'; }}
           >
             + New Application
           </button>

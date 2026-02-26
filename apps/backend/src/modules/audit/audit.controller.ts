@@ -8,11 +8,13 @@ import {
 } from '@nestjs/common';
 import { AuditService } from './audit.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OrgContextGuard } from '../organization/guards/org-context.guard';
+import { RbacGuard, RequirePermission } from '../rbac/rbac.guard';
 import { AuditResult } from '@prisma/client';
 import { Request } from '@nestjs/common';
 
 @Controller('organizations/:orgId/audit')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, OrgContextGuard, RbacGuard)
 export class AuditController {
   constructor(private auditService: AuditService) { }
 
@@ -21,6 +23,7 @@ export class AuditController {
    * Query audit logs with filters
    */
   @Get('logs')
+  @RequirePermission('audit:read')
   async getLogs(
     @Param('orgId') orgId: string,
     @Req() req: any,
@@ -48,6 +51,7 @@ export class AuditController {
    * Get audit log statistics
    */
   @Get('stats')
+  @RequirePermission('audit:read')
   async getStats(
     @Param('orgId') orgId: string,
     @Req() req: any,

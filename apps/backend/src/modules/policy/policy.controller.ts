@@ -15,9 +15,11 @@ import {
 import { PolicyService } from './policy.service';
 import { CreatePolicyDto, UpdatePolicyDto, EvaluatePolicyDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OrgContextGuard } from '../organization/guards/org-context.guard';
+import { RbacGuard, RequirePermission } from '../rbac/rbac.guard';
 
 @Controller('organizations/:orgId/policies')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, OrgContextGuard, RbacGuard)
 export class PolicyController {
   constructor(private policyService: PolicyService) { }
 
@@ -26,6 +28,7 @@ export class PolicyController {
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @RequirePermission('policies:create')
   async create(
     @Request() req: any,
     @Param('orgId') orgId: string,
@@ -49,6 +52,7 @@ export class PolicyController {
    * GET /api/v1/organizations/:orgId/policies
    */
   @Get()
+  @RequirePermission('policies:read')
   async findAll(@Request() req: any, @Param('orgId') orgId: string, @Query('type') type?: string) {
     return this.policyService.findAll(orgId, req.user.id, type);
   }
@@ -57,6 +61,7 @@ export class PolicyController {
    * GET /api/v1/organizations/:orgId/policies/password
    */
   @Get('password')
+  @RequirePermission('policies:read')
   async getPasswordPolicy(@Request() req: any, @Param('orgId') orgId: string) {
     return this.policyService.getPasswordPolicy(orgId, req.user.id);
   }
@@ -65,6 +70,7 @@ export class PolicyController {
    * PUT /api/v1/organizations/:orgId/policies/password
    */
   @Put('password')
+  @RequirePermission('policies:update')
   async updatePasswordPolicy(
     @Request() req: any,
     @Param('orgId') orgId: string,
@@ -77,6 +83,7 @@ export class PolicyController {
    * GET /api/v1/organizations/:orgId/policies/:policyId
    */
   @Get(':policyId')
+  @RequirePermission('policies:read')
   async findOne(
     @Request() req: any,
     @Param('orgId') orgId: string,
@@ -89,6 +96,7 @@ export class PolicyController {
    * PUT /api/v1/organizations/:orgId/policies/:policyId
    */
   @Put(':policyId')
+  @RequirePermission('policies:update')
   async update(
     @Request() req: any,
     @Param('orgId') orgId: string,
@@ -103,6 +111,7 @@ export class PolicyController {
    */
   @Delete(':policyId')
   @HttpCode(HttpStatus.OK)
+  @RequirePermission('policies:delete')
   async delete(
     @Request() req: any,
     @Param('orgId') orgId: string,
@@ -117,6 +126,7 @@ export class PolicyController {
    */
   @Post('evaluate')
   @HttpCode(HttpStatus.OK)
+  @RequirePermission('policies:read')
   async evaluate(
     @Request() req: any,
     @Param('orgId') orgId: string,
