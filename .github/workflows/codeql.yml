@@ -28,6 +28,9 @@ jobs:
       with:
         languages: javascript-typescript
         queries: +security-extended,security-and-quality
+        config: |
+            paths-ignore:
+              - 'examples/**'
 
     - name: Autobuild
       uses: github/codeql-action/autobuild@v3
