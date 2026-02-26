@@ -17,7 +17,7 @@ interface LoginFormProps {
   branding?: CustomLoginConfig | null;
 }
 
-type AuthMode = 'magic-link' | 'password' | 'register';
+type AuthMode = 'magic-link' | 'password';
 
 interface SsoProviderInfo {
   id: string;
@@ -62,7 +62,6 @@ export default function LoginForm({ organizationId, organizationName, branding }
   const [mode, setMode] = useState<AuthMode>('magic-link');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -150,7 +149,6 @@ export default function LoginForm({ organizationId, organizationName, branding }
     setError('');
     setMessage('');
     setPassword('');
-    setConfirmPassword('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -198,27 +196,6 @@ export default function LoginForm({ organizationId, organizationName, branding }
           window.location.href = '/auth/change-password';
           return;
         }
-        redirectAfterLogin(data.accessToken);
-        return;
-      } else if (mode === 'register') {
-        if (password !== confirmPassword) {
-          throw new Error('Passwords do not match');
-        }
-        if (password.length < 8) {
-          throw new Error('Password must be at least 8 characters');
-        }
-        const response = await fetch(`${apiUrl}/auth/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Registration failed');
-        localStorage.setItem('accessToken', data.accessToken);
-        localStorage.setItem('refreshToken', data.refreshToken);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        const orgId = data.organization?.id || data.user?.organizationId;
-        if (orgId) localStorage.setItem('currentOrgId', orgId);
         redirectAfterLogin(data.accessToken);
         return;
       }
@@ -273,18 +250,15 @@ export default function LoginForm({ organizationId, organizationName, branding }
   };
 
   const getHeading = () => {
-    if (mode === 'register') return 'Create your account';
     return `Sign in to ${organizationName}`;
   };
 
   const getButtonLabel = () => {
     if (loading) {
       if (mode === 'magic-link') return 'Sending...';
-      if (mode === 'register') return 'Creating account...';
       return 'Signing in...';
     }
     if (mode === 'magic-link') return 'Send Magic Link';
-    if (mode === 'register') return 'Create Account';
     return 'Sign In';
   };
 
@@ -401,8 +375,8 @@ export default function LoginForm({ organizationId, organizationName, branding }
             />
           </div>
 
-          {/* Password field (password & register modes) */}
-          {(mode === 'password' || mode === 'register') && (
+          {/* Password field (password mode) */}
+          {mode === 'password' && (
             <div style={{ marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <label htmlFor="password" style={labelStyle}>Password</label>
@@ -423,25 +397,7 @@ export default function LoginForm({ organizationId, organizationName, branding }
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                placeholder={mode === 'register' ? 'Min. 8 characters' : 'Enter your password'}
-                style={inputStyle}
-                onFocus={handleInputFocus}
-                onBlur={handleInputBlur}
-              />
-            </div>
-          )}
-
-          {/* Confirm Password (register mode) */}
-          {mode === 'register' && (
-            <div style={{ marginBottom: '1.25rem' }}>
-              <label htmlFor="confirmPassword" style={labelStyle}>Confirm Password</label>
-              <input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                placeholder="Confirm your password"
+                placeholder="Enter your password"
                 style={inputStyle}
                 onFocus={handleInputFocus}
                 onBlur={handleInputBlur}
@@ -554,15 +510,14 @@ export default function LoginForm({ organizationId, organizationName, branding }
               </button>
               <div style={{ marginTop: '0.75rem' }}>
                 <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>{"Don't have an account? "}</span>
-                <button
-                  type="button"
-                  onClick={() => switchMode('register')}
-                  style={{ background: 'none', border: 'none', color: accent, fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer', padding: 0 }}
+                <a
+                  href="/onboard"
+                  style={{ color: accent, fontSize: '0.85rem', fontWeight: 500, textDecoration: 'none' }}
                   onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
                   onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
                 >
-                  Sign up
-                </button>
+                  Sign up for a new organization
+                </a>
               </div>
             </>
           )}
@@ -580,33 +535,18 @@ export default function LoginForm({ organizationId, organizationName, branding }
               </button>
               <div style={{ marginTop: '0.75rem' }}>
                 <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>{"Don't have an account? "}</span>
-                <button
-                  type="button"
-                  onClick={() => switchMode('register')}
-                  style={{ background: 'none', border: 'none', color: accent, fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer', padding: 0 }}
+                <a
+                  href="/onboard"
+                  style={{ color: accent, fontSize: '0.85rem', fontWeight: 500, textDecoration: 'none' }}
                   onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
                   onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
                 >
-                  Sign up
-                </button>
+                  Sign up for a new organization
+                </a>
               </div>
             </>
           )}
 
-          {mode === 'register' && (
-            <>
-              <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>Already have an account? </span>
-              <button
-                type="button"
-                onClick={() => switchMode('magic-link')}
-                style={{ background: 'none', border: 'none', color: accent, fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer', padding: 0 }}
-                onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
-              >
-                Sign in
-              </button>
-            </>
-          )}
         </div>
       )}
     </>

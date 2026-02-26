@@ -1,9 +1,10 @@
-import { Injectable, ConflictException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, ConflictException, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/services/auth.service';
 import { OnboardDto } from './dto/onboard.dto';
 import { ApplicationService } from '../application/application.service';
 import { OrgRole } from '@prisma/client';
+import { extractDomainFromEmail, isFreeEmailProvider } from '../auth/utils/domain.util';
 
 @Injectable()
 export class OnboardService {
@@ -31,8 +32,34 @@ export class OnboardService {
             throw new ConflictException('Organization name is already taken');
         }
 
+        // 3. Check if admin email domain matches existing organization
+        const emailDomain = extractDomainFromEmail(adminEmail);
+
+        if (!isFreeEmailProvider(emailDomain)) {
+            const existingOrg = await this.prisma.organization.findFirst({
+                where: {
+                    AND: [
+                        {
+                            OR: [
+                                { domain: emailDomain },
+                                { allowedDomains: { has: emailDomain } }
+                            ]
+                        },
+                        { status: 'ACTIVE' }
+                    ]
+                },
+                select: { id: true, name: true, slug: true }
+            });
+
+            if (existingOrg) {
+                throw new ForbiddenException(
+                    `Self-registration is not allowed for this organization. Please contact your organization administrator to be provisioned. Organization: ${existingOrg.name} (${existingOrg.slug})`
+                );
+            }
+        }
+
         try {
-            // 2. Find or create the user
+            // 4. Find or create the user
             let user = await this.prisma.user.findUnique({
                 where: { email: adminEmail },
                 include: { organizationMembers: { where: { status: 'ACTIVE' } } },
@@ -55,13 +82,13 @@ export class OnboardService {
 
             if (!user) throw new InternalServerErrorException('Failed to create or find user');
 
-            // 3. Create the Organization
+            // 5. Create the Organization
             const org = await this.prisma.organization.create({
                 data: {
                     name: organization.name,
                     slug: organization.slug,
                     primaryColor: organization.primaryColor,
-                    // 4. Create Member relation via nested create
+                    // 6. Create Member relation via nested create
                     members: {
                         create: {
                             userId: user.id,
@@ -81,7 +108,7 @@ export class OnboardService {
                 });
             }
 
-            // 5. Create Application if provided
+            // 7. Create Application if provided
             let appResult = null;
             if (application) {
                 appResult = await this.applicationService.create(org.id, user.id, {
@@ -91,7 +118,7 @@ export class OnboardService {
                 });
             }
 
-            // 6. Trigger a Magic Link to log them in
+            // 8. Trigger a Magic Link to log them in
             await this.authService.requestMagicLink(adminEmail);
 
             return {
