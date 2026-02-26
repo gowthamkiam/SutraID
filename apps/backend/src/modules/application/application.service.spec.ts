@@ -29,6 +29,11 @@ describe('ApplicationService', () => {
     organization: {
       findUnique: jest.fn(),
     },
+    oidcSigningKey: {
+      create: jest.fn().mockResolvedValue({ id: 'key-1', kid: 'sig-test123' }),
+      findMany: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn(),
+    },
   };
 
   const mockOrganizationService = {
@@ -43,6 +48,12 @@ describe('ApplicationService', () => {
       privateKey: 'mock-private-key',
       certificate: 'mock-certificate',
     })),
+    generateSigningKeyPair: jest.fn().mockResolvedValue({
+      kid: 'sig-test123',
+      algorithm: 'RS256',
+      publicKey: '{"kty":"RSA","n":"test","e":"AQAB"}',
+      privateKey: '{"kty":"RSA","n":"test","e":"AQAB","d":"test","kid":"sig-test123","alg":"RS256","use":"sig"}',
+    }),
   };
 
   const mockOidcIdpService = {

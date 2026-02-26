@@ -56,7 +56,7 @@ export class OidcIdpService {
     // Load dynamic configuration (now at app level)
     const [tokenPolicy, signingKeys, customScopes, customClaims] = await Promise.all([
       this.oidcConfigService.getTokenPolicy(applicationId),
-      this.oidcConfigService.getSigningKeys(applicationId),
+      this.oidcConfigService.getSigningKeysWithPrivate(applicationId),
       this.oidcConfigService.getScopes(applicationId),
       this.oidcConfigService.getClaims(applicationId),
     ]);
@@ -86,20 +86,26 @@ export class OidcIdpService {
             : ['https://localhost/cb'],
           response_types: ['code'],
           token_endpoint_auth_method: application.clientSecretHash ? 'client_secret_post' : 'none',
-          scope: 'openid profile email offline_access',
+          scope: Array.from(new Set([
+            'openid', 'profile', 'email', 'offline_access',
+            ...(application.scopes as string[] || []),
+          ])).join(' '),
         }];
       })(),
 
-      // JWKS (Organization-specific keys)
+      // JWKS — private keys needed for signing tokens
       jwks: signingKeys.length > 0 ? {
-        keys: signingKeys.map((k: any) => ({
-          kty: 'RSA',
-          kid: k.kid,
-          n: k.publicKey,
-          e: 'AQAB',
-          alg: k.algorithm,
-          use: 'sig',
-        })),
+        keys: signingKeys.map((k: any) => {
+          try {
+            return JSON.parse(k.privateKey);
+          } catch {
+            // Legacy format fallback: raw key components
+            return {
+              kty: 'RSA', kid: k.kid, n: k.publicKey,
+              e: 'AQAB', alg: k.algorithm, use: 'sig',
+            };
+          }
+        }),
       } : undefined,
 
       // Features
@@ -116,11 +122,18 @@ export class OidcIdpService {
         AccessToken: 'jwt',
       },
 
-      // Claims
+      // Claims — register app-level scopes (e.g. ai:tool:call) so oidc-provider
+      // doesn't strip them as unknown
       claims: {
         openid: ['sub'],
         email: ['email', 'email_verified'],
         profile: ['name', 'given_name', 'family_name', 'updated_at'],
+        ...(application.scopes as string[] || []).reduce((acc: any, s: string) => {
+          if (!['openid', 'profile', 'email', 'offline_access'].includes(s)) {
+            acc[s] = [];
+          }
+          return acc;
+        }, {}),
       },
 
       // Find account by ID

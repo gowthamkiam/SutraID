@@ -105,6 +105,21 @@ export class ApplicationService {
       },
     });
 
+    // Auto-generate default JWKS signing key for OIDC applications
+    if (dto.type === ApplicationProtocol.OIDC) {
+      const keyPair = await this.utils.generateSigningKeyPair();
+      await this.prisma.oidcSigningKey.create({
+        data: {
+          applicationId: application.id,
+          kid: keyPair.kid,
+          algorithm: keyPair.algorithm as any,
+          publicKey: keyPair.publicKey,
+          privateKey: keyPair.privateKey,
+          isDefault: true,
+        },
+      });
+    }
+
     return {
       ...application,
       clientSecret, // Return plaintext secret once
@@ -335,6 +350,81 @@ export class ApplicationService {
       clientId: application.clientId,
       clientSecret,
       message: 'Client secret rotated successfully.',
+    };
+  }
+
+  /**
+   * List signing keys for an application (public info only)
+   */
+  async listSigningKeys(applicationId: string, actorId: string) {
+    const application = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+
+    await this.organizationService.checkPermission(
+      application.organizationId,
+      actorId,
+      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.APP_ADMIN, OrgRole.READ_ONLY_ADMIN],
+    );
+
+    return this.prisma.oidcSigningKey.findMany({
+      where: { applicationId },
+      select: {
+        id: true,
+        kid: true,
+        algorithm: true,
+        isDefault: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Rotate signing key — generates a new key and deactivates the old default
+   */
+  async rotateSigningKey(applicationId: string, actorId: string) {
+    const application = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+    if (application.type !== ApplicationProtocol.OIDC) {
+      throw new BadRequestException('Signing key rotation is only for OIDC applications');
+    }
+
+    await this.organizationService.checkPermission(
+      application.organizationId,
+      actorId,
+      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
+    );
+
+    // Unset current default
+    await this.prisma.oidcSigningKey.updateMany({
+      where: { applicationId, isDefault: true },
+      data: { isDefault: false },
+    });
+
+    // Generate new key
+    const keyPair = await this.utils.generateSigningKeyPair();
+    const newKey = await this.prisma.oidcSigningKey.create({
+      data: {
+        applicationId,
+        kid: keyPair.kid,
+        algorithm: keyPair.algorithm as any,
+        publicKey: keyPair.publicKey,
+        privateKey: keyPair.privateKey,
+        isDefault: true,
+      },
+      select: { id: true, kid: true, algorithm: true, isDefault: true, createdAt: true },
+    });
+
+    // Clear cached provider so new key takes effect
+    this.oidcIdpService.clearProviderCache(applicationId);
+
+    return {
+      ...newKey,
+      message: 'Signing key rotated successfully.',
     };
   }
 

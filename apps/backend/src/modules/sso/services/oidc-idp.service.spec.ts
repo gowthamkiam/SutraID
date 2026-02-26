@@ -107,6 +107,7 @@ describe('OidcIdpService', () => {
       refreshTokenLifetime: 86400 * 30,
     }),
     getSigningKeys: jest.fn().mockResolvedValue([]),
+    getSigningKeysWithPrivate: jest.fn().mockResolvedValue([]),
     getScopes: jest.fn().mockResolvedValue([]),
     getClaims: jest.fn().mockResolvedValue([]),
   };

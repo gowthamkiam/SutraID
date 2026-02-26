@@ -57,6 +57,16 @@ export class ApplicationController {
     return this.applicationService.rotateSecret(appId, req.user.id);
   }
 
+  @Get(':appId/signing-keys')
+  async listSigningKeys(@Request() req: any, @Param('appId') appId: string) {
+    return this.applicationService.listSigningKeys(appId, req.user.id);
+  }
+
+  @Post(':appId/rotate-signing-key')
+  async rotateSigningKey(@Request() req: any, @Param('appId') appId: string) {
+    return this.applicationService.rotateSigningKey(appId, req.user.id);
+  }
+
   @Post('ai-agents')
   async createAiAgent(
     @Request() req: any,
