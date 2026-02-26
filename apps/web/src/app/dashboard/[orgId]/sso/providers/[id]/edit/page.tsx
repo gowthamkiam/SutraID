@@ -82,12 +82,7 @@ export default function EditSsoProviderPage() {
 
   const [certModified, setCertModified] = useState(false);
   const [secretModified, setSecretModified] = useState(false);
-  const [orgId, setOrgId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('currentOrgId');
-    if (stored) setOrgId(stored);
-  }, []);
+  const orgId = params.orgId as string;
 
   useEffect(() => {
     if (orgId) loadProvider();
@@ -156,7 +151,7 @@ export default function EditSsoProviderPage() {
       }
 
       await ssoApi.updateProvider(orgId, providerId, updateData);
-      router.push('/dashboard/sso/providers');
+      router.push(`/dashboard/${orgId}/sso/providers`);
     } catch (err: any) {
       setError(err.message || 'Failed to update provider');
       setSubmitting(false);
@@ -192,7 +187,7 @@ export default function EditSsoProviderPage() {
       {/* Back Button & Title */}
       <div style={{ marginBottom: '2rem' }}>
         <button
-          onClick={() => router.push('/dashboard/sso/providers')}
+          onClick={() => router.push(`/dashboard/${orgId}/sso/providers`)}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -447,7 +442,7 @@ export default function EditSsoProviderPage() {
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '2rem', marginBottom: '5rem' }}>
           <button
             type="button"
-            onClick={() => router.push('/dashboard/sso/providers')}
+            onClick={() => router.push(`/dashboard/${orgId}/sso/providers`)}
             style={{ padding: '12px 24px', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '12px', fontWeight: '600', cursor: 'pointer' }}
           >
             Cancel

@@ -1,15 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { applicationApi, ApplicationProtocol } from '@/lib/api';
+import { useRouter, useParams } from 'next/navigation';
+import { applicationApi, ApplicationProtocol, OrgRole } from '@/lib/api';
+import { useOrg } from '@/components/providers/OrgContextProvider';
+import { hasPermission } from '@/lib/permissions';
 
 export default function NewApplicationPage() {
   const router = useRouter();
+  const { orgRole } = useOrg();
+  const canCreate = hasPermission(orgRole as OrgRole, 'apps:create');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdSecret, setCreatedSecret] = useState<string | null>(null);
-  const [orgId, setOrgId] = useState<string | null>(null);
+  const params = useParams();
+  const orgId = params.orgId as string;
 
   // Step 1: Protocol
   const [protocol, setProtocol] = useState<ApplicationProtocol>('OIDC');
@@ -33,12 +38,17 @@ export default function NewApplicationPage() {
   const [samlAttributeMapping, setSamlAttributeMapping] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const stored = localStorage.getItem('currentOrgId');
-    if (stored) setOrgId(stored);
-  }, []);
+    if (!canCreate && orgId) {
+      router.push(`/dashboard/${orgId}/applications`);
+    }
+  }, [canCreate, orgId, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canCreate) {
+      setError('You do not have permission to create applications');
+      return;
+    }
     if (!orgId) { setError('No organization found.'); return; }
     if (!name.trim()) { setError('Name is required.'); return; }
 

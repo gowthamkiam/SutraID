@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { ssoApi, SsoProvider, OrgRole } from '@/lib/api';
 import { useOrg } from '@/components/providers/OrgContextProvider';
 import { hasPermission } from '@/lib/permissions';
@@ -96,13 +96,9 @@ export default function SsoProvidersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
-  const [orgId, setOrgId] = useState<string | null>(null);
+  const params = useParams();
+  const orgId = params.orgId as string;
   const router = useRouter();
-
-  useEffect(() => {
-    const stored = localStorage.getItem('currentOrgId');
-    if (stored) setOrgId(stored);
-  }, []);
 
   useEffect(() => {
     if (orgId) loadProviders();
@@ -369,7 +365,7 @@ export default function SsoProvidersPage() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '1.5rem' }}>
                     <button
-                      onClick={() => router.push(`/dashboard/sso/providers/${provider.id}/edit`)}
+                      onClick={() => router.push(`/dashboard/${orgId}/sso/providers/${provider.id}/edit`)}
                       disabled={!canUpdate}
                       style={{
                         padding: '8px',
@@ -511,7 +507,7 @@ export default function SsoProvidersPage() {
                     <div style={{ width: '1px', height: '24px', background: 'var(--border-color)' }} />
 
                     <button
-                      onClick={() => router.push(`/dashboard/sso/providers/${provider.id}/edit`)}
+                      onClick={() => router.push(`/dashboard/${orgId}/sso/providers/${provider.id}/edit`)}
                       disabled={!canUpdate}
                       style={{ background: 'transparent', border: 'none', color: canUpdate ? 'var(--text-secondary)' : 'var(--btn-disabled-text, #9ca3af)', cursor: canUpdate ? 'pointer' : 'not-allowed', padding: '4px', opacity: canUpdate ? 1 : 0.5 }}
                       title={canUpdate ? 'Configure' : 'You do not have permission to configure SSO connections'}
@@ -579,7 +575,7 @@ export default function SsoProvidersPage() {
                   return (
                     <div
                       key={template.type}
-                      onClick={() => router.push(`/dashboard/sso/providers/new?template=${template.type}`)}
+                      onClick={() => router.push(`/dashboard/${orgId}/sso/providers/new?template=${template.type}`)}
                       style={{
                         background: 'var(--bg-card)',
                         border: '1px solid var(--border-color)',

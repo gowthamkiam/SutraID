@@ -2,14 +2,17 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { applicationApi, Application, groupsApi, usersApi, oidcConfigApi, OidcClaim, OidcRegexRule } from '@/lib/api';
+import { applicationApi, Application, groupsApi, usersApi, oidcConfigApi, OidcClaim, OidcRegexRule, OrgRole } from '@/lib/api';
+import { useOrg } from '@/components/providers/OrgContextProvider';
+import { hasPermission } from '@/lib/permissions';
 
 type Tab = 'general' | 'security' | 'endpoints' | 'claims' | 'assignments' | 'guide';
 
 export default function ApplicationDetailPage({ params }: { params: Promise<{ orgId: string, id: string }> }) {
   const router = useRouter();
   const { orgId, id: appId } = use(params);
-  // Remove local appId declaration since it's now destructured from params
+  const { orgRole } = useOrg();
+  const canUpdate = hasPermission(orgRole as OrgRole, 'apps:update');
 
   const [app, setApp] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
@@ -131,6 +134,10 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
   };
 
   const handleSave = async () => {
+    if (!canUpdate) {
+      setError('You do not have permission to update applications');
+      return;
+    }
     if (!orgId) return;
     setSaving(true);
     setError(null);
@@ -163,6 +170,10 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
   };
 
   const handleRotateSecret = async () => {
+    if (!canUpdate) {
+      alert('You do not have permission to rotate secrets');
+      return;
+    }
     if (!orgId) return;
     if (!confirm('Are you sure? The current client secret will be invalidated.')) return;
     try {
@@ -180,6 +191,10 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
   };
 
   const saveAssignments = async () => {
+    if (!canUpdate) {
+      setError('You do not have permission to update application assignments');
+      return;
+    }
     if (!orgId) return;
     setSavingAssignments(true);
     setError(null);
@@ -290,14 +305,16 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
             </div>
           </div>
           <button
-            onClick={handleSave}
-            disabled={saving}
+            onClick={canUpdate ? handleSave : undefined}
+            disabled={!canUpdate || saving}
+            title={!canUpdate ? 'You do not have permission to update applications' : ''}
             style={{
               padding: '0.75rem 1.5rem',
-              background: saving ? '#4b5563' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              background: (!canUpdate || saving) ? '#4b5563' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
               color: '#fff', border: 'none', borderRadius: '8px',
-              cursor: saving ? 'not-allowed' : 'pointer',
+              cursor: (!canUpdate || saving) ? 'not-allowed' : 'pointer',
               fontSize: '0.95rem', fontWeight: '600',
+              opacity: canUpdate ? 1 : 0.5
             }}
           >
             {saving ? 'Saving...' : 'Save Changes'}
@@ -347,18 +364,18 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
                   <label style={labelStyle}>Name</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} disabled={!canUpdate} style={{ ...inputStyle, opacity: canUpdate ? 1 : 0.5, cursor: canUpdate ? 'text' : 'not-allowed' }} />
                 </div>
                 <div>
                   <label style={labelStyle}>Description</label>
-                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
+                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} disabled={!canUpdate} rows={2} style={{ ...inputStyle, resize: 'vertical', opacity: canUpdate ? 1 : 0.5, cursor: canUpdate ? 'text' : 'not-allowed' }} />
                 </div>
 
                 {app.type === 'OIDC' && (
                   <>
                     <div>
                       <label style={labelStyle}>Redirect URIs (one per line)</label>
-                      <textarea value={redirectUris} onChange={(e) => setRedirectUris(e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem' }} />
+                      <textarea value={redirectUris} onChange={(e) => setRedirectUris(e.target.value)} disabled={!canUpdate} rows={3} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem', opacity: canUpdate ? 1 : 0.5, cursor: canUpdate ? 'text' : 'not-allowed' }} />
                     </div>
                     <div>
                       <label style={labelStyle}>Grant Types (comma-separated)</label>
@@ -376,17 +393,20 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
                     <div>
                       <label style={labelStyle}>SP Entity ID</label>
                       <input type="text" value={samlSpEntityId} onChange={(e) => setSamlSpEntityId(e.target.value)}
-                        placeholder="e.g., https://app.example.com/saml/metadata" style={inputStyle} />
+                        disabled={!canUpdate}
+                        placeholder="e.g., https://app.example.com/saml/metadata" style={{ ...inputStyle, opacity: canUpdate ? 1 : 0.5, cursor: canUpdate ? 'text' : 'not-allowed' }} />
                     </div>
                     <div>
                       <label style={labelStyle}>SP ACS URL</label>
                       <input type="text" value={samlSpAcsUrl} onChange={(e) => setSamlSpAcsUrl(e.target.value)}
-                        placeholder="e.g., https://app.example.com/saml/acs" style={inputStyle} />
+                        disabled={!canUpdate}
+                        placeholder="e.g., https://app.example.com/saml/acs" style={{ ...inputStyle, opacity: canUpdate ? 1 : 0.5, cursor: canUpdate ? 'text' : 'not-allowed' }} />
                     </div>
                     <div>
                       <label style={labelStyle}>NameID Format</label>
                       <select value={samlNameIdFormat} onChange={(e) => setSamlNameIdFormat(e.target.value)}
-                        style={{ ...inputStyle, appearance: 'auto' }}>
+                        disabled={!canUpdate}
+                        style={{ ...inputStyle, appearance: 'auto', opacity: canUpdate ? 1 : 0.5, cursor: canUpdate ? 'pointer' : 'not-allowed' }}>
                         <option value="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">Email Address</option>
                         <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent">Persistent</option>
                         <option value="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">Transient</option>
@@ -422,11 +442,22 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #7d8590)', margin: '0 0 0.5rem' }}>
                         The client secret is only shown once at creation. Rotate to generate a new one.
                       </p>
-                      <button onClick={handleRotateSecret} style={{
-                        padding: '0.5rem 1rem', background: 'rgba(239, 68, 68, 0.15)',
-                        color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.3)',
-                        borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500'
-                      }}>Rotate Client Secret</button>
+                      <button
+                        onClick={canUpdate ? handleRotateSecret : undefined}
+                        disabled={!canUpdate}
+                        title={!canUpdate ? 'You do not have permission to rotate secrets' : ''}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          background: canUpdate ? 'rgba(239, 68, 68, 0.15)' : 'rgba(107, 114, 128, 0.15)',
+                          color: canUpdate ? '#fca5a5' : '#9ca3af',
+                          border: canUpdate ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(107, 114, 128, 0.3)',
+                          borderRadius: '6px',
+                          cursor: canUpdate ? 'pointer' : 'not-allowed',
+                          fontSize: '0.85rem',
+                          fontWeight: '500',
+                          opacity: canUpdate ? 1 : 0.5
+                        }}
+                      >Rotate Client Secret</button>
                     </div>
                   )}
                 </div>
@@ -442,13 +473,13 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
               <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>Security Features</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <button type="button" onClick={() => setIsPublicClient(!isPublicClient)} style={toggleStyle(isPublicClient)}>
+                  <button type="button" onClick={canUpdate ? () => setIsPublicClient(!isPublicClient) : undefined} disabled={!canUpdate} style={{ ...toggleStyle(isPublicClient), opacity: canUpdate ? 1 : 0.5, cursor: canUpdate ? 'pointer' : 'not-allowed' }}>
                     {isPublicClient ? '● ' : '○ '}Public Client (SPA/Mobile)
                   </button>
-                  <button type="button" onClick={() => setIsAiAgent(!isAiAgent)} style={toggleStyle(isAiAgent)}>
+                  <button type="button" onClick={canUpdate ? () => setIsAiAgent(!isAiAgent) : undefined} disabled={!canUpdate} style={{ ...toggleStyle(isAiAgent), opacity: canUpdate ? 1 : 0.5, cursor: canUpdate ? 'pointer' : 'not-allowed' }}>
                     {isAiAgent ? '● ' : '○ '}AI Agent
                   </button>
-                  <button type="button" onClick={() => setRequireDpop(!requireDpop)} style={toggleStyle(requireDpop)}>
+                  <button type="button" onClick={canUpdate ? () => setRequireDpop(!requireDpop) : undefined} disabled={!canUpdate} style={{ ...toggleStyle(requireDpop), opacity: canUpdate ? 1 : 0.5, cursor: canUpdate ? 'pointer' : 'not-allowed' }}>
                     {requireDpop ? '● ' : '○ '}Require DPoP
                   </button>
                 </div>
@@ -489,19 +520,19 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
               <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>Grant Type Controls</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <button type="button" onClick={() => setPkceRequired(!pkceRequired)} style={toggleStyle(pkceRequired)}>
+                  <button type="button" onClick={canUpdate ? () => setPkceRequired(!pkceRequired) : undefined} disabled={!canUpdate} style={{ ...toggleStyle(pkceRequired), opacity: canUpdate ? 1 : 0.5, cursor: canUpdate ? 'pointer' : 'not-allowed' }}>
                     {pkceRequired ? '\u25CF ' : '\u25CB '}Require PKCE
                   </button>
-                  <button type="button" onClick={() => setAllowClientCredentials(!allowClientCredentials)} style={toggleStyle(allowClientCredentials)}>
+                  <button type="button" onClick={canUpdate ? () => setAllowClientCredentials(!allowClientCredentials) : undefined} disabled={!canUpdate} style={{ ...toggleStyle(allowClientCredentials), opacity: canUpdate ? 1 : 0.5, cursor: canUpdate ? 'pointer' : 'not-allowed' }}>
                     {allowClientCredentials ? '\u25CF ' : '\u25CB '}Allow Client Credentials
                   </button>
-                  <button type="button" onClick={() => {
+                  <button type="button" onClick={canUpdate ? () => {
                     if (isPublicClient && !allowROPC) {
                       setError('ROPC requires a confidential client. Disable "Public Client" first.');
                       return;
                     }
                     setAllowROPC(!allowROPC);
-                  }} style={toggleStyle(allowROPC)}>
+                  } : undefined} disabled={!canUpdate} style={{ ...toggleStyle(allowROPC), opacity: canUpdate ? 1 : 0.5, cursor: canUpdate ? 'pointer' : 'not-allowed' }}>
                     {allowROPC ? '\u25CF ' : '\u25CB '}Allow ROPC (Password Grant)
                   </button>
                 </div>
@@ -521,7 +552,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
                       ROPC is deprecated in OAuth 2.1. Use only for legacy systems that cannot support authorization code flow.
                       ROPC issues access tokens only (no ID token). Rate limiting is enforced (5 attempts/min).
                     </p>
-                    <button type="button" onClick={() => setAllowRefreshForROPC(!allowRefreshForROPC)} style={toggleStyle(allowRefreshForROPC)}>
+                    <button type="button" onClick={canUpdate ? () => setAllowRefreshForROPC(!allowRefreshForROPC) : undefined} disabled={!canUpdate} style={{ ...toggleStyle(allowRefreshForROPC), opacity: canUpdate ? 1 : 0.5, cursor: canUpdate ? 'pointer' : 'not-allowed' }}>
                       {allowRefreshForROPC ? '\u25CF ' : '\u25CB '}Issue Refresh Tokens for ROPC
                     </button>
                   </div>
@@ -691,17 +722,19 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ or
 
             <div>
               <button
-                onClick={saveAssignments}
-                disabled={savingAssignments}
+                onClick={canUpdate ? saveAssignments : undefined}
+                disabled={!canUpdate || savingAssignments}
+                title={!canUpdate ? 'You do not have permission to update application assignments' : ''}
                 style={{
                   padding: '0.75rem 1.5rem',
-                  background: savingAssignments ? '#4b5563' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  background: (!canUpdate || savingAssignments) ? '#4b5563' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '8px',
-                  cursor: savingAssignments ? 'not-allowed' : 'pointer',
+                  cursor: (!canUpdate || savingAssignments) ? 'not-allowed' : 'pointer',
                   fontSize: '0.95rem',
                   fontWeight: '600',
+                  opacity: canUpdate ? 1 : 0.5
                 }}
               >
                 {savingAssignments ? 'Saving...' : 'Save Assignments'}
