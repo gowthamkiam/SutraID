@@ -48,7 +48,6 @@ export class OauthController {
             where: { clientId },
             select: {
                 id: true,
-                organizationId: true,
                 clientSecretHash: true,
                 isPublicClient: true,
                 allowROPC: true,
@@ -144,7 +143,6 @@ export class OauthController {
 
         const application = await this.prisma.application.findUnique({
             where: { clientId },
-            include: { organization: true },
         });
 
         if (!application) {
@@ -154,7 +152,7 @@ export class OauthController {
         await this.verifyClientCredentials(application, body, authHeader);
 
         try {
-            const jwksUrl = await this.getJWKSUrl(application.organizationId, application.id);
+            const jwksUrl = await this.getJWKSUrl(application.id);
             const JWKS = createRemoteJWKSet(new URL(jwksUrl));
             const { payload } = await jwtVerify(body.token, JWKS);
 
@@ -184,7 +182,6 @@ export class OauthController {
             if (payload.typ === 'ai_agent') {
                 response.agent_id = payload.agent_id;
                 response.agent_version = payload.agent_version;
-                response.org_id = payload.org_id;
             }
 
             return response;
@@ -268,10 +265,10 @@ export class OauthController {
         }
     }
 
-    private async getJWKSUrl(organizationId: string, applicationId: string): Promise<string> {
+    private async getJWKSUrl(applicationId: string): Promise<string> {
         const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
         const apiPrefix = this.config.get<string>('API_PREFIX') || 'api/v1';
-        return `${baseUrl}/${apiPrefix}/sso/oidc-idp/${organizationId}/${applicationId}/jwks`;
+        return `${baseUrl}/${apiPrefix}/sso/oidc-idp/${applicationId}/jwks`;
     }
 
     /**
@@ -285,13 +282,12 @@ export class OauthController {
 
         // 2. Create AI Agent application
         const application = await this.applicationService.create(
-            body.organization_id, // Extract from token in prod
-            'system', // Actor ID
+            'system',
             {
                 name: body.client_name,
                 type: 'OIDC' as any,
                 isAiAgent: true,
-                requireDpop: true, // Recommended for agents
+                requireDpop: true,
                 jwks: body.jwks,
                 grantTypes: ['client_credentials'],
                 scopes: body.scope?.split(' ') || ['openid'],
@@ -316,9 +312,8 @@ export class OpenidConfigurationController {
         private prisma: PrismaService,
     ) {}
 
-    @Get(':orgId/:appId')
+    @Get(':appId')
     async getAppConfiguration(
-        @Param('orgId') orgId: string,
         @Param('appId') appId: string,
     ) {
         const app = await this.prisma.application.findUnique({
@@ -327,7 +322,7 @@ export class OpenidConfigurationController {
         });
 
         const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
-        const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${orgId}/${appId}`;
+        const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${appId}`;
 
         const grantTypes = ['authorization_code', 'refresh_token'];
         if (app?.allowClientCredentials) grantTypes.push('client_credentials');
@@ -350,44 +345,6 @@ export class OpenidConfigurationController {
                 'private_key_jwt',
             ],
             grant_types_supported: grantTypes,
-            code_challenge_methods_supported: ['S256'],
-            dpop_signing_alg_values_supported: ['RS256', 'ES256'],
-            claims_supported: [
-                'sub',
-                'email',
-                'email_verified',
-                'name',
-                'given_name',
-                'family_name',
-                'updated_at',
-            ],
-        };
-    }
-
-    @Get(':orgId')
-    async getConfiguration(@Param('orgId') orgId: string) {
-        const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
-        const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${orgId}`;
-        return {
-            issuer,
-            authorization_endpoint: `${issuer}/authorize`,
-            token_endpoint: `${baseUrl}/api/v1/oauth/token`,
-            userinfo_endpoint: `${issuer}/userinfo`,
-            jwks_uri: `${issuer}/jwks`,
-            registration_endpoint: `${issuer}/register`,
-            response_types_supported: ['code'],
-            subject_types_supported: ['public'],
-            id_token_signing_alg_values_supported: ['RS256'],
-            scopes_supported: ['openid', 'profile', 'email', 'offline_access'],
-            token_endpoint_auth_methods_supported: [
-                'client_secret_post',
-                'client_secret_basic',
-                'private_key_jwt',
-            ],
-            grant_types_supported: [
-                'authorization_code',
-                'refresh_token',
-            ],
             code_challenge_methods_supported: ['S256'],
             dpop_signing_alg_values_supported: ['RS256', 'ES256'],
             claims_supported: [

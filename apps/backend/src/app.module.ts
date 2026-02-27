@@ -4,7 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { OrganizationModule } from './modules/organization/organization.module';
+import { AppConfigModule } from './modules/app-config/app-config.module';
 import { ApplicationModule } from './modules/application/application.module';
 import { SsoModule } from './modules/sso/sso.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -12,6 +12,8 @@ import { PolicyModule } from './modules/policy/policy.module';
 import { DirectoryModule } from './modules/directory/directory.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { StatsModule } from './modules/organization/stats/stats.module';
+import { UsersModule } from './modules/organization/users/users.module';
+import { GroupsModule } from './modules/organization/groups/groups.module';
 import { OnboardModule } from './modules/onboard/onboard.module';
 import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
 
@@ -28,8 +30,8 @@ import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
     AuditModule,
     // Authentication module
     AuthModule,
-    // Organization module (multi-tenancy)
-    OrganizationModule,
+    // App configuration module (single-tenant settings)
+    AppConfigModule,
     // Application module (OAuth apps)
     ApplicationModule,
     // SSO module (SAML/OIDC Service Provider)
@@ -42,6 +44,10 @@ import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
     RbacModule,
     // Stats module (dashboard metrics)
     StatsModule,
+    // Users module (user management)
+    UsersModule,
+    // Groups module (group management)
+    GroupsModule,
     // Unauthenticated initial onboarding
     OnboardModule,
     // AI Agent module (AI agent identity & protected endpoints)

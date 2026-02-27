@@ -8,10 +8,12 @@ import { MfaController } from './controllers/mfa.controller';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthRateLimitGuard } from './guards/auth-rate-limit.guard';
 import { PrismaModule } from '../prisma/prisma.module';
+import { AppConfigModule } from '../app-config/app-config.module';
 
 @Module({
   imports: [
     PrismaModule,
+    AppConfigModule,
     ThrottlerModule.forRoot([
       {
         name: 'auth-login',

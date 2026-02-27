@@ -1,36 +1,22 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { OrgRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
-import { OrganizationService } from '../organization.service';
 
 @Injectable()
 export class GroupsService {
   constructor(
     private prisma: PrismaService,
-    private orgService: OrganizationService,
   ) {}
 
   async list(
-    orgId: string,
     options: { search?: string; page?: number; limit?: number },
-    actorId?: string,
   ) {
-    if (actorId) {
-      await this.orgService.checkPermission(orgId, actorId, [
-        OrgRole.SUPER_ADMIN,
-        OrgRole.ORG_ADMIN,
-        OrgRole.USER_ADMIN,
-        OrgRole.GROUP_MEMBERSHIP_ADMIN,
-        OrgRole.READ_ONLY_ADMIN,
-      ]);
-    }
     const page = options.page || 1;
     const limit = Math.min(options.limit || 20, 100);
     const skip = (page - 1) * limit;
 
-    const where: any = { organizationId: orgId };
+    const where: any = {};
     if (options.search) {
       where.OR = [
         { name: { contains: options.search, mode: 'insensitive' } },
@@ -62,7 +48,7 @@ export class GroupsService {
           },
           applicationAssignments: {
             where: {
-              application: { organizationId: orgId, status: { not: 'ARCHIVED' } },
+              application: { status: { not: 'ARCHIVED' } },
             },
             include: {
               application: {
@@ -97,30 +83,17 @@ export class GroupsService {
     };
   }
 
-  async create(orgId: string, dto: CreateGroupDto, actorId?: string) {
-    if (actorId) {
-      await this.orgService.checkPermission(orgId, actorId, [
-        OrgRole.SUPER_ADMIN,
-        OrgRole.ORG_ADMIN,
-        OrgRole.GROUP_MEMBERSHIP_ADMIN,
-      ]);
-    }
-    const existing = await this.prisma.group.findUnique({
-      where: {
-        organizationId_name: {
-          organizationId: orgId,
-          name: dto.name,
-        },
-      },
+  async create(dto: CreateGroupDto) {
+    const existing = await this.prisma.group.findFirst({
+      where: { name: dto.name },
     });
 
     if (existing) {
-      throw new ConflictException('Group name already exists in this organization');
+      throw new ConflictException('Group name already exists');
     }
 
     const group = await this.prisma.group.create({
       data: {
-        organizationId: orgId,
         name: dto.name,
         description: dto.description,
       },
@@ -133,31 +106,19 @@ export class GroupsService {
     };
   }
 
-  async update(orgId: string, groupId: string, dto: UpdateGroupDto, actorId?: string) {
-    if (actorId) {
-      await this.orgService.checkPermission(orgId, actorId, [
-        OrgRole.SUPER_ADMIN,
-        OrgRole.ORG_ADMIN,
-        OrgRole.GROUP_MEMBERSHIP_ADMIN,
-      ]);
-    }
-    const group = await this.prisma.group.findFirst({ where: { id: groupId, organizationId: orgId } });
+  async update(groupId: string, dto: UpdateGroupDto) {
+    const group = await this.prisma.group.findFirst({ where: { id: groupId } });
 
     if (!group) {
       throw new NotFoundException('Group not found');
     }
 
     if (dto.name && dto.name !== group.name) {
-      const existing = await this.prisma.group.findUnique({
-        where: {
-          organizationId_name: {
-            organizationId: orgId,
-            name: dto.name,
-          },
-        },
+      const existing = await this.prisma.group.findFirst({
+        where: { name: dto.name },
       });
       if (existing) {
-        throw new ConflictException('Group name already exists in this organization');
+        throw new ConflictException('Group name already exists');
       }
     }
 
@@ -167,15 +128,8 @@ export class GroupsService {
     });
   }
 
-  async remove(orgId: string, groupId: string, actorId?: string) {
-    if (actorId) {
-      await this.orgService.checkPermission(orgId, actorId, [
-        OrgRole.SUPER_ADMIN,
-        OrgRole.ORG_ADMIN,
-        OrgRole.GROUP_MEMBERSHIP_ADMIN,
-      ]);
-    }
-    const group = await this.prisma.group.findFirst({ where: { id: groupId, organizationId: orgId } });
+  async remove(groupId: string) {
+    const group = await this.prisma.group.findFirst({ where: { id: groupId } });
     if (!group) {
       throw new NotFoundException('Group not found');
     }
@@ -184,24 +138,22 @@ export class GroupsService {
     return { success: true };
   }
 
-  async setUsers(orgId: string, groupId: string, userIds: string[]) {
-    const group = await this.prisma.group.findFirst({ where: { id: groupId, organizationId: orgId } });
+  async setUsers(groupId: string, userIds: string[]) {
+    const group = await this.prisma.group.findFirst({ where: { id: groupId } });
     if (!group) {
       throw new NotFoundException('Group not found');
     }
 
     const uniqueUserIds = Array.from(new Set(userIds));
 
-    const members = await this.prisma.organizationMember.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
-        organizationId: orgId,
-        userId: { in: uniqueUserIds },
-        status: 'ACTIVE',
+        id: { in: uniqueUserIds },
       },
-      select: { userId: true },
+      select: { id: true },
     });
 
-    const validUserIds = members.map((member) => member.userId);
+    const validUserIds = users.map((user) => user.id);
 
     await this.prisma.groupMember.deleteMany({ where: { groupId } });
 
@@ -215,9 +167,9 @@ export class GroupsService {
     return { success: true, userIds: validUserIds };
   }
 
-  async setApplications(orgId: string, groupId: string, applicationIds: string[]) {
+  async setApplications(groupId: string, applicationIds: string[]) {
     const prismaAny = this.prisma as any;
-    const group = await this.prisma.group.findFirst({ where: { id: groupId, organizationId: orgId } });
+    const group = await this.prisma.group.findFirst({ where: { id: groupId } });
     if (!group) {
       throw new NotFoundException('Group not found');
     }
@@ -226,7 +178,6 @@ export class GroupsService {
     const validApps = await this.prisma.application.findMany({
       where: {
         id: { in: uniqueApplicationIds },
-        organizationId: orgId,
         status: { not: 'ARCHIVED' },
       },
       select: { id: true },
@@ -234,10 +185,7 @@ export class GroupsService {
     const validAppIds = validApps.map((app) => app.id);
 
     await prismaAny.groupApplicationAssignment.deleteMany({
-      where: {
-        groupId,
-        application: { organizationId: orgId },
-      },
+      where: { groupId },
     });
 
     if (validAppIds.length > 0) {
@@ -250,26 +198,18 @@ export class GroupsService {
     return { success: true, applicationIds: validAppIds };
   }
 
-  async addMembers(orgId: string, groupId: string, userIds: string[], actorId: string) {
-    await this.orgService.checkPermission(orgId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.GROUP_MEMBERSHIP_ADMIN,
-    ]);
-
-    const group = await this.prisma.group.findFirst({ where: { id: groupId, organizationId: orgId } });
+  async addMembers(groupId: string, userIds: string[]) {
+    const group = await this.prisma.group.findFirst({ where: { id: groupId } });
     if (!group) {
       throw new NotFoundException('Group not found');
     }
 
-    const orgMembers = await this.prisma.organizationMember.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
-        organizationId: orgId,
-        userId: { in: userIds },
-        status: 'ACTIVE',
+        id: { in: userIds },
       },
     });
-    const validUserIds = orgMembers.map((member: any) => member.userId);
+    const validUserIds = users.map((user) => user.id);
 
     const existing = await this.prisma.groupMember.findMany({
       where: { groupId, userId: { in: validUserIds } },
@@ -286,14 +226,8 @@ export class GroupsService {
     return { added: newUserIds.length };
   }
 
-  async removeMember(orgId: string, groupId: string, userId: string, actorId: string) {
-    await this.orgService.checkPermission(orgId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.GROUP_MEMBERSHIP_ADMIN,
-    ]);
-
-    const group = await this.prisma.group.findFirst({ where: { id: groupId, organizationId: orgId } });
+  async removeMember(groupId: string, userId: string) {
+    const group = await this.prisma.group.findFirst({ where: { id: groupId } });
     if (!group) {
       throw new NotFoundException('Group not found');
     }

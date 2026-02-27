@@ -3,6 +3,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from '../services/auth.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { AuthRateLimitGuard } from '../guards/auth-rate-limit.guard';
+import { AppConfigService } from '../../app-config/app-config.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -19,6 +20,10 @@ describe('AuthController', () => {
     revokeSession: jest.fn(),
   };
 
+  const mockAppConfigService = {
+    getBranding: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -26,6 +31,10 @@ describe('AuthController', () => {
         {
           provide: AuthService,
           useValue: mockAuthService,
+        },
+        {
+          provide: AppConfigService,
+          useValue: mockAppConfigService,
         },
       ],
     })
@@ -98,7 +107,7 @@ describe('AuthController', () => {
 
   describe('login', () => {
     it('should login user with password', async () => {
-      const dto = { email: 'test@example.com', password: 'Password123!', organizationId: 'org-1' };
+      const dto = { email: 'test@example.com', password: 'Password123!' };
       const authResponse = {
         user: { id: 'user-1', email: dto.email },
         accessToken: 'jwt-token',
@@ -117,7 +126,6 @@ describe('AuthController', () => {
       expect(authService.loginWithPassword).toHaveBeenCalledWith(
         dto.email,
         dto.password,
-        dto.organizationId,
       );
     });
   });

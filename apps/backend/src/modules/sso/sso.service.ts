@@ -5,17 +5,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrganizationService } from '../organization/organization.service';
 import { CreateSsoProviderDto } from './dto/create-sso-provider.dto';
 import { UpdateSsoProviderDto } from './dto/update-sso-provider.dto';
-import { OrgRole, SsoProtocol } from '@prisma/client';
+import { SsoProtocol } from '@prisma/client';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class SsoService {
   constructor(
     private prisma: PrismaService,
-    private organizationService: OrganizationService,
   ) { }
 
   /**
@@ -74,18 +72,9 @@ export class SsoService {
    * Create a new SSO provider
    */
   async create(
-    organizationId: string,
     actorId: string,
     dto: CreateSsoProviderDto,
   ) {
-    // Check permission (OWNER or ADMIN only)
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      // @ts-ignore
-      OrgRole.SUPER_ADMIN,
-      // @ts-ignore
-      OrgRole.ORG_ADMIN,
-    ]);
-
     // Validate configuration based on protocol
     if (dto.protocol === SsoProtocol.SAML2) {
       if (!dto.samlEntityId || !dto.samlSsoUrl || !dto.samlCertificate) {
@@ -103,7 +92,6 @@ export class SsoService {
 
     // Encrypt sensitive fields
     const data: any = {
-      organizationId,
       name: dto.name,
       type: dto.type,
       protocol: dto.protocol,
@@ -161,23 +149,10 @@ export class SsoService {
   }
 
   /**
-   * Get all SSO providers for an organization
+   * Get all SSO providers
    */
-  async findAll(organizationId: string, actorId: string) {
-    // Check if user has access to organization
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      // @ts-ignore
-      OrgRole.SUPER_ADMIN,
-      // @ts-ignore
-      OrgRole.ORG_ADMIN,
-      // @ts-ignore
-      OrgRole.APP_ADMIN,
-      // @ts-ignore
-      OrgRole.READ_ONLY_ADMIN,
-    ]);
-
+  async findAll(actorId: string) {
     return this.prisma.ssoProvider.findMany({
-      where: { organizationId },
       select: {
         id: true,
         name: true,
@@ -205,18 +180,9 @@ export class SsoService {
       throw new NotFoundException('SSO provider not found');
     }
 
-    // Check if user has access
-    await this.organizationService.checkPermission(
-      provider.organizationId,
-      actorId,
-      // @ts-ignore
-      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.APP_ADMIN, OrgRole.READ_ONLY_ADMIN],
-    );
-
     // Return without sensitive fields
     return {
       id: provider.id,
-      organizationId: provider.organizationId,
       name: provider.name,
       type: provider.type,
       protocol: provider.protocol,
@@ -253,14 +219,6 @@ export class SsoService {
     if (!provider) {
       throw new NotFoundException('SSO provider not found');
     }
-
-    // Check if user has permission (OWNER or ADMIN)
-    await this.organizationService.checkPermission(
-      provider.organizationId,
-      actorId,
-      // @ts-ignore
-      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
-    );
 
     const data: any = {
       name: dto.name,
@@ -326,14 +284,6 @@ export class SsoService {
       throw new NotFoundException('SSO provider not found');
     }
 
-    // Only OWNER or ADMIN can delete
-    await this.organizationService.checkPermission(
-      provider.organizationId,
-      actorId,
-      // @ts-ignore
-      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
-    );
-
     // Delete provider (this will cascade delete identities)
     return this.prisma.ssoProvider.delete({
       where: { id: providerId },
@@ -365,12 +315,11 @@ export class SsoService {
   }
 
   /**
-   * Find enabled SSO providers for an organization (for login page)
+   * Find enabled SSO providers (for login page)
    */
-  async findEnabledProviders(organizationId: string) {
+  async findEnabledProviders() {
     return this.prisma.ssoProvider.findMany({
       where: {
-        organizationId,
         enabled: true,
       },
       select: {
@@ -398,7 +347,6 @@ export class SsoService {
         name: true,
         type: true,
         protocol: true,
-        organizationId: true,
       },
     });
   }
@@ -414,13 +362,6 @@ export class SsoService {
     if (!provider) {
       throw new NotFoundException('SSO provider not found');
     }
-
-    await this.organizationService.checkPermission(
-      provider.organizationId,
-      actorId,
-      // @ts-ignore
-      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
-    );
 
     const checks: { name: string; passed: boolean; message: string }[] = [];
 

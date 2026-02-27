@@ -18,20 +18,17 @@ export class MfaEnforcementGuard implements CanActivate {
       return true; // Let JwtAuthGuard handle authentication
     }
 
-    // Get user's organization
-    const orgMember = await this.prisma.organizationMember.findFirst({
-      where: { userId: user.id },
-      include: { organization: true },
+    // Get app-wide MFA settings
+    const appConfig = await this.prisma.appConfig.findUnique({
+      where: { id: 'singleton' },
     });
 
-    if (!orgMember?.organization) {
-      return true; // No organization, no enforcement
+    if (!appConfig) {
+      return true; // No config, no enforcement
     }
 
-    const org = orgMember.organization;
-
-    // Check if MFA is required for this organization
-    if (org.mfaRequired) {
+    // Check if MFA is required
+    if (appConfig.mfaRequired) {
       const userRecord = await this.prisma.user.findUnique({
         where: { id: user.id },
       });
@@ -39,11 +36,11 @@ export class MfaEnforcementGuard implements CanActivate {
       if (userRecord && !userRecord.mfaEnabled) {
         // Check grace period
         const accountAge = Date.now() - userRecord.createdAt.getTime();
-        const gracePeriodMs = org.mfaGracePeriodDays * 24 * 60 * 60 * 1000;
+        const gracePeriodMs = appConfig.mfaGracePeriodDays * 24 * 60 * 60 * 1000;
 
         if (accountAge > gracePeriodMs) {
           throw new ForbiddenException(
-            'MFA is required for your organization. Please enable MFA to continue.'
+            'MFA is required. Please enable MFA to continue.'
           );
         }
       }

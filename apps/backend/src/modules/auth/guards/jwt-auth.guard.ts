@@ -35,14 +35,9 @@ export class JwtAuthGuard implements CanActivate {
       // Verify JWT
       const { payload } = await jwtVerify(token, this.jwtSecret);
 
-      // Get user from database via session and enforce strict tenant scoping
-      const user = await this.authService.getUserFromToken(payload.jti as string, payload.org_id as string);
+      const user = await this.authService.getUserFromToken(payload.jti as string);
 
-      // We don't throw if user.organizationId is missing here because
-      // users need to be able to create their first organization.
-      // Individual routes that require an org will check it themselves or via another guard.
 
-      // Attach user and JWT ID to request
       request.user = {
         ...user,
         jti: payload.jti,

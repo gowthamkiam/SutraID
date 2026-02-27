@@ -40,8 +40,6 @@ function VerifyContent() {
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
         localStorage.setItem('user', JSON.stringify(data.user));
-        const orgId = data.organization?.id || data.user?.organizationId;
-        if (orgId) localStorage.setItem('currentOrgId', orgId);
 
         setStatus('success');
         setMessage('Successfully signed in! Redirecting...');

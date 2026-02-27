@@ -19,9 +19,6 @@ describe('MfaService', () => {
       findFirst: jest.fn(),
       update: jest.fn(),
     },
-    organization: {
-      update: jest.fn(),
-    },
     $transaction: jest.fn(),
   };
 
@@ -122,30 +119,13 @@ describe('MfaService', () => {
   });
 
   describe('toggleAdaptiveAuth', () => {
-    it('should update organization and return enabled flag', async () => {
+    it('should return success true and the enabled flag', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-1',
-        organizationMembers: [{ organizationId: 'org-1' }],
       } as any);
 
       const result = await service.toggleAdaptiveAuth('user-1', true);
-
-      expect(mockPrismaService.organization.update).toHaveBeenCalledWith({
-        where: { id: 'org-1' },
-        data: {},
-      });
       expect(result).toEqual({ success: true, enabled: true });
-    });
-
-    it('should throw NotFoundException when user has no organization', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: 'user-1',
-        organizationMembers: [],
-      } as any);
-
-      await expect(service.toggleAdaptiveAuth('user-1', false)).rejects.toThrow(
-        NotFoundException,
-      );
     });
   });
 });

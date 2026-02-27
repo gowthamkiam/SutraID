@@ -17,11 +17,10 @@ import { Request, Response } from 'express';
 import { OidcIdpService } from '../services/oidc-idp.service';
 import { AuthService } from '../../auth/services/auth.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { OrgGuard } from '../../auth/guards/org.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
-@Controller('sso/oidc-idp/:orgId/:appId')
+@Controller('sso/oidc-idp/:appId')
 export class OidcIdpController {
   constructor(
     private oidcIdpService: OidcIdpService,
@@ -37,10 +36,9 @@ export class OidcIdpController {
   @Get('.well-known/openid-configuration')
   @HttpCode(HttpStatus.OK)
   async getDiscovery(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
   ) {
-    return this.oidcIdpService.getDiscoveryMetadata(organizationId, applicationId);
+    return this.oidcIdpService.getDiscoveryMetadata(applicationId);
   }
 
   /**
@@ -49,7 +47,6 @@ export class OidcIdpController {
    */
   @Get('authorize')
   async authorize(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
@@ -69,7 +66,7 @@ export class OidcIdpController {
       }
 
       console.log('✅ User authenticated, forwarding to oidc-provider');
-      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC authorization error:', error);
       throw new BadRequestException(error.message);
@@ -83,7 +80,6 @@ export class OidcIdpController {
    */
   @Get('auto-confirm')
   async autoConfirm(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Query('uid') uid: string,
     @Req() req: Request,
@@ -100,7 +96,7 @@ export class OidcIdpController {
       }
 
       const returnTo = await this.oidcIdpService.handleInteraction(
-        organizationId, applicationId, uid, user.id, true, req, res,
+        applicationId, uid, user.id, true, req, res,
       );
 
       console.log(`✅ Interaction auto-confirmed, resuming at ${returnTo}`);
@@ -119,14 +115,13 @@ export class OidcIdpController {
   @Post('token')
   @HttpCode(HttpStatus.OK)
   async token(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
     try {
       console.log('📥 OIDC token request received');
-      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC token error:', error);
       throw new BadRequestException(error.message);
@@ -141,13 +136,12 @@ export class OidcIdpController {
   @Get('userinfo')
   @HttpCode(HttpStatus.OK)
   async userinfo(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
     try {
-      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC userinfo error:', error);
       throw new UnauthorizedException(error.message);
@@ -162,13 +156,12 @@ export class OidcIdpController {
   @Get('jwks')
   @HttpCode(HttpStatus.OK)
   async jwks(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
     try {
-      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC jwks error:', error);
       throw new BadRequestException(error.message);
@@ -180,9 +173,8 @@ export class OidcIdpController {
    * Get interaction details for consent screen
    */
   @Get('interaction/:uid')
-  @UseGuards(JwtAuthGuard, OrgGuard)
+  @UseGuards(JwtAuthGuard)
   async getInteraction(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Param('uid') uid: string,
     @Req() req: Request,
@@ -206,7 +198,6 @@ export class OidcIdpController {
       const application = await this.prisma.application.findFirst({
         where: {
           id: applicationId,
-          organizationId,
           status: 'ACTIVE',
         },
         select: {
@@ -240,10 +231,9 @@ export class OidcIdpController {
    * Confirm or deny consent
    */
   @Post('interaction/:uid/confirm')
-  @UseGuards(JwtAuthGuard, OrgGuard)
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async confirmInteraction(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Param('uid') uid: string,
     @Body() body: { consent: boolean },
@@ -258,7 +248,6 @@ export class OidcIdpController {
       }
 
       const redirectTo = await this.oidcIdpService.handleInteraction(
-        organizationId,
         applicationId,
         uid,
         user.id,
@@ -288,13 +277,12 @@ export class OidcIdpController {
   @Get('*')
   @Post('*')
   async callback(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
     try {
-      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC callback error:', error);
       throw new BadRequestException(error.message);

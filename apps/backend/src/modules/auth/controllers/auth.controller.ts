@@ -22,20 +22,22 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
   ChangePasswordDto,
-  OrgLookupResponseDto,
+  BrandingResponseDto,
 } from '../dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { AuthRateLimitGuard } from '../guards/auth-rate-limit.guard';
+import { AppConfigService } from '../../app-config/app-config.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private appConfigService: AppConfigService,
+  ) {}
 
-  @Get('org-lookup/:identifier')
-  async orgLookup(
-    @Param('identifier') identifier: string,
-  ): Promise<OrgLookupResponseDto> {
-    return await this.authService.findOrgByIdentifier(identifier);
+  @Get('branding')
+  async getBranding(): Promise<BrandingResponseDto> {
+    return await this.appConfigService.getBranding();
   }
 
   /**
@@ -88,7 +90,7 @@ export class AuthController {
     @Body() dto: LoginPasswordDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
-    const result = await this.authService.loginWithPassword(dto.email, dto.password, dto.organizationId);
+    const result = await this.authService.loginWithPassword(dto.email, dto.password);
     if (result.accessToken && !result.mfaRequired) {
       res.cookie('access_token', result.accessToken, {
         httpOnly: true,

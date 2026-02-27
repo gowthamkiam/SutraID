@@ -75,7 +75,7 @@ export default function GettingStartedPage() {
           }}
         >
           Register a new account using the authentication API. This will create
-          your user and an organization automatically.
+          your admin user account.
         </p>
         <pre
           style={{
@@ -199,13 +199,7 @@ export default function GettingStartedPage() {
   "user": {
     "id": "usr_abc123",
     "email": "developer@yourcompany.com",
-    "organizationId": "org_xyz789",
     "role": "SUPER_ADMIN"
-  },
-  "organization": {
-    "id": "org_xyz789",
-    "name": "Your Company",
-    "slug": "your-company"
   }
 }`}</code>
         </pre>
@@ -344,7 +338,7 @@ export default function GettingStartedPage() {
             fontFamily: 'var(--font-mono, monospace)',
           }}
         >
-          <code>{`curl -X POST https://api.sutraid.com/api/v1/organizations/org_xyz789/applications \\
+          <code>{`curl -X POST https://api.sutraid.com/api/v1/applications \\
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \\
   -H "Content-Type: application/json" \\
   -d '{

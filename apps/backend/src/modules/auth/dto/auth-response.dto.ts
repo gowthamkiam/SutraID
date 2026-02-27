@@ -8,20 +8,10 @@ export class AuthResponseDto {
     email: string;
     firstName?: string;
     lastName?: string;
-    organizationId?: string;
     role?: string;
     mustChangePassword?: boolean;
   };
 
-  // Organization info (set after successful login)
-  organization?: {
-    id: string;
-    name: string;
-    slug: string;
-    role: string;
-  };
-
-  // MFA challenge fields (set when mfaRequired=true, tokens omitted)
   mfaRequired?: boolean;
   mfaToken?: string;
   mustChangePassword?: boolean;

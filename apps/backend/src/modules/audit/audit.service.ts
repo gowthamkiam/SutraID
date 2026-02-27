@@ -1,10 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuditResult, OrgRole } from '@prisma/client';
-import { OrganizationService } from '../organization/organization.service';
+import { AuditResult } from '@prisma/client';
 
 export interface AuditEvent {
-  organizationId?: string;
   userId?: string;
   agentId?: string;
   action: string;
@@ -18,17 +16,12 @@ export interface AuditEvent {
 export class AuditService {
   constructor(
     private prisma: PrismaService,
-    private organizationService: OrganizationService,
   ) { }
 
-  /**
-   * Log an audit event (append-only, never update/delete)
-   */
   async log(event: AuditEvent): Promise<void> {
     try {
       await this.prisma.auditLog.create({
         data: {
-          organizationId: event.organizationId || null,
           userId: event.userId || null,
           agentId: event.agentId || null,
           action: event.action,
@@ -39,17 +32,11 @@ export class AuditService {
         },
       });
     } catch (error) {
-      // Audit logging should never break the main flow
       console.error('Failed to write audit log:', error);
     }
   }
 
-  /**
-   * Query audit logs with filters
-   */
   async query(
-    organizationId: string,
-    actorId: string,
     params: {
       userId?: string;
       action?: string;
@@ -60,16 +47,6 @@ export class AuditService {
       limit?: number;
     },
   ) {
-    // Check permission
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      // @ts-ignore
-      OrgRole.SUPER_ADMIN,
-      // @ts-ignore
-      OrgRole.ORG_ADMIN,
-      // @ts-ignore
-      OrgRole.REPORT_ADMIN,
-    ]);
-
     const {
       userId,
       action,
@@ -82,7 +59,6 @@ export class AuditService {
 
     const where: any = {};
 
-    if (organizationId) where.organizationId = organizationId;
     if (userId) where.userId = userId;
     if (action) where.action = { contains: action };
     if (result) where.result = result;
@@ -111,36 +87,23 @@ export class AuditService {
     };
   }
 
-  /**
-   * Get audit log statistics for an organization
-   */
-  async getStats(organizationId: string, actorId: string, days: number = 30) {
-    // Check permission
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      // @ts-ignore
-      OrgRole.SUPER_ADMIN,
-      // @ts-ignore
-      OrgRole.ORG_ADMIN,
-      // @ts-ignore
-      OrgRole.REPORT_ADMIN,
-    ]);
-
+  async getStats(days: number = 30) {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
     const [totalEvents, byAction, byResult] = await Promise.all([
       this.prisma.auditLog.count({
-        where: { organizationId, createdAt: { gte: since } },
+        where: { createdAt: { gte: since } },
       }),
       this.prisma.auditLog.groupBy({
         by: ['action'],
-        where: { organizationId, createdAt: { gte: since } },
+        where: { createdAt: { gte: since } },
         _count: true,
         orderBy: { _count: { action: 'desc' } },
         take: 10,
       }),
       this.prisma.auditLog.groupBy({
         by: ['result'],
-        where: { organizationId, createdAt: { gte: since } },
+        where: { createdAt: { gte: since } },
         _count: true,
       }),
     ]);

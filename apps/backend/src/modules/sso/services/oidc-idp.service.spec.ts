@@ -21,6 +21,7 @@ const mockProviderConstructor = jest.fn().mockImplementation((issuer, config) =>
   interactionDetails: jest.fn(),
   interactionFinished: jest.fn(),
   interactionResult: jest.fn(),
+  registerGrantType: jest.fn(),
   Grant: jest.fn().mockImplementation(() => mockGrant),
   app: {
     callback: jest.fn().mockReturnValue(jest.fn().mockResolvedValue(undefined)),
@@ -32,17 +33,10 @@ describe('OidcIdpService', () => {
   let prismaService: jest.Mocked<PrismaService>;
   let configService: jest.Mocked<ConfigService>;
 
-  const mockOrganization = {
-    id: 'org-1',
-    name: 'Test Organization',
-    slug: 'test-org',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+
 
   const mockApplication = {
     id: 'app-1',
-    organizationId: 'org-1',
     name: 'Test App',
     clientId: 'client-123',
     clientSecretHash: 'secret-456',
@@ -64,9 +58,6 @@ describe('OidcIdpService', () => {
   };
 
   const mockPrismaService = {
-    organization: {
-      findUnique: jest.fn(),
-    },
     application: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -151,11 +142,17 @@ describe('OidcIdpService', () => {
 
     // Mock loadProvider to return our mock constructor instead of dynamically importing oidc-provider
     jest.spyOn(service as any, 'loadProvider').mockResolvedValue(mockProviderConstructor);
+    // Mock dynamicImport to prevent ESM issues in tests
+    jest.spyOn(service as any, 'dynamicImport').mockImplementation((specifier) => {
+      if (specifier === 'bcrypt') {
+        return Promise.resolve({ compare: jest.fn().mockResolvedValue(true) });
+      }
+      return Promise.resolve({});
+    });
   });
 
   describe('getProviderInstance', () => {
     it('should throw BadRequestException if organization not found', async () => {
-      // For getProviderInstance, it actually looks up application first
       mockPrismaService.application.findUnique.mockResolvedValue(null);
 
       await expect(service.getProviderInstance('non-existent')).rejects.toThrow(
@@ -164,21 +161,17 @@ describe('OidcIdpService', () => {
     });
 
     it('should create and cache OIDC provider instance', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
-      mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
       mockPrismaService.application.findUnique.mockResolvedValue(mockApplication);
-
       const provider = await service.getProviderInstance('app-1');
 
       expect(provider).toBeDefined();
-      expect(provider.issuer).toBe('http://localhost:3000/api/v1/sso/oidc-idp/org-1/app-1');
+      expect(provider.issuer).toBe('http://localhost:3000/api/v1/sso/oidc-idp/app-1');
     });
 
     it('should return cached instance on subsequent calls', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
-      mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
       mockPrismaService.application.findUnique.mockResolvedValue(mockApplication);
 
+      // Subsequent calls will use the cache
       const provider1 = await service.getProviderInstance('app-1');
       const provider2 = await service.getProviderInstance('app-1');
 
@@ -190,14 +183,14 @@ describe('OidcIdpService', () => {
     it('should return OIDC discovery metadata', async () => {
       mockPrismaService.application.findUnique.mockResolvedValue(mockApplication);
 
-      const metadata = await service.getDiscoveryMetadata('org-1', 'app-1');
+      const metadata = await service.getDiscoveryMetadata('app-1');
 
-      expect(metadata.issuer).toBe('http://localhost:3000/api/v1/sso/oidc-idp/org-1/app-1');
+      expect(metadata.issuer).toBe('http://localhost:3000/api/v1/sso/oidc-idp/app-1');
       expect(metadata.authorization_endpoint).toBe(
-        'http://localhost:3000/api/v1/sso/oidc-idp/org-1/app-1/authorize',
+        'http://localhost:3000/api/v1/sso/oidc-idp/app-1/authorize',
       );
       expect(metadata.token_endpoint).toBe(
-        'http://localhost:3000/api/v1/sso/oidc-idp/org-1/app-1/token',
+        'http://localhost:3000/api/v1/sso/oidc-idp/app-1/token',
       );
       expect(metadata.response_types_supported).toEqual(['code']);
       expect(metadata.grant_types_supported).toEqual(['authorization_code', 'refresh_token']);
@@ -210,7 +203,7 @@ describe('OidcIdpService', () => {
         allowClientCredentials: true,
       });
 
-      const metadata = await service.getDiscoveryMetadata('org-1', 'app-1');
+      const metadata = await service.getDiscoveryMetadata('app-1');
 
       expect(metadata.grant_types_supported).toContain('password');
       expect(metadata.grant_types_supported).toContain('client_credentials');
@@ -219,39 +212,33 @@ describe('OidcIdpService', () => {
 
   describe('handleInteraction', () => {
     it('should return interactionResult URL when consent is denied', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
-      mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
-      mockPrismaService.application.findUnique.mockResolvedValue(mockApplication);
-
-      const mockProvider = await service.getProviderInstance('app-1');
-      mockProvider.interactionDetails.mockResolvedValue({
-        params: { client_id: 'client-123', scope: 'openid email' },
-        prompt: { details: {} },
-      });
-      mockProvider.interactionResult.mockResolvedValue('https://example.com/callback?error=access_denied');
-
       const req = { headers: {} };
       const res = {};
-      const result = await service.handleInteraction('org-1', 'app-1', 'interaction-uid', 'user-1', false, req, res);
+      const provider = await service.getProviderInstance('app-1');
+
+      provider.interactionDetails.mockResolvedValue({
+        uid: 'interaction-uid',
+        params: { client_id: 'client-123' },
+      });
+      provider.interactionResult.mockResolvedValue('https://example.com/callback?error=access_denied');
+
+      const result = await service.handleInteraction('app-1', 'interaction-uid', 'user-1', false, req, res);
 
       expect(result).toBe('https://example.com/callback?error=access_denied');
     });
 
     it('should create grant and return redirect URL on consent success', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
-      mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
-      mockPrismaService.application.findUnique.mockResolvedValue(mockApplication);
-
-      const mockProvider = await service.getProviderInstance('app-1');
-      mockProvider.interactionDetails.mockResolvedValue({
-        params: { client_id: 'client-123', scope: 'openid email' },
-        prompt: { details: { missingOIDCScope: ['openid', 'email'] } },
-      });
-      mockProvider.interactionResult.mockResolvedValue('https://example.com/callback?code=abc');
-
       const req = { headers: {} };
       const res = {};
-      const result = await service.handleInteraction('org-1', 'app-1', 'uid-1', 'user-1', true, req, res);
+      const provider = await service.getProviderInstance('app-1');
+
+      provider.interactionDetails.mockResolvedValue({
+        uid: 'uid-1',
+        params: { client_id: 'client-123', scope: 'openid profile' },
+      });
+      provider.interactionResult.mockResolvedValue('https://example.com/callback?code=abc');
+
+      const result = await service.handleInteraction('app-1', 'uid-1', 'user-1', true, req, res);
 
       expect(result).toBe('https://example.com/callback?code=abc');
       expect(mockGrant.save).toHaveBeenCalled();
@@ -260,11 +247,9 @@ describe('OidcIdpService', () => {
 
   describe('Database Adapter', () => {
     it('should create adapter for token storage', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
-      mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
       mockPrismaService.application.findUnique.mockResolvedValue(mockApplication);
 
-      const adapter = (service as any).createAdapter('org-1', 'app-1');
+      const adapter = (service as any).createAdapter('app-1');
       expect(adapter).toBeDefined();
 
       const adapterInstance = new adapter('AccessToken');
@@ -272,12 +257,10 @@ describe('OidcIdpService', () => {
     });
 
     it('adapter should upsert tokens', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
-      mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
       mockPrismaService.application.findUnique.mockResolvedValue(mockApplication);
       mockPrismaService.oidcToken.upsert.mockResolvedValue({});
 
-      const adapter = (service as any).createAdapter('org-1', 'app-1');
+      const adapter = (service as any).createAdapter('app-1');
       const adapterInstance = new adapter('AccessToken');
 
       await adapterInstance.upsert('token-id', { data: 'test' }, 3600);
@@ -285,8 +268,7 @@ describe('OidcIdpService', () => {
       expect(mockPrismaService.oidcToken.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
-            organizationId_applicationId_type_tokenId: {
-              organizationId: 'org-1',
+            applicationId_type_tokenId: {
               applicationId: 'app-1',
               type: 'AccessToken',
               tokenId: 'token-id',
@@ -299,21 +281,17 @@ describe('OidcIdpService', () => {
 
   describe('dispatchToProvider', () => {
     it('should strip issuer path prefix and invoke provider callback', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
-      mockPrismaService.application.findMany.mockResolvedValue([mockApplication]);
-      mockPrismaService.application.findUnique.mockResolvedValue(mockApplication);
-
       const mockCallback = jest.fn().mockResolvedValue(undefined);
       const provider = await service.getProviderInstance('app-1');
       provider.app.callback.mockReturnValue(mockCallback);
 
-      const req: any = { url: '/api/v1/sso/oidc-idp/org-1/app-1/token' };
+      const req: any = { url: '/api/v1/sso/oidc-idp/app-1/token' };
       const res: any = {};
 
-      await service.dispatchToProvider('org-1', 'app-1', req, res);
+      await service.dispatchToProvider('app-1', req, res);
 
       expect(mockCallback).toHaveBeenCalledWith(req, res);
-      expect(req.url).toBe('/api/v1/sso/oidc-idp/org-1/app-1/token');
+      expect(req.url).toBe('/api/v1/sso/oidc-idp/app-1/token');
     });
   });
 });

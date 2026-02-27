@@ -7,14 +7,12 @@ import { SamlController } from './saml.controller';
 import { GuideController } from './guide.controller';
 import { ApplicationUtils } from './utils/application.utils';
 import { PrismaModule } from '../prisma/prisma.module';
-import { OrganizationModule } from '../organization/organization.module';
 import { AuthModule } from '../auth/auth.module';
 import { SsoModule } from '../sso/sso.module';
 
 @Module({
   imports: [
     PrismaModule,
-    OrganizationModule,
     AuthModule,
     SsoModule,
     ThrottlerModule.forRoot([{

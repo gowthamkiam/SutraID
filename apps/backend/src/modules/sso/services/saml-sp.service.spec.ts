@@ -321,23 +321,23 @@ describe('SamlSpService', () => {
 
   describe('getMetadata', () => {
     it('should generate valid SAML metadata XML', async () => {
-      const result = await service.getMetadata('org-1');
+      const result = await service.getMetadata();
 
       expect(result).toContain('<?xml version="1.0"?>');
       expect(result).toContain('EntityDescriptor');
       expect(result).toContain('SPSSODescriptor');
       expect(result).toContain('AssertionConsumerService');
-      expect(result).toContain('http://localhost:3000/api/v1/sso/saml/org-1/acs');
-      expect(result).toContain('http://localhost:3000/api/v1/sso/saml/org-1/metadata');
+      expect(result).toContain('http://localhost:3000/api/v1/sso/saml/acs');
+      expect(result).toContain('http://localhost:3000/api/v1/sso/saml/metadata');
     });
 
     it('should use BACKEND_URL environment variable', async () => {
       process.env.BACKEND_URL = 'https://api.example.com';
 
-      const result = await service.getMetadata('org-1');
+      const result = await service.getMetadata();
 
-      expect(result).toContain('https://api.example.com/api/v1/sso/saml/org-1/acs');
-      expect(result).toContain('https://api.example.com/api/v1/sso/saml/org-1/metadata');
+      expect(result).toContain('https://api.example.com/api/v1/sso/saml/acs');
+      expect(result).toContain('https://api.example.com/api/v1/sso/saml/metadata');
     });
   });
 });

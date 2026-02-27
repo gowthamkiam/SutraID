@@ -12,17 +12,10 @@ export class PasswordValidationService {
 
   async validatePassword(
     password: string,
-    organizationId?: string
   ): Promise<PasswordValidationResult> {
     const errors: string[] = [];
 
-    // Get organization password policy (or use defaults)
-    let policy = null;
-    if (organizationId) {
-      policy = await this.prisma.passwordPolicy.findUnique({
-        where: { organizationId },
-      });
-    }
+    const policy = await this.prisma.passwordPolicy.findFirst();
 
     // Use defaults if no policy found
     const minLength = policy?.minLength || 8;
@@ -77,10 +70,7 @@ export class PasswordValidationService {
   async validatePasswordHistory(
     userId: string,
     newPassword: string,
-    organizationId?: string
   ): Promise<boolean> {
-    // TODO: Implement password history checking
-    // For now, return true (no history conflict)
     return true;
   }
 }

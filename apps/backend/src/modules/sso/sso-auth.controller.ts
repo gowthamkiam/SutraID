@@ -45,9 +45,8 @@ export class SsoAuthController {
   /**
    * Initiate SAML login
    */
-  @Get('saml/:orgId/login')
+  @Get('saml/login')
   async samlLogin(
-    @Param('orgId') orgId: string,
     @Query('providerId') providerId: string,
     @Res() res: Response,
   ) {
@@ -56,10 +55,7 @@ export class SsoAuthController {
     }
 
     try {
-      const loginUrl = await this.samlSpService.getLoginUrl(
-        providerId,
-        orgId, // Use orgId as relay state
-      );
+      const loginUrl = await this.samlSpService.getLoginUrl(providerId);
 
       res.redirect(loginUrl);
     } catch (error: any) {
@@ -70,21 +66,17 @@ export class SsoAuthController {
   /**
    * SAML Assertion Consumer Service (ACS)
    */
-  @Post('saml/:orgId/acs')
+  @Post('saml/acs')
   async samlAcs(
-    @Param('orgId') orgId: string,
     @Body() body: any,
     @Req() req: Request,
     @Res() res: Response,
   ) {
     try {
-      // Extract providerId from RelayState or find by orgId
-      const relayState = body.RelayState || orgId;
+      const relayState = body.RelayState;
 
-      // Find provider by organization
       const providers = await this.prisma.ssoProvider.findMany({
         where: {
-          organizationId: orgId,
           protocol: 'SAML2',
           enabled: true,
         },
@@ -96,13 +88,11 @@ export class SsoAuthController {
 
       const providerId = providers[0].id;
 
-      // Validate SAML response
       const profile = await this.samlSpService.validateSamlResponse(
         providerId,
         body,
       );
 
-      // Get or create user
       const user = await this.samlSpService.getOrCreateSsoIdentity(
         providerId,
         profile.externalId,
@@ -110,8 +100,6 @@ export class SsoAuthController {
         profile.attributes,
       );
 
-      // TODO: Create session and JWT tokens
-      // For now, redirect with user info
       const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3001').split(',')[0].trim();
       res.redirect(
         `${frontendUrl}/auth/callback?userId=${user.id}&email=${user.email}`,
@@ -127,9 +115,9 @@ export class SsoAuthController {
   /**
    * Get SAML metadata
    */
-  @Get('saml/:orgId/metadata')
-  async samlMetadata(@Param('orgId') orgId: string, @Res() res: Response) {
-    const metadata = await this.samlSpService.getMetadata(orgId);
+  @Get('saml/metadata')
+  async samlMetadata(@Res() res: Response) {
+    const metadata = await this.samlSpService.getMetadata();
 
     res.type('application/xml');
     res.send(metadata);

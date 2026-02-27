@@ -46,14 +46,14 @@ async function bootstrap() {
   // Global prefix for all routes
   app.setGlobalPrefix(process.env.API_PREFIX || 'api/v1', {
     exclude: [
-      { path: 'scim/v2/:orgRef', method: RequestMethod.ALL },
-      { path: 'scim/v2/:orgRef/(.*)', method: RequestMethod.ALL },
+      { path: 'scim/v2', method: RequestMethod.ALL },
+      { path: 'scim/v2/(.*)', method: RequestMethod.ALL },
       { path: '.well-known/(.*)', method: RequestMethod.ALL },
       { path: 'oauth', method: RequestMethod.ALL },
       { path: 'oauth/(.*)', method: RequestMethod.ALL },
-      { path: 'saml/:orgId/:appId/metadata.xml', method: RequestMethod.GET },
-      { path: 'saml/:orgId/:appId/sso', method: RequestMethod.POST },
-      { path: 'guide/:orgSlug/:appId', method: RequestMethod.GET },
+      { path: 'saml/:appId/metadata.xml', method: RequestMethod.GET },
+      { path: 'saml/:appId/sso', method: RequestMethod.POST },
+      { path: 'guide/:appId', method: RequestMethod.GET },
     ],
   });
 

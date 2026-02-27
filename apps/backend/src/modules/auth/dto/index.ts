@@ -9,4 +9,4 @@ export * from './change-password.dto';
 export * from './verify-totp-enrollment.dto';
 export * from './verify-mfa-challenge.dto';
 export * from './disable-mfa.dto';
-export * from './org-lookup-response.dto';
+export * from './branding-response.dto';

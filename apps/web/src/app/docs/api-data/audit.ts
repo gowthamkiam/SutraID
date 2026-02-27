@@ -8,7 +8,7 @@ export const auditSection: DocSection = {
     {
       id: 'query-audit-logs',
       method: 'GET',
-      path: '/api/v1/organizations/:orgId/audit/logs',
+      path: '/api/v1/audit/logs',
       title: 'Query audit logs',
       description: 'Returns a paginated, filterable list of audit log entries for an organization. Requires the audit:read permission.',
       auth: 'bearer',
@@ -226,7 +226,7 @@ echo $response;`,
     {
       id: 'get-audit-stats',
       method: 'GET',
-      path: '/api/v1/organizations/:orgId/audit/stats',
+      path: '/api/v1/audit/stats',
       title: 'Get audit stats',
       description: 'Returns aggregated audit statistics for an organization over a configurable time window. Requires the audit:read permission.',
       auth: 'bearer',

@@ -72,7 +72,6 @@ describe('OauthController', () => {
 
       mockPrisma.application.findUnique.mockResolvedValue({
         id: 'app-1',
-        organizationId: 'org-1',
         allowROPC: false,
         allowClientCredentials: false,
       });
@@ -92,7 +91,6 @@ describe('OauthController', () => {
 
       mockPrisma.application.findUnique.mockResolvedValue({
         id: 'app-1',
-        organizationId: 'org-1',
         allowROPC: false,
         allowClientCredentials: false,
       });
@@ -112,7 +110,6 @@ describe('OauthController', () => {
 
       mockPrisma.application.findUnique.mockResolvedValue({
         id: 'app-1',
-        organizationId: 'org-1',
         allowROPC: true,
         allowClientCredentials: true,
       });
@@ -126,13 +123,12 @@ describe('OauthController', () => {
       }));
     });
 
-    it('should pass applicationId (not organizationId) to getProviderInstance', async () => {
+    it('should pass applicationId to getProviderInstance', async () => {
       const req = mockReq({ client_id: 'test-client', grant_type: 'authorization_code', code: 'abc' });
       const res = mockRes();
 
       mockPrisma.application.findUnique.mockResolvedValue({
         id: 'app-123',
-        organizationId: 'org-456',
         allowROPC: false,
         allowClientCredentials: false,
       });
@@ -152,7 +148,6 @@ describe('OauthController', () => {
 
       mockPrisma.application.findUnique.mockResolvedValue({
         id: 'app-1',
-        organizationId: 'org-1',
         allowROPC: true,
         allowClientCredentials: false,
       });
@@ -173,7 +168,6 @@ describe('OauthController', () => {
 
       mockPrisma.application.findUnique.mockResolvedValue({
         id: 'app-1',
-        organizationId: 'org-1',
         allowROPC: false,
         allowClientCredentials: true,
       });
@@ -197,7 +191,6 @@ describe('OauthController', () => {
 
       mockPrisma.application.findUnique.mockResolvedValue({
         id: 'app-1',
-        organizationId: 'org-1',
         allowROPC: false,
         allowClientCredentials: false,
       });
@@ -246,14 +239,14 @@ describe('OpenidConfigurationController', () => {
     jest.clearAllMocks();
   });
 
-  describe('GET /.well-known/openid-configuration/:orgId/:appId', () => {
+  describe('GET /.well-known/openid-configuration/:appId', () => {
     it('should include password in grant_types when allowROPC is true', async () => {
       mockPrisma.application.findUnique.mockResolvedValue({
         allowROPC: true,
         allowClientCredentials: false,
       });
 
-      const result = await controller.getAppConfiguration('org-1', 'app-1');
+      const result = await controller.getAppConfiguration('app-1');
 
       expect(result.grant_types_supported).toContain('password');
       expect(result.grant_types_supported).not.toContain('client_credentials');
@@ -265,7 +258,7 @@ describe('OpenidConfigurationController', () => {
         allowClientCredentials: true,
       });
 
-      const result = await controller.getAppConfiguration('org-1', 'app-1');
+      const result = await controller.getAppConfiguration('app-1');
 
       expect(result.grant_types_supported).toContain('client_credentials');
       expect(result.grant_types_supported).not.toContain('password');
@@ -277,20 +270,11 @@ describe('OpenidConfigurationController', () => {
         allowClientCredentials: false,
       });
 
-      const result = await controller.getAppConfiguration('org-1', 'app-1');
+      const result = await controller.getAppConfiguration('app-1');
 
       expect(result.response_types_supported).toEqual(['code']);
       expect(result.response_types_supported).not.toContain('id_token');
       expect(result.response_types_supported).not.toContain('token');
-    });
-  });
-
-  describe('GET /.well-known/openid-configuration/:orgId', () => {
-    it('should return only authorization_code and refresh_token grants', async () => {
-      const result = await controller.getConfiguration('org-1');
-
-      expect(result.grant_types_supported).toEqual(['authorization_code', 'refresh_token']);
-      expect(result.response_types_supported).toEqual(['code']);
     });
   });
 });

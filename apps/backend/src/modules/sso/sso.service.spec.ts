@@ -1,17 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SsoService } from './sso.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrganizationService } from '../organization/organization.service';
 import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { OrgRole, SsoProtocol } from '@prisma/client';
+import { SsoProtocol } from '@prisma/client';
 
 describe('SsoService', () => {
   let service: SsoService;
   let prismaService: jest.Mocked<PrismaService>;
-  let organizationService: jest.Mocked<OrganizationService>;
 
   const mockPrismaService = {
     ssoProvider: {
@@ -24,10 +22,6 @@ describe('SsoService', () => {
     },
   };
 
-  const mockOrganizationService = {
-    checkPermission: jest.fn(),
-  };
-
   beforeEach(async () => {
     process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes-long!';
 
@@ -38,16 +32,11 @@ describe('SsoService', () => {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
-        {
-          provide: OrganizationService,
-          useValue: mockOrganizationService,
-        },
       ],
     }).compile();
 
     service = module.get<SsoService>(SsoService);
     prismaService = module.get(PrismaService);
-    organizationService = module.get(OrganizationService);
   });
 
   afterEach(() => {
@@ -65,21 +54,16 @@ describe('SsoService', () => {
         samlCertificate: '-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----',
       };
 
-      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
       mockPrismaService.ssoProvider.create.mockResolvedValue({
         id: 'sso-1',
         name: dto.name,
         protocol: dto.protocol,
       } as any);
 
-      const result = await service.create('org-1', 'user-1', dto);
+      const result = await service.create('actor-1', dto);
 
       expect(result.id).toBe('sso-1');
-      expect(mockOrganizationService.checkPermission).toHaveBeenCalledWith(
-        'org-1',
-        'user-1',
-        [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
-      );
+      expect(mockPrismaService.ssoProvider.create).toHaveBeenCalled();
     });
 
     it('should create OIDC SSO provider', async () => {
@@ -92,14 +76,13 @@ describe('SsoService', () => {
         oidcClientSecret: 'secret-123',
       };
 
-      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
       mockPrismaService.ssoProvider.create.mockResolvedValue({
         id: 'sso-1',
         name: dto.name,
         protocol: dto.protocol,
       } as any);
 
-      const result = await service.create('org-1', 'user-1', dto);
+      const result = await service.create('actor-1', dto);
 
       expect(result.id).toBe('sso-1');
     });
@@ -113,9 +96,7 @@ describe('SsoService', () => {
         // Missing required fields
       };
 
-      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
-
-      await expect(service.create('org-1', 'user-1', dto as any)).rejects.toThrow(
+      await expect(service.create('actor-1', dto as any)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -129,9 +110,7 @@ describe('SsoService', () => {
         // Missing clientId and clientSecret
       };
 
-      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
-
-      await expect(service.create('org-1', 'user-1', dto as any)).rejects.toThrow(
+      await expect(service.create('actor-1', dto as any)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -154,12 +133,11 @@ describe('SsoService', () => {
         },
       ];
 
-      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
       mockPrismaService.ssoProvider.findMany.mockResolvedValue(
         mockProviders as any,
       );
 
-      const result = await service.findAll('org-1', 'user-1');
+      const result = await service.findAll('actor-1');
 
       expect(result).toEqual(mockProviders);
     });
@@ -169,7 +147,6 @@ describe('SsoService', () => {
     it('should find SSO provider by id', async () => {
       const mockProvider = {
         id: 'sso-1',
-        organizationId: 'org-1',
         name: 'Test Provider',
         protocol: SsoProtocol.SAML2,
         samlCertificate: 'encrypted-cert',
@@ -178,9 +155,8 @@ describe('SsoService', () => {
       mockPrismaService.ssoProvider.findUnique.mockResolvedValue(
         mockProvider as any,
       );
-      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
 
-      const result = await service.findOne('sso-1', 'user-1');
+      const result = await service.findOne('sso-1', 'actor-1');
 
       expect(result.id).toBe('sso-1');
       // Should not return encrypted certificate
@@ -190,7 +166,7 @@ describe('SsoService', () => {
     it('should throw NotFoundException if provider not found', async () => {
       mockPrismaService.ssoProvider.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne('sso-1', 'user-1')).rejects.toThrow(
+      await expect(service.findOne('sso-1', 'actor-1')).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -205,17 +181,15 @@ describe('SsoService', () => {
 
       mockPrismaService.ssoProvider.findUnique.mockResolvedValue({
         id: 'sso-1',
-        organizationId: 'org-1',
       } as any);
 
-      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
       mockPrismaService.ssoProvider.update.mockResolvedValue({
         id: 'sso-1',
         name: dto.name,
         enabled: dto.enabled,
       } as any);
 
-      const result = await service.update('sso-1', 'user-1', dto);
+      const result = await service.update('sso-1', 'actor-1', dto);
 
       expect(result.name).toBe('Updated Provider');
       expect(result.enabled).toBe(false);
@@ -225,7 +199,7 @@ describe('SsoService', () => {
       mockPrismaService.ssoProvider.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.update('sso-1', 'user-1', { name: 'Updated' }),
+        service.update('sso-1', 'actor-1', { name: 'Updated' }),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -234,34 +208,15 @@ describe('SsoService', () => {
     it('should delete SSO provider', async () => {
       mockPrismaService.ssoProvider.findUnique.mockResolvedValue({
         id: 'sso-1',
-        organizationId: 'org-1',
       } as any);
 
-      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
       mockPrismaService.ssoProvider.delete.mockResolvedValue({} as any);
 
-      await service.remove('sso-1', 'user-1');
+      await service.remove('sso-1', 'actor-1');
 
       expect(mockPrismaService.ssoProvider.delete).toHaveBeenCalledWith({
         where: { id: 'sso-1' },
       });
-    });
-
-    it('should require OWNER or ADMIN role', async () => {
-      mockPrismaService.ssoProvider.findUnique.mockResolvedValue({
-        id: 'sso-1',
-        organizationId: 'org-1',
-      } as any);
-
-      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
-
-      await service.remove('sso-1', 'user-1');
-
-      expect(mockOrganizationService.checkPermission).toHaveBeenCalledWith(
-        'org-1',
-        'user-1',
-        [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
-      );
     });
   });
 
@@ -273,7 +228,6 @@ describe('SsoService', () => {
           name: 'Company SSO',
           type: 'ENTERPRISE',
           protocol: SsoProtocol.SAML2,
-          organizationId: 'org-1',
         },
       ];
 
@@ -296,7 +250,6 @@ describe('SsoService', () => {
           name: true,
           type: true,
           protocol: true,
-          organizationId: true,
         },
       });
     });
@@ -317,12 +270,11 @@ describe('SsoService', () => {
         mockProviders as any,
       );
 
-      const result = await service.findEnabledProviders('org-1');
+      const result = await service.findEnabledProviders();
 
       expect(result).toEqual(mockProviders);
       expect(mockPrismaService.ssoProvider.findMany).toHaveBeenCalledWith({
         where: {
-          organizationId: 'org-1',
           enabled: true,
         },
         select: {
@@ -339,7 +291,6 @@ describe('SsoService', () => {
     it('should test SAML provider connection', async () => {
       const mockProvider = {
         id: 'sso-1',
-        organizationId: 'org-1',
         protocol: 'SAML2',
         samlCertificate: 'encrypted-cert',
         samlSsoUrl: 'https://okta.com/sso',
@@ -348,7 +299,6 @@ describe('SsoService', () => {
       mockPrismaService.ssoProvider.findUnique.mockResolvedValue(
         mockProvider as any,
       );
-      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
 
       // Mock the service's decrypt method to return a valid certificate
       const originalDecrypt = (service as any).decrypt;
@@ -361,7 +311,7 @@ describe('SsoService', () => {
         status: 200,
       });
 
-      const result = await service.testConnection('sso-1', 'user-1');
+      const result = await service.testConnection('sso-1', 'actor-1');
 
       expect(result.checks).toBeDefined();
       expect(Array.isArray(result.checks)).toBe(true);
@@ -372,7 +322,6 @@ describe('SsoService', () => {
     it('should test OIDC provider connection', async () => {
       const mockProvider = {
         id: 'sso-1',
-        organizationId: 'org-1',
         protocol: 'OIDC',
         oidcIssuer: 'https://auth0.com',
         oidcClientId: 'client-123',
@@ -382,7 +331,6 @@ describe('SsoService', () => {
       mockPrismaService.ssoProvider.findUnique.mockResolvedValue(
         mockProvider as any,
       );
-      mockOrganizationService.checkPermission.mockResolvedValue({} as any);
 
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
@@ -392,7 +340,7 @@ describe('SsoService', () => {
         }),
       });
 
-      const result = await service.testConnection('sso-1', 'user-1');
+      const result = await service.testConnection('sso-1', 'actor-1');
 
       expect(result.checks).toBeDefined();
       expect(result.checks.some((c: any) => c.name === 'OIDC Discovery')).toBe(
@@ -404,7 +352,7 @@ describe('SsoService', () => {
   describe('encryption/decryption', () => {
     it('should encrypt and decrypt data', () => {
       const plaintext = 'sensitive-data';
-      
+
       // Access private method for testing
       const encrypted = (service as any).encrypt(plaintext);
       const decrypted = (service as any).decrypt(encrypted);
@@ -415,7 +363,7 @@ describe('SsoService', () => {
 
     it('should generate different ciphertext for same plaintext', () => {
       const plaintext = 'sensitive-data';
-      
+
       const encrypted1 = (service as any).encrypt(plaintext);
       const encrypted2 = (service as any).encrypt(plaintext);
 

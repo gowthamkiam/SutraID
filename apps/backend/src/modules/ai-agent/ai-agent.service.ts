@@ -4,7 +4,6 @@ import { ExecuteToolDto } from './dto/execute-tool.dto';
 @Injectable()
 export class AiAgentService {
   async executeTool(
-    orgId: string,
     agentId: string,
     dto: ExecuteToolDto,
   ): Promise<any> {
@@ -39,7 +38,6 @@ export class AiAgentService {
     return {
       tool: dto.tool_name,
       agent_id: agentId,
-      organization_id: orgId,
       result: handler(dto.parameters || {}),
       executed_at: new Date().toISOString(),
     };

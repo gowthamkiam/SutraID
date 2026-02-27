@@ -1,14 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GroupsService } from './groups.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { OrganizationService } from '../organization.service';
-import { OrgRole } from '@prisma/client';
-import { ForbiddenException, NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException } from '@nestjs/common';
 
 describe('GroupsService', () => {
     let service: GroupsService;
     let prismaService: jest.Mocked<PrismaService>;
-    let orgService: jest.Mocked<OrganizationService>;
 
     const mockPrismaService = {
         group: {
@@ -20,7 +17,7 @@ describe('GroupsService', () => {
             delete: jest.fn(),
             findFirst: jest.fn(),
         },
-        organizationMember: {
+        user: {
             findMany: jest.fn(),
         },
         groupMember: {
@@ -28,11 +25,8 @@ describe('GroupsService', () => {
             findMany: jest.fn(),
             createMany: jest.fn(),
             delete: jest.fn(),
+            deleteMany: jest.fn(),
         },
-    };
-
-    const mockOrgService = {
-        checkPermission: jest.fn(),
     };
 
     beforeEach(async () => {
@@ -43,16 +37,11 @@ describe('GroupsService', () => {
                     provide: PrismaService,
                     useValue: mockPrismaService,
                 },
-                {
-                    provide: OrganizationService,
-                    useValue: mockOrgService,
-                },
             ],
         }).compile();
 
         service = module.get<GroupsService>(GroupsService);
         prismaService = module.get(PrismaService);
-        orgService = module.get(OrganizationService);
     });
 
     afterEach(() => {
@@ -60,67 +49,76 @@ describe('GroupsService', () => {
     });
 
     describe('list', () => {
-        it('should call checkPermission and return groups', async () => {
-            mockOrgService.checkPermission.mockResolvedValue({} as any);
+        it('should return groups', async () => {
             mockPrismaService.group.findMany.mockResolvedValue([]);
             mockPrismaService.group.count.mockResolvedValue(0);
 
-            await service.list('org-1', {}, 'actor-1');
+            const result = await service.list({});
 
-            expect(mockOrgService.checkPermission).toHaveBeenCalledWith('org-1', 'actor-1', expect.arrayContaining([OrgRole.GROUP_MEMBERSHIP_ADMIN]));
+            expect(result.groups).toEqual([]);
+            expect(mockPrismaService.group.findMany).toHaveBeenCalled();
         });
     });
 
     describe('create', () => {
-        it('should allow authorized roles to create group', async () => {
+        it('should create group', async () => {
             const dto = { name: 'New Group', description: 'Desc' };
-            mockOrgService.checkPermission.mockResolvedValue({} as any);
-            mockPrismaService.group.findUnique.mockResolvedValue(null);
-            mockPrismaService.group.create.mockResolvedValue({ id: 'group-1', ...dto, _count: { members: 0 } } as any);
+            mockPrismaService.group.findFirst.mockResolvedValue(null);
+            mockPrismaService.group.create.mockResolvedValue({ id: 'group-1', ...dto } as any);
 
-            const result = await service.create('org-1', dto, 'actor-1');
+            const result = await service.create(dto);
 
-            expect(mockOrgService.checkPermission).toHaveBeenCalledWith('org-1', 'actor-1', [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.GROUP_MEMBERSHIP_ADMIN]);
             expect(result.id).toBe('group-1');
+            expect(mockPrismaService.group.create).toHaveBeenCalled();
+        });
+
+        it('should throw ConflictException if group exists', async () => {
+            const dto = { name: 'Existing' };
+            mockPrismaService.group.findFirst.mockResolvedValue({ id: '1' } as any);
+
+            await expect(service.create(dto)).rejects.toThrow(ConflictException);
         });
     });
 
     describe('update', () => {
-        it('should allow GROUP_MEMBERSHIP_ADMIN to update group', async () => {
+        it('should update group', async () => {
             const dto = { name: 'Updated' };
-            mockOrgService.checkPermission.mockResolvedValue({} as any);
-            mockPrismaService.group.findFirst.mockResolvedValue({ id: 'group-1', name: 'Old' } as any);
-            mockPrismaService.group.findUnique.mockResolvedValue(null);
-            mockPrismaService.group.update.mockResolvedValue({ id: 'group-1', name: 'Updated', _count: { members: 0 } } as any);
+            // First call to find the group
+            mockPrismaService.group.findFirst.mockResolvedValueOnce({ id: 'group-1', name: 'Old' } as any);
+            // Second call to check if 'Updated' exists
+            mockPrismaService.group.findFirst.mockResolvedValueOnce(null);
+            mockPrismaService.group.update.mockResolvedValue({ id: 'group-1', name: 'Updated' } as any);
 
-            await service.update('org-1', 'group-1', dto, 'actor-1');
+            await service.update('group-1', dto);
 
-            expect(mockOrgService.checkPermission).toHaveBeenCalledWith('org-1', 'actor-1', expect.arrayContaining([OrgRole.GROUP_MEMBERSHIP_ADMIN]));
+            expect(mockPrismaService.group.update).toHaveBeenCalled();
+        });
+
+        it('should throw NotFoundException if group not found', async () => {
+            mockPrismaService.group.findFirst.mockResolvedValue(null);
+            await expect(service.update('non-existent', {})).rejects.toThrow(NotFoundException);
         });
     });
 
     describe('remove', () => {
-        it('should allow authorized roles to remove group', async () => {
-            mockOrgService.checkPermission.mockResolvedValue({} as any);
+        it('should remove group', async () => {
             mockPrismaService.group.findFirst.mockResolvedValue({ id: 'group-1' } as any);
 
-            await service.remove('org-1', 'group-1', 'actor-1');
+            await service.remove('group-1');
 
-            expect(mockOrgService.checkPermission).toHaveBeenCalledWith('org-1', 'actor-1', [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.GROUP_MEMBERSHIP_ADMIN]);
-            expect(mockPrismaService.group.delete).toHaveBeenCalled();
+            expect(mockPrismaService.group.delete).toHaveBeenCalledWith({ where: { id: 'group-1' } });
         });
     });
 
     describe('member operations', () => {
-        it('should allow GROUP_MEMBERSHIP_ADMIN to add members', async () => {
-            mockOrgService.checkPermission.mockResolvedValue({} as any);
+        it('should add members', async () => {
             mockPrismaService.group.findFirst.mockResolvedValue({ id: 'group-1' } as any);
-            mockPrismaService.organizationMember.findMany.mockResolvedValue([{ userId: 'user-1' }] as any);
+            mockPrismaService.user.findMany.mockResolvedValue([{ id: 'user-1' }] as any);
             mockPrismaService.groupMember.findMany.mockResolvedValue([]);
 
-            await service.addMembers('org-1', 'group-1', ['user-1'], 'actor-1');
+            const result = await service.addMembers('group-1', ['user-1']);
 
-            expect(mockOrgService.checkPermission).toHaveBeenCalledWith('org-1', 'actor-1', expect.arrayContaining([OrgRole.GROUP_MEMBERSHIP_ADMIN]));
+            expect(result.added).toBe(1);
             expect(mockPrismaService.groupMember.createMany).toHaveBeenCalled();
         });
     });

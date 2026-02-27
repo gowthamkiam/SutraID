@@ -28,20 +28,20 @@ export class UsersController {
 
   @Get()
   @RequirePermission('users:read')
-  async list(@Request() req: any, @Query() query: ListUsersQueryDto) {
-    return this.usersService.list(req.orgId, {
+  async list(@Query() query: ListUsersQueryDto) {
+    return this.usersService.list({
       search: query.search,
       role: query.role,
       status: query.status,
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
-    }, req.user.id);
+    });
   }
 
   @Post()
   @RequirePermission('users:create')
   async create(@Request() req: any, @Body() dto: CreateUserDto) {
-    return this.usersService.create(req.orgId, dto, req.user.id);
+    return this.usersService.create(dto, req.user.id);
   }
 
   @Put(':id')
@@ -51,7 +51,7 @@ export class UsersController {
     @Param('id', new ParseUUIDPipe()) userId: string,
     @Body() dto: UpdateUserDto,
   ) {
-    return this.usersService.update(req.orgId, userId, dto, req.user.id);
+    return this.usersService.update(userId, dto, req.user.id);
   }
 
   @Delete(':id')
@@ -60,26 +60,24 @@ export class UsersController {
     @Request() req: any,
     @Param('id', new ParseUUIDPipe()) userId: string,
   ) {
-    return this.usersService.remove(req.orgId, userId, req.user.id);
+    return this.usersService.remove(userId, req.user.id);
   }
 
   @Put(':id/groups')
   @RequirePermission('groups:update')
   async assignGroups(
-    @Request() req: any,
     @Param('id', new ParseUUIDPipe()) userId: string,
     @Body() dto: AssignGroupsDto,
   ) {
-    return this.usersService.assignGroups(req.orgId, userId, dto.groupIds || []);
+    return this.usersService.assignGroups(userId, dto.groupIds || []);
   }
 
   @Put(':id/applications')
   @RequirePermission('apps:update')
   async assignApplications(
-    @Request() req: any,
     @Param('id', new ParseUUIDPipe()) userId: string,
     @Body() dto: AssignApplicationsDto,
   ) {
-    return this.usersService.assignApplications(req.orgId, userId, dto.applicationIds || []);
+    return this.usersService.assignApplications(userId, dto.applicationIds || []);
   }
 }

@@ -17,31 +17,31 @@ export class SamlIdpService {
   ) { }
 
   /**
-   * Get or create SAML Identity Provider instance for an organization
+   * Get or create SAML Identity Provider instance for an application
    */
-  private async getIdpInstance(organizationId: string) {
+  private async getIdpInstance(applicationId: string) {
     // Check cache
-    if (this.idpInstances.has(organizationId)) {
-      return this.idpInstances.get(organizationId);
+    if (this.idpInstances.has(applicationId)) {
+      return this.idpInstances.get(applicationId);
     }
 
-    // Get organization
-    const organization = await this.prisma.organization.findUnique({
-      where: { id: organizationId },
+    // Get application
+    const application = await this.prisma.application.findUnique({
+      where: { id: applicationId },
     });
 
-    if (!organization) {
-      throw new BadRequestException('Organization not found');
+    if (!application) {
+      throw new BadRequestException('Application not found');
     }
 
     // Get or generate IDP certificate and private key
     const { certificate, privateKey } = await this.getOrCreateIdpCertificate(
-      organizationId,
+      applicationId,
     );
 
     const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
-    const entityId = `${baseUrl}/api/v1/sso/saml-idp/${organizationId}/metadata`;
-    const ssoUrl = `${baseUrl}/api/v1/sso/saml-idp/${organizationId}/sso`;
+    const entityId = `${baseUrl}/api/v1/sso/saml-idp/${applicationId}/metadata`;
+    const ssoUrl = `${baseUrl}/api/v1/sso/saml-idp/${applicationId}/sso`;
 
     // Create Identity Provider instance
     const idp = saml.IdentityProvider({
@@ -64,7 +64,7 @@ export class SamlIdpService {
     });
 
     // Cache the instance
-    this.idpInstances.set(organizationId, idp);
+    this.idpInstances.set(applicationId, idp);
 
     return idp;
   }
@@ -72,36 +72,36 @@ export class SamlIdpService {
   /**
    * Get or create IDP certificate and private key for signing
    */
-  private async getOrCreateIdpCertificate(organizationId: string): Promise<{
+  private async getOrCreateIdpCertificate(applicationId: string): Promise<{
     certificate: string;
     privateKey: string;
   }> {
     // Check if certificate exists in database
-    const org = await this.prisma.organization.findUnique({
-      where: { id: organizationId },
-      select: { samlIdpCertificate: true, samlIdpPrivateKey: true },
+    const app = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+      select: { samlCertificate: true, samlPrivateKey: true },
     });
 
-    if (org?.samlIdpCertificate && org?.samlIdpPrivateKey) {
+    if (app?.samlCertificate && app?.samlPrivateKey) {
       // Decrypt private key from database
-      const decryptedPrivateKey = this.decryptPrivateKey(org.samlIdpPrivateKey);
+      const decryptedPrivateKey = this.decryptPrivateKey(app.samlPrivateKey);
       return {
-        certificate: org.samlIdpCertificate,
+        certificate: app.samlCertificate,
         privateKey: decryptedPrivateKey,
       };
     }
 
     // Generate new certificate and private key
-    const { certificate, privateKey } = await this.generateSelfSignedCertificate(organizationId);
+    const { certificate, privateKey } = await this.generateSelfSignedCertificate(applicationId);
 
     // Encrypt and store in database
     const encryptedPrivateKey = this.encryptPrivateKey(privateKey);
 
-    await this.prisma.organization.update({
-      where: { id: organizationId },
+    await this.prisma.application.update({
+      where: { id: applicationId },
       data: {
-        samlIdpCertificate: certificate,
-        samlIdpPrivateKey: encryptedPrivateKey,
+        samlCertificate: certificate,
+        samlPrivateKey: encryptedPrivateKey,
       },
     });
 
@@ -111,7 +111,7 @@ export class SamlIdpService {
   /**
    * Generate self-signed X.509 certificate for SAML signing
    */
-  private async generateSelfSignedCertificate(organizationId?: string): Promise<{
+  private async generateSelfSignedCertificate(applicationId?: string): Promise<{
     certificate: string;
     privateKey: string;
   }> {
@@ -125,8 +125,8 @@ export class SamlIdpService {
     cert.validity.notBefore = now;
     cert.validity.notAfter = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000); // 1 year
 
-    const cn = organizationId
-      ? `SutraID IdP - ${organizationId.substring(0, 8)}`
+    const cn = applicationId
+      ? `SutraID IdP - ${applicationId.substring(0, 8)}`
       : 'SutraID IdP';
 
     const attrs = [
@@ -209,7 +209,7 @@ export class SamlIdpService {
    * Parse incoming SAML AuthnRequest from SP
    */
   async parseAuthnRequest(
-    organizationId: string,
+    applicationId: string,
     samlRequest: string,
   ): Promise<{
     id: string;
@@ -217,7 +217,7 @@ export class SamlIdpService {
     issuer: string;
     relayState?: string;
   }> {
-    const idp = await this.getIdpInstance(organizationId);
+    const idp = await this.getIdpInstance(applicationId);
 
     try {
       // Parse the SAML request
@@ -251,22 +251,22 @@ export class SamlIdpService {
    * Create SAML Response for authenticated user
    */
   async createSamlResponse(
-    organizationId: string,
+    applicationId: string,
     user: User,
     authnRequestId: string,
     acsUrl: string,
     spEntityId: string,
     relayState?: string,
   ): Promise<{ samlResponse: string; relayState?: string }> {
-    const idp = await this.getIdpInstance(organizationId);
+    const idp = await this.getIdpInstance(applicationId);
 
     const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
-    const issuer = `${baseUrl}/api/v1/sso/saml-idp/${organizationId}/metadata`;
+    const issuer = `${baseUrl}/api/v1/sso/saml-idp/${applicationId}/metadata`;
 
     // Get application configuration for attribute mapping
     const application = await this.prisma.application.findFirst({
       where: {
-        organizationId,
+        id: applicationId,
         samlSpEntityId: spEntityId,
       },
     });
@@ -331,8 +331,8 @@ export class SamlIdpService {
   /**
    * Get IDP metadata XML
    */
-  async getIdpMetadata(organizationId: string): Promise<string> {
-    const idp = await this.getIdpInstance(organizationId);
+  async getIdpMetadata(applicationId: string): Promise<string> {
+    const idp = await this.getIdpInstance(applicationId);
 
     try {
       return idp.getMetadata();
@@ -348,13 +348,13 @@ export class SamlIdpService {
    */
   async verifyUserAccess(
     user: User,
-    organizationId: string,
+    applicationId: string,
     spEntityId: string,
   ): Promise<boolean> {
     // Check if application exists and is enabled
     const application = await this.prisma.application.findFirst({
       where: {
-        organizationId,
+        id: applicationId,
         samlSpEntityId: spEntityId,
         type: 'SAML',
         status: 'ACTIVE',
@@ -373,7 +373,7 @@ export class SamlIdpService {
   /**
    * Clear cached IDP instance (for testing or when certificate is rotated)
    */
-  clearIdpCache(organizationId: string): void {
-    this.idpInstances.delete(organizationId);
+  clearIdpCache(applicationId: string): void {
+    this.idpInstances.delete(applicationId);
   }
 }

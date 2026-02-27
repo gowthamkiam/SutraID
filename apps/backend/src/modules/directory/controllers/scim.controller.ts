@@ -13,30 +13,27 @@ import {
 } from '@nestjs/common';
 import { SCIMService } from '../services/scim.service';
 
-@Controller('scim/v2/:orgRef')
+@Controller('scim/v2')
 export class SCIMController {
     constructor(private scimService: SCIMService) { }
 
     @Get()
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
-    async base(@Param('orgRef') orgRef: string, @Req() req: any) {
+    async base(@Req() req: any) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
+        await this.scimService.validateToken(token);
 
         return {
             schemas: ['urn:ietf:params:scim:api:messages:2.0:ListResponse'],
             message: 'SutraID SCIM endpoint is active',
-            organizationId: orgId,
         };
     }
 
     @Get('ServiceProviderConfig')
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
-    async serviceProviderConfig(@Param('orgRef') orgRef: string, @Req() req: any) {
+    async serviceProviderConfig(@Req() req: any) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
+        await this.scimService.validateToken(token);
 
         return {
             schemas: ['urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig'],
@@ -60,10 +57,9 @@ export class SCIMController {
 
     @Get('Schemas')
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
-    async schemas(@Param('orgRef') orgRef: string, @Req() req: any) {
+    async schemas(@Req() req: any) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
+        await this.scimService.validateToken(token);
 
         return {
             schemas: ['urn:ietf:params:scim:api:messages:2.0:ListResponse'],
@@ -85,10 +81,9 @@ export class SCIMController {
 
     @Get('ResourceTypes')
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
-    async resourceTypes(@Param('orgRef') orgRef: string, @Req() req: any) {
+    async resourceTypes(@Req() req: any) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
+        await this.scimService.validateToken(token);
 
         return {
             schemas: ['urn:ietf:params:scim:api:messages:2.0:ListResponse'],
@@ -113,17 +108,15 @@ export class SCIMController {
     @Get('Users')
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
     async getUsers(
-        @Param('orgRef') orgRef: string,
         @Query('filter') filter: string,
         @Req() req: any,
         @Query('startIndex') startIndex?: string,
         @Query('count') count?: string,
     ) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
+        await this.scimService.validateToken(token);
 
-        const resources = await this.scimService.getUsers(orgId, filter, Number(startIndex || 1), Number(count || 100));
+        const resources = await this.scimService.getUsers(filter, Number(startIndex || 1), Number(count || 100));
         return {
             schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
             totalResults: resources.length,
@@ -135,103 +128,91 @@ export class SCIMController {
 
     @Get('Users/:userId')
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
-    async getUserById(@Param('orgRef') orgRef: string, @Param('userId') userId: string, @Req() req: any) {
+    async getUserById(@Param('userId') userId: string, @Req() req: any) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
-        return this.scimService.getUserResource(orgId, userId);
+        await this.scimService.validateToken(token);
+        return this.scimService.getUserResource(userId);
     }
 
     @Post('Users')
     @HttpCode(201)
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
-    async createUser(@Param('orgRef') orgRef: string, @Body() body: any, @Req() req: any) {
+    async createUser(@Body() body: any, @Req() req: any) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
+        await this.scimService.validateToken(token);
 
-        return this.scimService.createUser(orgId, body);
+        return this.scimService.createUser(body);
     }
 
     @Patch('Users/:userId')
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
     async patchUser(
-        @Param('orgRef') orgRef: string,
         @Param('userId') userId: string,
         @Body() body: any,
         @Req() req: any,
     ) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
-        return this.scimService.patchUser(orgId, userId, body);
+        await this.scimService.validateToken(token);
+        return this.scimService.patchUser(userId, body);
     }
 
     @Delete('Users/:userId')
     @HttpCode(204)
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
-    async deleteUser(@Param('orgRef') orgRef: string, @Param('userId') userId: string, @Req() req: any) {
+    async deleteUser(@Param('userId') userId: string, @Req() req: any) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
-        await this.scimService.deleteUser(orgId, userId);
+        await this.scimService.validateToken(token);
+        await this.scimService.deleteUser(userId);
     }
 
     @Get('Groups')
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
     async getGroups(
-        @Param('orgRef') orgRef: string,
         @Query('filter') filter: string,
         @Req() req: any,
         @Query('startIndex') startIndex?: string,
         @Query('count') count?: string,
     ) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
-        return this.scimService.getGroups(orgId, filter, Number(startIndex || 1), Number(count || 100));
+        await this.scimService.validateToken(token);
+        return this.scimService.getGroups(filter, Number(startIndex || 1), Number(count || 100));
     }
 
     @Get('Groups/:groupId')
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
-    async getGroupById(@Param('orgRef') orgRef: string, @Param('groupId') groupId: string, @Req() req: any) {
+    async getGroupById(@Param('groupId') groupId: string, @Req() req: any) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
-        return this.scimService.getGroupResource(orgId, groupId);
+        await this.scimService.validateToken(token);
+        return this.scimService.getGroupResource(groupId);
     }
 
     @Post('Groups')
     @HttpCode(201)
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
-    async createGroup(@Param('orgRef') orgRef: string, @Body() body: any, @Req() req: any) {
+    async createGroup(@Body() body: any, @Req() req: any) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
-        return this.scimService.createGroup(orgId, body);
+        await this.scimService.validateToken(token);
+        return this.scimService.createGroup(body);
     }
 
     @Patch('Groups/:groupId')
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
     async patchGroup(
-        @Param('orgRef') orgRef: string,
         @Param('groupId') groupId: string,
         @Body() body: any,
         @Req() req: any,
     ) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
-        return this.scimService.patchGroup(orgId, groupId, body);
+        await this.scimService.validateToken(token);
+        return this.scimService.patchGroup(groupId, body);
     }
 
     @Delete('Groups/:groupId')
     @HttpCode(204)
     @Header('Content-Type', 'application/scim+json; charset=utf-8')
-    async deleteGroup(@Param('orgRef') orgRef: string, @Param('groupId') groupId: string, @Req() req: any) {
+    async deleteGroup(@Param('groupId') groupId: string, @Req() req: any) {
         const token = req.headers.authorization?.split(' ')[1];
-        const orgId = await this.scimService.resolveOrganizationId(orgRef);
-        await this.scimService.validateToken(orgId, token);
-        await this.scimService.deleteGroup(orgId, groupId);
+        await this.scimService.validateToken(token);
+        await this.scimService.deleteGroup(groupId);
     }
 }

@@ -42,16 +42,9 @@ describe('AuthService', () => {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
-    organizationMember: {
-      findFirst: jest.fn(),
-      findUnique: jest.fn(),
-    },
-    organization: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-    },
     directoryConfig: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -105,43 +98,7 @@ describe('AuthService', () => {
     auditService = module.get(AuditService);
     mfaService = module.get(MfaService);
 
-    mockPrismaService.organizationMember.findFirst.mockResolvedValue({
-      organization: {
-        id: 'org-1',
-        name: 'Test Org',
-        slug: 'test-org',
-      },
-      role: 'SUPER_ADMIN',
-      status: 'ACTIVE',
-    } as any);
-    mockPrismaService.organizationMember.findUnique.mockResolvedValue({
-      organization: {
-        id: 'org-1',
-        name: 'Test Org',
-        slug: 'test-org',
-      },
-      role: 'SUPER_ADMIN',
-      status: 'ACTIVE',
-    } as any);
-    mockPrismaService.organization.findUnique.mockImplementation(({ where }: any) => {
-      if (where?.id === 'org-1' || where?.slug === 'org-1') {
-        return Promise.resolve({ id: 'org-1' } as any);
-      }
-      if (where?.id === '123e4567-e89b-12d3-a456-426614174000') {
-        return Promise.resolve({
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          name: 'Acme Corp',
-          slug: 'acme-corp',
-          logoUrl: 'https://example.com/logo.png',
-          primaryColor: '#ff0000',
-          customLoginConfig: { logoUrl: 'https://example.com/login-logo.png', primaryColor: '#00ff00' },
-          status: 'ACTIVE',
-        } as any);
-      }
-      return Promise.resolve(null);
-    });
-    mockPrismaService.organization.findFirst.mockResolvedValue(null as any);
-    mockPrismaService.directoryConfig.findUnique.mockResolvedValue(null as any);
+    mockPrismaService.directoryConfig.findFirst.mockResolvedValue(null as any);
   });
 
   afterEach(() => {
@@ -248,7 +205,6 @@ describe('AuthService', () => {
       const result = await service.loginWithPassword(
         'test@example.com',
         'Password123!',
-        'org-1',
       );
 
       expect(result.user).toBeDefined();
@@ -273,7 +229,7 @@ describe('AuthService', () => {
       mockAuditService.log.mockResolvedValue(undefined);
 
       await expect(
-        service.loginWithPassword('test@example.com', 'WrongPassword', 'org-1'),
+        service.loginWithPassword('test@example.com', 'WrongPassword'),
       ).rejects.toThrow(UnauthorizedException);
 
       expect(auditService.log).toHaveBeenCalled();
@@ -284,7 +240,7 @@ describe('AuthService', () => {
       mockAuditService.log.mockResolvedValue(undefined);
 
       await expect(
-        service.loginWithPassword('test@example.com', 'Password123!', 'org-1'),
+        service.loginWithPassword('test@example.com', 'Password123!'),
       ).rejects.toThrow(UnauthorizedException);
 
       expect(auditService.log).toHaveBeenCalled();
@@ -299,7 +255,7 @@ describe('AuthService', () => {
       } as any);
 
       await expect(
-        service.loginWithPassword('test@example.com', 'Password123!', 'org-1'),
+        service.loginWithPassword('test@example.com', 'Password123!'),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -312,7 +268,7 @@ describe('AuthService', () => {
       } as any);
 
       await expect(
-        service.loginWithPassword('test@example.com', 'Password123!', 'org-1'),
+        service.loginWithPassword('test@example.com', 'Password123!'),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -441,82 +397,6 @@ describe('AuthService', () => {
       await service.revokeSession('jti-1');
 
       expect(mockPrismaService.session.updateMany).toHaveBeenCalled();
-    });
-  });
-
-  describe('findOrgByIdentifier', () => {
-    const mockOrg = {
-      id: '123e4567-e89b-12d3-a456-426614174000',
-      name: 'Acme Corp',
-      slug: 'acme-corp',
-      logoUrl: 'https://example.com/logo.png',
-      primaryColor: '#ff0000',
-      customLoginConfig: { logoUrl: 'https://example.com/login-logo.png', primaryColor: '#00ff00' },
-      status: 'ACTIVE',
-    };
-
-    it('should return org when found by UUID', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrg as any);
-
-      const result = await service.findOrgByIdentifier('123e4567-e89b-12d3-a456-426614174000');
-
-      expect(result.id).toBe('123e4567-e89b-12d3-a456-426614174000');
-      expect(result.name).toBe('Acme Corp');
-      expect(result.slug).toBe('acme-corp');
-      expect(result.customLoginConfig).toEqual(mockOrg.customLoginConfig);
-    });
-
-    it('should return org when found by slug (case-insensitive)', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(null);
-      mockPrismaService.organization.findFirst.mockResolvedValue(mockOrg as any);
-
-      const result = await service.findOrgByIdentifier('acme-corp');
-
-      expect(result.slug).toBe('acme-corp');
-      expect(mockPrismaService.organization.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { slug: { equals: 'acme-corp', mode: 'insensitive' } },
-        }),
-      );
-    });
-
-    it('should throw NotFoundException when not found', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(null);
-      mockPrismaService.organization.findFirst.mockResolvedValue(null);
-
-      await expect(
-        service.findOrgByIdentifier('nonexistent-org'),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('should throw NotFoundException for inactive org', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(null);
-      mockPrismaService.organization.findFirst.mockResolvedValue({
-        ...mockOrg,
-        status: 'DELETED',
-      } as any);
-
-      await expect(
-        service.findOrgByIdentifier('acme-corp'),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('should return null customLoginConfig when not set', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(null);
-      mockPrismaService.organization.findFirst.mockResolvedValue({
-        ...mockOrg,
-        customLoginConfig: null,
-      } as any);
-
-      const result = await service.findOrgByIdentifier('acme-corp');
-
-      expect(result.customLoginConfig).toBeNull();
-    });
-
-    it('should throw BadRequestException for empty identifier', async () => {
-      await expect(
-        service.findOrgByIdentifier(''),
-      ).rejects.toThrow(BadRequestException);
     });
   });
 });

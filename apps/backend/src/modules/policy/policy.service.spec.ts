@@ -3,24 +3,20 @@ import { PolicyService } from './policy.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { NotFoundException } from '@nestjs/common';
-import { PolicyEffect, OrgRole } from '@prisma/client';
-import { OrganizationService } from '../organization/organization.service';
+import { PolicyEffect } from '@prisma/client';
 
 describe('PolicyService', () => {
   let service: PolicyService;
   let prismaService: jest.Mocked<PrismaService>;
   let auditService: jest.Mocked<AuditService>;
-  let organizationService: jest.Mocked<OrganizationService>;
 
   const mockPrismaService = {
-    organization: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
     passwordPolicy: {
       upsert: jest.fn(),
       findUniqueOrThrow: jest.fn(),
       update: jest.fn(),
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
     },
     policy: {
       create: jest.fn(),
@@ -41,10 +37,6 @@ describe('PolicyService', () => {
     log: jest.fn(),
   };
 
-  const mockOrganizationService = {
-    checkPermission: jest.fn(),
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -57,18 +49,12 @@ describe('PolicyService', () => {
           provide: AuditService,
           useValue: mockAuditService,
         },
-        {
-          provide: OrganizationService,
-          useValue: mockOrganizationService,
-        },
       ],
     }).compile();
 
     service = module.get<PolicyService>(PolicyService);
     prismaService = module.get(PrismaService);
     auditService = module.get(AuditService);
-    organizationService = module.get(OrganizationService);
-    mockPrismaService.organization.findUnique.mockResolvedValue({ id: 'org-1' } as any);
     mockPrismaService.passwordPolicy.upsert.mockResolvedValue({} as any);
   });
 
@@ -90,12 +76,11 @@ describe('PolicyService', () => {
         ...data,
       } as any);
 
-      const result = await service.create('org-1', 'user-1', data);
+      const result = await service.create('actor-1', data);
 
       expect(result.id).toBe('policy-1');
       expect(mockPrismaService.policy.create).toHaveBeenCalledWith({
         data: {
-          organizationId: 'org-1',
           name: data.name,
           description: undefined,
           effect: PolicyEffect.ALLOW,
@@ -123,7 +108,7 @@ describe('PolicyService', () => {
         effect: PolicyEffect.ALLOW,
       } as any);
 
-      await service.create('org-1', 'user-1', data);
+      await service.create('actor-1', data);
 
       expect(mockPrismaService.policy.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -139,7 +124,7 @@ describe('PolicyService', () => {
   });
 
   describe('findAll', () => {
-    it('should list all policies for organization', async () => {
+    it('should list all policies', async () => {
       const mockPolicies = [
         { id: 'policy-1', name: 'Policy 1', priority: 1 },
         { id: 'policy-2', name: 'Policy 2', priority: 0 },
@@ -147,11 +132,11 @@ describe('PolicyService', () => {
 
       mockPrismaService.policy.findMany.mockResolvedValue(mockPolicies as any);
 
-      const result = await service.findAll('org-1', 'user-1');
+      const result = await service.findAll();
 
       expect(result).toEqual(mockPolicies);
       expect(mockPrismaService.policy.findMany).toHaveBeenCalledWith({
-        where: { organizationId: 'org-1' },
+        where: {},
         orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
       });
     });
@@ -163,7 +148,7 @@ describe('PolicyService', () => {
 
       mockPrismaService.policy.findFirst.mockResolvedValue(mockPolicy as any);
 
-      const result = await service.findOne('org-1', 'policy-1', 'user-1');
+      const result = await service.findOne('policy-1');
 
       expect(result).toEqual(mockPolicy);
     });
@@ -171,7 +156,7 @@ describe('PolicyService', () => {
     it('should throw NotFoundException if policy not found', async () => {
       mockPrismaService.policy.findFirst.mockResolvedValue(null);
 
-      await expect(service.findOne('org-1', 'policy-1', 'user-1')).rejects.toThrow(
+      await expect(service.findOne('policy-1')).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -194,7 +179,7 @@ describe('PolicyService', () => {
 
       mockPrismaService.policy.findMany.mockResolvedValue(mockPolicies as any);
 
-      const result = await service.evaluate('org-1', {
+      const result = await service.evaluate({
         userId: 'user-1',
         resource: 'api:users:123',
         action: 'read',
@@ -231,7 +216,7 @@ describe('PolicyService', () => {
 
       mockPrismaService.policy.findMany.mockResolvedValue(mockPolicies as any);
 
-      const result = await service.evaluate('org-1', {
+      const result = await service.evaluate({
         userId: 'user-1',
         resource: 'api:users:123',
         action: 'delete',
@@ -244,7 +229,7 @@ describe('PolicyService', () => {
     it('should default to DENY when no policy matches', async () => {
       mockPrismaService.policy.findMany.mockResolvedValue([]);
 
-      const result = await service.evaluate('org-1', {
+      const result = await service.evaluate({
         userId: 'user-1',
         resource: 'api:orders:123',
         action: 'read',
@@ -270,7 +255,7 @@ describe('PolicyService', () => {
 
       mockPrismaService.policy.findMany.mockResolvedValue(mockPolicies as any);
 
-      const result = await service.evaluate('org-1', {
+      const result = await service.evaluate({
         userId: 'user-1',
         resource: 'api:anything:123',
         action: 'read',
@@ -295,7 +280,7 @@ describe('PolicyService', () => {
 
       mockPrismaService.policy.findMany.mockResolvedValue(mockPolicies as any);
 
-      const result = await service.evaluate('org-1', {
+      const result = await service.evaluate({
         userId: 'user-1',
         resource: 'api:users:123',
         action: 'delete',
@@ -320,7 +305,7 @@ describe('PolicyService', () => {
 
       mockPrismaService.policy.findMany.mockResolvedValue(mockPolicies as any);
 
-      const result = await service.evaluate('org-1', {
+      const result = await service.evaluate({
         userId: 'user-1',
         resource: 'api:users:123',
         action: 'read',
@@ -346,7 +331,7 @@ describe('PolicyService', () => {
 
       mockPrismaService.policy.findMany.mockResolvedValue(mockPolicies as any);
 
-      const result = await service.evaluate('org-1', {
+      const result = await service.evaluate({
         userId: 'user-1',
         resource: 'api:users:123',
         action: 'read',
@@ -372,7 +357,7 @@ describe('PolicyService', () => {
 
       mockPrismaService.policy.findMany.mockResolvedValue(mockPolicies as any);
 
-      const result = await service.evaluate('org-1', {
+      const result = await service.evaluate({
         userId: 'user-1',
         resource: 'api:users:123',
         action: 'read',
@@ -398,7 +383,7 @@ describe('PolicyService', () => {
 
       mockPrismaService.policy.findMany.mockResolvedValue([]);
 
-      const result = await service.evaluate('org-1', {
+      const result = await service.evaluate({
         userId: 'user-1',
         resource: 'api:users:123',
         action: 'read',
@@ -421,7 +406,7 @@ describe('PolicyService', () => {
         ...data,
       } as any);
 
-      const result = await service.createNetworkZone('org-1', 'user-1', data);
+      const result = await service.createNetworkZone('actor-1', data);
 
       expect(result.id).toBe('zone-1');
     });
@@ -436,7 +421,7 @@ describe('PolicyService', () => {
         mockZones as any,
       );
 
-      const result = await service.findAllNetworkZones('org-1', 'user-1');
+      const result = await service.findAllNetworkZones();
 
       expect(result).toEqual(mockZones);
     });
@@ -455,7 +440,7 @@ describe('PolicyService', () => {
         mockZones as any,
       );
 
-      const result = await service.isIpTrusted('org-1', '192.168.1.10');
+      const result = await service.isIpTrusted('192.168.1.10');
 
       expect(result).toBe(true);
     });
@@ -474,7 +459,7 @@ describe('PolicyService', () => {
         mockZones as any,
       );
 
-      const result = await service.isIpTrusted('org-1', '10.0.0.1');
+      const result = await service.isIpTrusted('10.0.0.1');
 
       expect(result).toBe(false);
     });
@@ -487,7 +472,7 @@ describe('PolicyService', () => {
       } as any);
       mockPrismaService.policy.delete.mockResolvedValue({} as any);
 
-      const result = await service.delete('org-1', 'policy-1', 'user-1');
+      const result = await service.delete('policy-1');
 
       expect(result.message).toContain('deleted successfully');
       expect(mockPrismaService.policy.delete).toHaveBeenCalledWith({

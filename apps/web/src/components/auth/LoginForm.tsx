@@ -13,8 +13,6 @@ export interface CustomLoginConfig {
 }
 
 interface LoginFormProps {
-  organizationId: string;
-  organizationName: string;
   branding?: CustomLoginConfig | null;
 }
 
@@ -25,7 +23,6 @@ interface SsoProviderInfo {
   name: string;
   type: string;
   protocol: string;
-  organizationId: string;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -59,7 +56,7 @@ function handleInputBlur(e: React.FocusEvent<HTMLInputElement>) {
   e.target.style.boxShadow = 'none';
 }
 
-export default function LoginForm({ organizationId, organizationName, branding }: LoginFormProps) {
+export default function LoginForm({ branding }: LoginFormProps) {
   const [mode, setMode] = useState<AuthMode>('magic-link');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -139,7 +136,7 @@ export default function LoginForm({ organizationId, organizationName, branding }
   const handleSsoLogin = (provider: SsoProviderInfo) => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
     if (provider.protocol === 'SAML2') {
-      window.location.href = `${apiUrl}/sso/saml/${provider.organizationId}/login?providerId=${provider.id}`;
+      window.location.href = `${apiUrl}/sso/saml/login?providerId=${provider.id}`;
     } else {
       window.location.href = `${apiUrl}/sso/oidc/${provider.id}/login`;
     }
@@ -175,7 +172,7 @@ export default function LoginForm({ organizationId, organizationName, branding }
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ email, password, organizationId }),
+          body: JSON.stringify({ email, password }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || 'Invalid email or password');
@@ -191,8 +188,6 @@ export default function LoginForm({ organizationId, organizationName, branding }
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
         localStorage.setItem('user', JSON.stringify(data.user));
-        const orgId = data.organization?.id || data.user?.organizationId;
-        if (orgId) localStorage.setItem('currentOrgId', orgId);
         if (data.mustChangePassword || data.user?.mustChangePassword) {
           window.location.href = '/auth/change-password';
           return;
@@ -227,8 +222,6 @@ export default function LoginForm({ organizationId, organizationName, branding }
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.user));
-      const orgId = data.organization?.id || data.user?.organizationId;
-      if (orgId) localStorage.setItem('currentOrgId', orgId);
       if (data.mustChangePassword || data.user?.mustChangePassword) {
         window.location.href = '/auth/change-password';
         return;
@@ -251,7 +244,7 @@ export default function LoginForm({ organizationId, organizationName, branding }
   };
 
   const getHeading = () => {
-    return `Sign in to ${organizationName}`;
+    return 'Sign in to your account';
   };
 
   const getButtonLabel = () => {
@@ -272,7 +265,7 @@ export default function LoginForm({ organizationId, organizationName, branding }
         {branding?.logoUrl ? (
           <img
             src={branding.logoUrl}
-            alt={organizationName}
+            alt="Logo"
             style={{ maxHeight: '48px', maxWidth: '200px', objectFit: 'contain' }}
           />
         ) : (
@@ -358,8 +351,6 @@ export default function LoginForm({ organizationId, organizationName, branding }
         </form>
       ) : (
         <form onSubmit={handleSubmit}>
-          <input type="hidden" name="orgId" value={organizationId} />
-
           {/* Email */}
           <div style={{ marginBottom: '1.25rem' }}>
             <label htmlFor="email" style={labelStyle}>Email Address</label>
@@ -517,7 +508,7 @@ export default function LoginForm({ organizationId, organizationName, branding }
                   onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
                   onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
                 >
-                  Sign up for a new organization
+                  Sign up
                 </Link>
               </div>
             </>
@@ -542,7 +533,7 @@ export default function LoginForm({ organizationId, organizationName, branding }
                   onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
                   onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
                 >
-                  Sign up for a new organization
+                  Sign up
                 </Link>
               </div>
             </>

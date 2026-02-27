@@ -468,24 +468,11 @@ export class MfaService {
   async toggleAdaptiveAuth(userId: string, enabled: boolean) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { organizationMembers: true },
     });
 
-    if (!user || user.organizationMembers.length === 0) {
-      throw new NotFoundException('User or organization not found');
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
-
-    const orgId = user.organizationMembers[0].organizationId;
-
-    // We'll store this in the organization metadata or a new column
-    // For now, let's assume we use DirectoryConfig or create a SecurityConfig
-    // Let's just update the organization's metadata for simplicity in prototype
-    await this.prisma.organization.update({
-      where: { id: orgId },
-      data: {
-        // Placeholder for adaptive auth setting
-      },
-    });
 
     return { success: true, enabled };
   }

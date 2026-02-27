@@ -6,28 +6,26 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
-import { OrganizationSettingsService } from './organization-settings.service';
+import { AppConfigService } from '../../app-config/app-config.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { OrgContextGuard } from '../guards/org-context.guard';
 import { RbacGuard, RequirePermission } from '../../rbac/rbac.guard';
 
-@Controller('org')
-@UseGuards(JwtAuthGuard, OrgContextGuard, RbacGuard)
+@Controller('settings')
+@UseGuards(JwtAuthGuard, RbacGuard)
 export class OrganizationSettingsController {
-  constructor(private readonly settingsService: OrganizationSettingsService) {}
+  constructor(private readonly appConfigService: AppConfigService) {}
 
   @Get()
   @RequirePermission('org:read')
-  async getOrg(@Request() req: any) {
-    return this.settingsService.findOrg(req.orgId);
+  async getOrg() {
+    return this.appConfigService.get();
   }
 
   @Put()
   @RequirePermission('org:update')
   async updateOrg(
-    @Request() req: any,
-    @Body() payload: { name?: string; settings?: Record<string, string> },
+    @Body() payload: { name?: string; logoUrl?: string; primaryColor?: string; customLoginConfig?: any },
   ) {
-    return this.settingsService.updateOrg(req.orgId, req.user.id, payload);
+    return this.appConfigService.update(payload);
   }
 }

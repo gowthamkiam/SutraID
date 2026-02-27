@@ -44,48 +44,17 @@ export default function ApplicationsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
 
-  const [orgId, setOrgId] = useState<string | null>(null);
-
   useEffect(() => {
-    const stored = localStorage.getItem('currentOrgId');
-    if (stored) {
-      setOrgId(stored);
-    } else {
-      // Fetch user's first org
-      const accessToken = localStorage.getItem('accessToken');
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
-      fetch(`${apiUrl}/organizations`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
-        .then((res) => res.json())
-        .then((orgs) => {
-          if (orgs && orgs.length > 0) {
-            setOrgId(orgs[0].id);
-            localStorage.setItem('currentOrgId', orgs[0].id);
-          } else {
-            setLoading(false);
-            setError('No organization found. Please complete onboarding first.');
-          }
-        })
-        .catch(() => {
-          setLoading(false);
-          setError('Failed to load organization. Please log in again.');
-        });
-    }
+    loadApplications();
   }, []);
 
-  useEffect(() => {
-    if (orgId) loadApplications();
-  }, [orgId]);
-
   const loadApplications = async () => {
-    if (!orgId) return;
     try {
       setLoading(true);
       const accessToken = localStorage.getItem('accessToken');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
-      const response = await fetch(`${apiUrl}/organizations/${orgId}/applications`, {
+      const response = await fetch(`${apiUrl}/applications`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
 
@@ -108,13 +77,12 @@ export default function ApplicationsPage() {
       return;
     }
 
-    if (!orgId) return;
     try {
       setDeleting(appId);
       const accessToken = localStorage.getItem('accessToken');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
-      const response = await fetch(`${apiUrl}/organizations/${orgId}/applications/${appId}`, {
+      const response = await fetch(`${apiUrl}/applications/${appId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -136,14 +104,6 @@ export default function ApplicationsPage() {
     app.clientId.toLowerCase().includes(searchQuery.toLowerCase()) ||
     app.type.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  if (loading && !orgId) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary, #0f1419)' }}>
-        <p style={{ color: 'var(--text-secondary, #8b949e)' }}>Loading organization...</p>
-      </div>
-    );
-  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f1419)', color: 'var(--text-primary, #e6edf3)', padding: '2rem' }}>

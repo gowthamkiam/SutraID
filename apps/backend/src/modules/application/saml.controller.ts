@@ -18,23 +18,22 @@ export class SamlController {
 
     /**
      * SAML IdP Metadata Endpoint
-     * GET /saml/:orgId/:appId/metadata.xml
+     * GET /saml/:appId/metadata.xml
      */
-    @Get(':orgId/:appId/metadata.xml')
+    @Get(':appId/metadata.xml')
     async getMetadata(
-        @Param('orgId') orgId: string,
         @Param('appId') appId: string,
         @Res() res: Response,
     ) {
         const application = await this.prisma.application.findFirst({
-            where: { id: appId, organizationId: orgId, type: 'SAML' },
+            where: { id: appId, type: 'SAML' },
         });
 
         if (!application) throw new NotFoundException('SAML application not found');
 
         const baseUrl = `https://api.sutraid.com`;
-        const entityId = application.samlEntityId || `${baseUrl}/saml/${orgId}/${appId}/metadata`;
-        const ssoUrl = `${baseUrl}/saml/${orgId}/${appId}/sso`;
+        const entityId = application.samlEntityId || `${baseUrl}/saml/${appId}/metadata`;
+        const ssoUrl = `${baseUrl}/saml/${appId}/sso`;
         const cert = application.samlCertificate || '';
 
         const metadata = `<?xml version="1.0" encoding="UTF-8"?>
@@ -62,31 +61,23 @@ export class SamlController {
 
     /**
      * SAML SSO Endpoint (HTTP-POST binding)
-     * POST /saml/:orgId/:appId/sso
+     * POST /saml/:appId/sso
      */
-    @Post(':orgId/:appId/sso')
+    @Post(':appId/sso')
     @HttpCode(HttpStatus.OK)
     async sso(
-        @Param('orgId') orgId: string,
         @Param('appId') appId: string,
         @Body() body: any,
         @Res() res: Response,
     ) {
         const application = await this.prisma.application.findFirst({
-            where: { id: appId, organizationId: orgId, type: 'SAML' },
+            where: { id: appId, type: 'SAML' },
         });
 
         if (!application) throw new NotFoundException('SAML application not found');
 
-        // In production, this would:
-        // 1. Parse the SAMLRequest
-        // 2. Authenticate the user
-        // 3. Build and sign a SAML Response/Assertion
-        // 4. POST it back to the SP's ACS URL
-
         const acsUrl = application.samlSpAcsUrl || '';
 
-        // Placeholder SAML Response
         const samlResponse = Buffer.from('<samlp:Response>...</samlp:Response>').toString('base64');
 
         const html = `

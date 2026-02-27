@@ -19,7 +19,7 @@ import { RbacGuard, RequirePermission } from '../rbac/rbac.guard';
 import { AssignUsersDto } from './dto/assign-users.dto';
 import { AssignGroupsDto } from './dto/assign-groups.dto';
 
-@Controller('organizations/:orgId/applications')
+@Controller('applications')
 @UseGuards(JwtAuthGuard, OrgContextGuard, RbacGuard)
 export class ApplicationController {
   constructor(
@@ -30,16 +30,15 @@ export class ApplicationController {
   @RequirePermission('apps:create')
   async create(
     @Request() req: any,
-    @Param('orgId') orgId: string,
     @Body() dto: CreateApplicationDto,
   ) {
-    return this.applicationService.create(orgId, req.user.id, dto);
+    return this.applicationService.create(req.user.id, dto);
   }
 
   @Get()
   @RequirePermission('apps:read')
-  async findAll(@Request() req: any, @Param('orgId') orgId: string) {
-    return this.applicationService.findAll(orgId, req.user.id);
+  async findAll(@Request() req: any) {
+    return this.applicationService.findAll(req.user.id);
   }
 
   @Get(':appId')
@@ -80,16 +79,15 @@ export class ApplicationController {
   @RequirePermission('apps:create')
   async createAiAgent(
     @Request() req: any,
-    @Param('orgId') orgId: string,
     @Body() dto: CreateAiAgentDto,
   ) {
-    return this.applicationService.createAiAgent(orgId, req.user.id, dto);
+    return this.applicationService.createAiAgent(req.user.id, dto);
   }
 
   @Get('ai-agents')
   @RequirePermission('apps:read')
-  async listAiAgents(@Request() req: any, @Param('orgId') orgId: string) {
-    return this.applicationService.listAiAgents(orgId, req.user.id);
+  async listAiAgents(@Request() req: any) {
+    return this.applicationService.listAiAgents(req.user.id);
   }
 
   @Delete(':appId')
@@ -102,21 +100,19 @@ export class ApplicationController {
   @RequirePermission('apps:update')
   async assignUsers(
     @Request() req: any,
-    @Param('orgId', new ParseUUIDPipe()) orgId: string,
     @Param('appId', new ParseUUIDPipe()) appId: string,
     @Body() dto: AssignUsersDto,
   ) {
-    return this.applicationService.setAssignedUsers(orgId, appId, req.user.id, dto.userIds || []);
+    return this.applicationService.setAssignedUsers(appId, req.user.id, dto.userIds || []);
   }
 
   @Put(':appId/groups')
   @RequirePermission('apps:update')
   async assignGroups(
     @Request() req: any,
-    @Param('orgId', new ParseUUIDPipe()) orgId: string,
     @Param('appId', new ParseUUIDPipe()) appId: string,
     @Body() dto: AssignGroupsDto,
   ) {
-    return this.applicationService.setAssignedGroups(orgId, appId, req.user.id, dto.groupIds || []);
+    return this.applicationService.setAssignedGroups(appId, req.user.id, dto.groupIds || []);
   }
 }

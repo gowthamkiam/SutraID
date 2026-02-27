@@ -2,31 +2,26 @@ import {
   Controller,
   Get,
   Query,
-  Param,
   UseGuards,
-  Req,
 } from '@nestjs/common';
 import { AuditService } from './audit.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OrgContextGuard } from '../organization/guards/org-context.guard';
 import { RbacGuard, RequirePermission } from '../rbac/rbac.guard';
 import { AuditResult } from '@prisma/client';
-import { Request } from '@nestjs/common';
 
-@Controller('organizations/:orgId/audit')
+@Controller('audit')
 @UseGuards(JwtAuthGuard, OrgContextGuard, RbacGuard)
 export class AuditController {
   constructor(private auditService: AuditService) { }
 
   /**
-   * GET /api/v1/organizations/:orgId/audit/logs
+   * GET /api/v1/audit/logs
    * Query audit logs with filters
    */
   @Get('logs')
   @RequirePermission('audit:read')
   async getLogs(
-    @Param('orgId') orgId: string,
-    @Req() req: any,
     @Query('userId') userId?: string,
     @Query('action') action?: string,
     @Query('result') result?: AuditResult,
@@ -35,7 +30,7 @@ export class AuditController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.auditService.query(orgId, req.user.id, {
+    return this.auditService.query({
       userId,
       action,
       result,
@@ -47,19 +42,15 @@ export class AuditController {
   }
 
   /**
-   * GET /api/v1/organizations/:orgId/audit/stats
+   * GET /api/v1/audit/stats
    * Get audit log statistics
    */
   @Get('stats')
   @RequirePermission('audit:read')
   async getStats(
-    @Param('orgId') orgId: string,
-    @Req() req: any,
     @Query('days') days?: string,
   ) {
     return this.auditService.getStats(
-      orgId,
-      req.user.id,
       days ? parseInt(days, 10) : 30,
     );
   }

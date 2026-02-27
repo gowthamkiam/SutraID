@@ -18,23 +18,22 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OrgContextGuard } from '../organization/guards/org-context.guard';
 import { RbacGuard, RequirePermission } from '../rbac/rbac.guard';
 
-@Controller('organizations/:orgId/policies')
+@Controller('policies')
 @UseGuards(JwtAuthGuard, OrgContextGuard, RbacGuard)
 export class PolicyController {
   constructor(private policyService: PolicyService) { }
 
   /**
-   * POST /api/v1/organizations/:orgId/policies
+   * POST /api/v1/policies
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @RequirePermission('policies:create')
   async create(
     @Request() req: any,
-    @Param('orgId') orgId: string,
     @Body() dto: CreatePolicyDto,
   ) {
-    return this.policyService.create(orgId, req.user.id, {
+    return this.policyService.create(req.user.id, {
       name: dto.name,
       description: dto.description,
       effect: dto.effect as any,
@@ -49,79 +48,71 @@ export class PolicyController {
   }
 
   /**
-   * GET /api/v1/organizations/:orgId/policies
+   * GET /api/v1/policies
    */
   @Get()
   @RequirePermission('policies:read')
-  async findAll(@Request() req: any, @Param('orgId') orgId: string, @Query('type') type?: string) {
-    return this.policyService.findAll(orgId, req.user.id, type);
+  async findAll(@Query('type') type?: string) {
+    return this.policyService.findAll(type);
   }
 
   /**
-   * GET /api/v1/organizations/:orgId/policies/password
+   * GET /api/v1/policies/password
    */
   @Get('password')
   @RequirePermission('policies:read')
-  async getPasswordPolicy(@Request() req: any, @Param('orgId') orgId: string) {
-    return this.policyService.getPasswordPolicy(orgId, req.user.id);
+  async getPasswordPolicy() {
+    return this.policyService.getPasswordPolicy();
   }
 
   /**
-   * PUT /api/v1/organizations/:orgId/policies/password
+   * PUT /api/v1/policies/password
    */
   @Put('password')
   @RequirePermission('policies:update')
   async updatePasswordPolicy(
-    @Request() req: any,
-    @Param('orgId') orgId: string,
     @Body() body: any,
   ) {
-    return this.policyService.updatePasswordPolicy(orgId, req.user.id, body);
+    return this.policyService.updatePasswordPolicy(body);
   }
 
   /**
-   * GET /api/v1/organizations/:orgId/policies/:policyId
+   * GET /api/v1/policies/:policyId
    */
   @Get(':policyId')
   @RequirePermission('policies:read')
   async findOne(
-    @Request() req: any,
-    @Param('orgId') orgId: string,
     @Param('policyId') policyId: string,
   ) {
-    return this.policyService.findOne(orgId, policyId, req.user.id);
+    return this.policyService.findOne(policyId);
   }
 
   /**
-   * PUT /api/v1/organizations/:orgId/policies/:policyId
+   * PUT /api/v1/policies/:policyId
    */
   @Put(':policyId')
   @RequirePermission('policies:update')
   async update(
-    @Request() req: any,
-    @Param('orgId') orgId: string,
     @Param('policyId') policyId: string,
     @Body() dto: UpdatePolicyDto,
   ) {
-    return this.policyService.update(orgId, policyId, req.user.id, dto as any);
+    return this.policyService.update(policyId, dto as any);
   }
 
   /**
-   * DELETE /api/v1/organizations/:orgId/policies/:policyId
+   * DELETE /api/v1/policies/:policyId
    */
   @Delete(':policyId')
   @HttpCode(HttpStatus.OK)
   @RequirePermission('policies:delete')
   async delete(
-    @Request() req: any,
-    @Param('orgId') orgId: string,
     @Param('policyId') policyId: string,
   ) {
-    return this.policyService.delete(orgId, policyId, req.user.id);
+    return this.policyService.delete(policyId);
   }
 
   /**
-   * POST /api/v1/organizations/:orgId/policies/evaluate
+   * POST /api/v1/policies/evaluate
    * Test policy evaluation
    */
   @Post('evaluate')
@@ -129,10 +120,9 @@ export class PolicyController {
   @RequirePermission('policies:read')
   async evaluate(
     @Request() req: any,
-    @Param('orgId') orgId: string,
     @Body() dto: EvaluatePolicyDto,
   ) {
-    return this.policyService.evaluate(orgId, {
+    return this.policyService.evaluate({
       userId: dto.userId || req.user.id,
       agentId: dto.agentId,
       resource: dto.resource,

@@ -11,7 +11,6 @@ datasource db {
 model User {
   id                     String                      @id @default(uuid())
   email                  String                      @unique
-  organizationId         String?
   role                   OrgRole                     @default(READ_ONLY_ADMIN)
   emailVerified          Boolean                     @default(false)
   emailVerifiedAt        DateTime?
@@ -31,23 +30,36 @@ model User {
   authChallenges         AuthChallenge[]
   groups                 GroupMember[]
   mfaMethods             MfaMethod[]
-  organizationMembers    OrganizationMember[]
   sessions               Session[]
   ssoIdentities          SsoIdentity[]
   applicationAssignments UserApplicationAssignment[]
   userGroups             UserGroup[]
-  organization           Organization?               @relation(fields: [organizationId], references: [id])
 
   @@index([email])
-  @@index([organizationId])
   @@index([status])
   @@index([externalId])
   @@map("users")
 }
 
+model AppConfig {
+  id                 String   @id @default("singleton")
+  name               String   @default("SutraID")
+  logoUrl            String?
+  primaryColor       String   @default("#000000")
+  allowedDomains     String[]
+  samlIdpCertificate String?
+  samlIdpPrivateKey  String?
+  customLoginConfig  Json?
+  mfaRequired        Boolean  @default(false)
+  mfaGracePeriodDays Int      @default(7)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("app_config")
+}
+
 model DirectoryConfig {
   id               String        @id @default(uuid())
-  organizationId   String        @unique
   type             DirectoryType @default(SCIM)
   enabled          Boolean       @default(true)
   scimToken        String?
@@ -61,27 +73,21 @@ model DirectoryConfig {
   lastSyncAt       DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
-  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([organizationId])
   @@map("directory_configs")
 }
 
 model Group {
   id                     String                       @id @default(uuid())
-  organizationId         String
-  name                   String
+  name                   String                       @unique
   description            String?
   externalId             String?
   createdAt              DateTime                     @default(now())
   updatedAt              DateTime                     @updatedAt
   applicationAssignments GroupApplicationAssignment[]
   members                GroupMember[]
-  organization           Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userGroups             UserGroup[]
 
-  @@unique([organizationId, name])
-  @@index([organizationId])
   @@index([externalId])
   @@map("groups")
 }
@@ -161,78 +167,8 @@ model Session {
   @@map("sessions")
 }
 
-model Organization {
-  id                 String                @id @default(uuid())
-  name               String                @unique
-  slug               String                @unique
-  domain             String?               @unique
-  logoUrl            String?
-  primaryColor       String                @default("#000000")
-  allowedDomains     String[]
-  plan               OrgPlan               @default(FREE)
-  status             OrgStatus             @default(ACTIVE)
-  maxMembers         Int                   @default(10)
-  maxApplications    Int                   @default(3)
-  samlIdpCertificate String?
-  samlIdpPrivateKey  String?
-  customLoginConfig  Json?
-  mfaRequired        Boolean               @default(false)
-  mfaGracePeriodDays Int                   @default(7)
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-  applications       Application[]
-  directoryConfig    DirectoryConfig?
-  groups             Group[]
-  networkZones       NetworkZone[]
-  members            OrganizationMember[]
-  settings           OrganizationSetting[]
-  passwordPolicies   PasswordPolicy?
-  policies           Policy[]
-  ssoProviders       SsoProvider[]
-  users              User[]
-
-  @@index([slug])
-  @@index([domain])
-  @@map("organizations")
-}
-
-model OrganizationSetting {
-  id             String       @id @default(uuid())
-  organizationId String
-  key            String
-  value          String
-  updatedBy      String?
-  updatedAt      DateTime     @updatedAt
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId, key])
-  @@index([organizationId])
-  @@map("organization_settings")
-}
-
-model OrganizationMember {
-  id             String       @id @default(uuid())
-  organizationId String
-  userId         String
-  role           OrgRole      @default(READ_ONLY_ADMIN)
-  status         MemberStatus @default(ACTIVE)
-  invitedBy      String?
-  invitedAt      DateTime?
-  joinedAt       DateTime     @default(now())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId, userId])
-  @@index([organizationId])
-  @@index([userId])
-  @@map("organization_members")
-}
-
 model Application {
   id                      String                       @id @default(uuid())
-  organizationId          String
   name                    String
   description             String?
   logoUrl                 String?
@@ -265,7 +201,6 @@ model Application {
   createdBy               String?
   createdAt               DateTime                     @default(now())
   updatedAt               DateTime                     @updatedAt
-  organization            Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   groupAssignments        GroupApplicationAssignment[]
   oidcClaims              OidcClaim[]
   oidcRegexRules          OidcRegexRule[]
@@ -274,7 +209,6 @@ model Application {
   oidcTokenPolicy         OidcTokenPolicy?
   userAssignments         UserApplicationAssignment[]
 
-  @@index([organizationId])
   @@index([clientId])
   @@map("applications")
 }
@@ -309,7 +243,6 @@ model GroupApplicationAssignment {
 
 model SsoProvider {
   id               String          @id @default(uuid())
-  organizationId   String
   name             String
   type             SsoProviderType
   protocol         SsoProtocol
@@ -331,10 +264,8 @@ model SsoProvider {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   identities       SsoIdentity[]
-  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([organizationId])
-  @@index([organizationId, enabled])
+  @@index([enabled])
   @@map("sso_providers")
 }
 
@@ -360,94 +291,84 @@ model SsoIdentity {
 }
 
 model OidcToken {
-  id             String    @id @default(uuid())
-  organizationId String
-  applicationId  String
-  type           String
-  tokenId        String
-  payload        String
-  expiresAt      DateTime
-  consumed       Boolean   @default(false)
-  consumedAt     DateTime?
-  createdAt      DateTime  @default(now())
+  id            String    @id @default(uuid())
+  applicationId String
+  type          String
+  tokenId       String
+  payload       String
+  expiresAt     DateTime
+  consumed      Boolean   @default(false)
+  consumedAt    DateTime?
+  createdAt     DateTime  @default(now())
 
-  @@unique([organizationId, applicationId, type, tokenId])
-  @@index([organizationId, applicationId, type])
+  @@unique([applicationId, type, tokenId])
+  @@index([applicationId, type])
   @@index([expiresAt])
   @@map("oidc_tokens")
 }
 
 model Policy {
-  id             String       @id @default(uuid())
-  organizationId String
-  name           String
-  description    String?
-  type           PolicyType   @default(ACCESS)
-  effect         PolicyEffect @default(ALLOW)
-  resource       String       @default("*")
-  actions        String[]     @default([])
-  rules          Json         @default("[]")
-  conditions     Json         @default("{}")
-  priority       Int          @default(0)
-  enabled        Boolean      @default(true)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id          String       @id @default(uuid())
+  name        String
+  description String?
+  type        PolicyType   @default(ACCESS)
+  effect      PolicyEffect @default(ALLOW)
+  resource    String       @default("*")
+  actions     String[]     @default([])
+  rules       Json         @default("[]")
+  conditions  Json         @default("{}")
+  priority    Int          @default(0)
+  enabled     Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
-  @@index([organizationId])
-  @@index([organizationId, enabled])
+  @@index([enabled])
   @@map("policies")
 }
 
 model PasswordPolicy {
-  id               String       @id @default(uuid())
-  organizationId   String       @unique
-  minLength        Int          @default(8)
-  requireUppercase Boolean      @default(true)
-  requireLowercase Boolean      @default(true)
-  requireNumbers   Boolean      @default(true)
-  requireSymbols   Boolean      @default(true)
-  maxAgeDays       Int          @default(0)
-  historyCount     Int          @default(5)
-  lockoutThreshold Int          @default(5)
-  lockoutDuration  Int          @default(30)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id               String   @id @default(uuid())
+  minLength        Int      @default(8)
+  requireUppercase Boolean  @default(true)
+  requireLowercase Boolean  @default(true)
+  requireNumbers   Boolean  @default(true)
+  requireSymbols   Boolean  @default(true)
+  maxAgeDays       Int      @default(0)
+  historyCount     Int      @default(5)
+  lockoutThreshold Int      @default(5)
+  lockoutDuration  Int      @default(30)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@map("password_policies")
 }
 
 model NetworkZone {
-  id             String       @id @default(uuid())
-  organizationId String
-  name           String
-  description    String?
-  ipRanges       String[]
-  geoLocations   String[]
-  trusted        Boolean      @default(false)
-  enabled        Boolean      @default(true)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  ipRanges     String[]
+  geoLocations String[]
+  trusted      Boolean  @default(false)
+  enabled      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  @@index([organizationId])
   @@map("network_zones")
 }
 
 model AuditLog {
-  id             String      @id @default(uuid())
-  organizationId String?
-  userId         String?
-  agentId        String?
-  action         String
-  resource       String?
-  result         AuditResult @default(SUCCESS)
-  metadata       Json        @default("{}")
-  riskScore      Float?
-  createdAt      DateTime    @default(now())
+  id        String      @id @default(uuid())
+  userId    String?
+  agentId   String?
+  action    String
+  resource  String?
+  result    AuditResult @default(SUCCESS)
+  metadata  Json        @default("{}")
+  riskScore Float?
+  createdAt DateTime    @default(now())
 
-  @@index([organizationId, createdAt])
+  @@index([createdAt])
   @@index([userId, createdAt])
   @@index([action])
   @@index([result])
@@ -579,20 +500,6 @@ enum ChallengeType {
   PASSWORD_RESET
 }
 
-enum OrgPlan {
-  FREE
-  STARTER
-  BUSINESS
-  ENTERPRISE
-}
-
-enum OrgStatus {
-  ACTIVE
-  TRIAL
-  SUSPENDED
-  DELETED
-}
-
 enum OrgRole {
   SUPER_ADMIN
   ORG_ADMIN
@@ -604,12 +511,6 @@ enum OrgRole {
   READ_ONLY_ADMIN
   REPORT_ADMIN
   API_ACCESS_MANAGEMENT_ADMIN
-}
-
-enum MemberStatus {
-  ACTIVE
-  PENDING_INVITATION
-  SUSPENDED
 }
 
 enum ApplicationProtocol {

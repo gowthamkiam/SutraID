@@ -12,7 +12,7 @@ export const applicationsSection: DocSection = {
     {
       id: 'create-application',
       method: 'POST',
-      path: '/api/v1/organizations/:orgId/applications',
+      path: '/api/v1/applications',
       title: 'Create Application',
       description:
         'Create a new OIDC or SAML application within an organization. Returns the newly created application record including the generated clientId and clientSecret.',
@@ -392,7 +392,7 @@ echo $response;`,
     {
       id: 'list-applications',
       method: 'GET',
-      path: '/api/v1/organizations/:orgId/applications',
+      path: '/api/v1/applications',
       title: 'List Applications',
       description:
         'Retrieve all applications belonging to an organization.',
@@ -506,7 +506,7 @@ echo $response;`,
     {
       id: 'get-application',
       method: 'GET',
-      path: '/api/v1/organizations/:orgId/applications/:appId',
+      path: '/api/v1/applications/:appId',
       title: 'Get Application',
       description: 'Retrieve a single application by its ID.',
       auth: 'bearer',
@@ -627,7 +627,7 @@ echo $response;`,
     {
       id: 'update-application',
       method: 'PUT',
-      path: '/api/v1/organizations/:orgId/applications/:appId',
+      path: '/api/v1/applications/:appId',
       title: 'Update Application',
       description:
         'Update an existing application. All body fields mirror CreateApplicationDto and are optional (partial update).',
@@ -828,7 +828,7 @@ echo $response;`,
     {
       id: 'rotate-client-secret',
       method: 'POST',
-      path: '/api/v1/organizations/:orgId/applications/:appId/rotate-secret',
+      path: '/api/v1/applications/:appId/rotate-secret',
       title: 'Rotate Client Secret',
       description:
         'Generate a new client secret for an application, invalidating the previous one. Store the returned secret immediately — it will not be shown again.',
@@ -933,7 +933,7 @@ echo $response;`,
     {
       id: 'delete-application',
       method: 'DELETE',
-      path: '/api/v1/organizations/:orgId/applications/:appId',
+      path: '/api/v1/applications/:appId',
       title: 'Delete Application',
       description:
         'Permanently delete an application and all associated OAuth tokens and configurations.',
@@ -1044,7 +1044,7 @@ echo $response;`,
     {
       id: 'assign-users-to-application',
       method: 'PUT',
-      path: '/api/v1/organizations/:orgId/applications/:appId/users',
+      path: '/api/v1/applications/:appId/users',
       title: 'Assign Users to Application',
       description:
         'Replace the full set of users assigned to an application. The provided list of userIds becomes the authoritative assignment.',
@@ -1191,7 +1191,7 @@ echo $response;`,
     {
       id: 'assign-groups-to-application',
       method: 'PUT',
-      path: '/api/v1/organizations/:orgId/applications/:appId/groups',
+      path: '/api/v1/applications/:appId/groups',
       title: 'Assign Groups to Application',
       description:
         'Replace the full set of groups assigned to an application. The provided list of groupIds becomes the authoritative assignment.',

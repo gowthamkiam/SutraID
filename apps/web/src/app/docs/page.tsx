@@ -14,7 +14,7 @@ const sections = [
     title: 'Organizations',
     href: '/docs/api-reference/organizations',
     description:
-      'Multi-tenant organization management, member invitations, role updates, and settings.',
+      'Organization management, member invitations, role updates, and settings.',
     count: 10,
   },
   {
@@ -114,7 +114,7 @@ export default function DocsHomePage() {
         }}
       >
         Complete REST API documentation for the SutraID CIAM platform. Build
-        authentication, SSO, multi-tenancy, and directory integration into your
+        authentication, SSO, user management, and directory integration into your
         applications.
       </p>
       <div

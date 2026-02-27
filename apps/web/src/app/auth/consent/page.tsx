@@ -25,7 +25,6 @@ const scopeDescriptions: Record<string, { label: string; description: string }> 
 function ConsentPageContent() {
   const searchParams = useSearchParams();
   const uid = searchParams.get('uid');
-  const orgId = searchParams.get('orgId');
   const appId = searchParams.get('appId');
 
   const [details, setDetails] = useState<InteractionDetails | null>(null);
@@ -36,13 +35,13 @@ function ConsentPageContent() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
   useEffect(() => {
-    if (uid && orgId && appId) {
+    if (uid && appId) {
       loadInteraction();
     } else {
-      setError('Missing interaction parameters (uid, orgId, or appId)');
+      setError('Missing interaction parameters (uid or appId)');
       setLoading(false);
     }
-  }, [uid, orgId]);
+  }, [uid, appId]);
 
   const loadInteraction = async () => {
     try {
@@ -53,7 +52,7 @@ function ConsentPageContent() {
         return;
       }
 
-      const response = await fetch(`${apiUrl}/sso/oidc-idp/${orgId}/${appId}/interaction/${uid}`, {
+      const response = await fetch(`${apiUrl}/sso/oidc-idp/${appId}/interaction/${uid}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
 
@@ -71,13 +70,13 @@ function ConsentPageContent() {
   };
 
   const handleConsent = async (consent: boolean) => {
-    if (!uid || !orgId) return;
+    if (!uid) return;
     setSubmitting(true);
     setError(null);
 
     try {
       const accessToken = localStorage.getItem('accessToken');
-      const response = await fetch(`${apiUrl}/sso/oidc-idp/${orgId}/${appId}/interaction/${uid}/confirm`, {
+      const response = await fetch(`${apiUrl}/sso/oidc-idp/${appId}/interaction/${uid}/confirm`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

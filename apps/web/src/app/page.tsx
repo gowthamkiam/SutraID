@@ -121,7 +121,7 @@ const session = await auth.magicLink.verify({
 });
 
 console.log(session.user);
-// { id, email, orgId, role }`;
+// { id, email, role }`;
 
 export default function HomePage() {
   return (
