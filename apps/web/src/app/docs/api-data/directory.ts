@@ -11,19 +11,11 @@ export const directorySection: DocSection = {
     {
       id: 'generate-scim-token',
       method: 'POST',
-      path: '/directory/scim/:orgId/token',
+      path: '/api/v1/directory/scim/token',
       title: 'Generate SCIM token',
-      description: 'Creates a new SCIM bearer token for the organization. The token is returned once in plain text and stored as a SHA-256 hash. Requires SUPER_ADMIN, ORG_ADMIN, or API_ACCESS_MANAGEMENT_ADMIN role.',
+      description: 'Creates a new SCIM bearer token for the team. The token is returned once in plain text and stored as a SHA-256 hash. Requires SUPER_ADMIN, ORG_ADMIN, or API_ACCESS_MANAGEMENT_ADMIN role.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'b3e1f7a2-4c5d-6e8f-9a0b-1c2d3e4f5a6b',
-        },
       ],
       responseFields: [
         { name: 'token', type: 'string', description: 'The plain-text SCIM bearer token. Store it securely -- it cannot be retrieved again.' },
@@ -32,13 +24,12 @@ export const directorySection: DocSection = {
         token: 'st_live_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6',
       },
       codeSamples: {
-        curl: `curl -X POST "https://api.sutraid.com/directory/scim/b3e1f7a2-4c5d-6e8f-9a0b-1c2d3e4f5a6b/token" \\
+        curl: `curl -X POST "https://api.sutraid.com/api/v1/directory/scim/token" \\
   -H "Authorization: Bearer <your_token>"`,
 
         python: `import requests
 
-org_id = "b3e1f7a2-4c5d-6e8f-9a0b-1c2d3e4f5a6b"
-url = f"https://api.sutraid.com/directory/scim/{org_id}/token"
+url = "https://api.sutraid.com/api/v1/directory/scim/token"
 headers = {
     "Authorization": "Bearer <your_token>",
 }
@@ -48,10 +39,8 @@ print(response.json())`,
 
         nodejs: `const axios = require('axios');
 
-const orgId = 'b3e1f7a2-4c5d-6e8f-9a0b-1c2d3e4f5a6b';
-
 const response = await axios.post(
-  \`https://api.sutraid.com/directory/scim/\${orgId}/token\`,
+  'https://api.sutraid.com/api/v1/directory/scim/token',
   null,
   {
     headers: {
@@ -67,13 +56,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-String orgId = "b3e1f7a2-4c5d-6e8f-9a0b-1c2d3e4f5a6b";
-
 HttpClient client = HttpClient.newHttpClient();
 
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create(
-        "https://api.sutraid.com/directory/scim/" + orgId + "/token"
+        "https://api.sutraid.com/api/v1/directory/scim/token"
     ))
     .header("Authorization", "Bearer <your_token>")
     .POST(HttpRequest.BodyPublishers.noBody())
@@ -91,8 +78,7 @@ import (
 )
 
 func main() {
-    orgID := "b3e1f7a2-4c5d-6e8f-9a0b-1c2d3e4f5a6b"
-    url := "https://api.sutraid.com/directory/scim/" + orgID + "/token"
+    url := "https://api.sutraid.com/api/v1/directory/scim/token"
 
     req, _ := http.NewRequest("POST", url, nil)
     req.Header.Set("Authorization", "Bearer <your_token>")
@@ -106,12 +92,10 @@ func main() {
 }`,
 
         php: `<?php
-$orgId = 'b3e1f7a2-4c5d-6e8f-9a0b-1c2d3e4f5a6b';
-
 $ch = curl_init();
 
 curl_setopt_array($ch, [
-    CURLOPT_URL => "https://api.sutraid.com/directory/scim/{$orgId}/token",
+    CURLOPT_URL => "https://api.sutraid.com/api/v1/directory/scim/token",
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_POST => true,
     CURLOPT_HTTPHEADER => [
@@ -132,19 +116,11 @@ echo $response;`,
     {
       id: 'get-ldap-config',
       method: 'GET',
-      path: '/directory/ldap/:orgId/config',
+      path: '/api/v1/directory/ldap/config',
       title: 'Get LDAP configuration',
-      description: 'Returns the current LDAP directory configuration for the organization, including connection details and sync filters. Returns null if no LDAP config exists.',
+      description: 'Returns the current LDAP directory configuration for the team, including connection details and sync filters. Returns null if no LDAP config exists.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'b3e1f7a2-4c5d-6e8f-9a0b-1c2d3e4f5a6b',
-        },
       ],
       responseFields: [
         { name: 'enabled', type: 'boolean', description: 'Whether LDAP sync is currently enabled.' },
@@ -261,19 +237,11 @@ echo $response;`,
     {
       id: 'update-ldap-config',
       method: 'POST',
-      path: '/directory/ldap/:orgId/config',
+      path: '/api/v1/directory/ldap/config',
       title: 'Create or update LDAP configuration',
-      description: 'Creates or updates the LDAP directory configuration for the organization. Requires SUPER_ADMIN or ORG_ADMIN role. Uses an upsert strategy -- existing configs are merged.',
+      description: 'Creates or updates the LDAP directory configuration for the team. Requires SUPER_ADMIN or ORG_ADMIN role. Uses an upsert strategy -- existing configs are merged.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'b3e1f7a2-4c5d-6e8f-9a0b-1c2d3e4f5a6b',
-        },
       ],
       requestBody: [
         {
@@ -335,7 +303,7 @@ echo $response;`,
       ],
       responseFields: [
         { name: 'id', type: 'string', description: 'Unique identifier of the directory config record.' },
-        { name: 'organizationId', type: 'string', description: 'Organization the config belongs to.' },
+        { name: 'teamId', type: 'string', description: 'Team the config belongs to.' },
         { name: 'type', type: 'string', description: 'Directory type. Always "LDAP" for this endpoint.' },
         { name: 'enabled', type: 'boolean', description: 'Whether LDAP sync is enabled.' },
         { name: 'ldapUrl', type: 'string', description: 'LDAP server URL.' },
@@ -347,7 +315,7 @@ echo $response;`,
       ],
       responseSample: {
         id: 'dc_01hx9z1q2w3e4r5t6y7u',
-        organizationId: 'b3e1f7a2-4c5d-6e8f-9a0b-1c2d3e4f5a6b',
+        teamId: 'b3e1f7a2-4c5d-6e8f-9a0b-1c2d3e4f5a6b',
         type: 'LDAP',
         enabled: true,
         ldapUrl: 'ldaps://ldap.example.com:636',
@@ -512,19 +480,11 @@ echo $response;`,
     {
       id: 'trigger-ldap-sync',
       method: 'POST',
-      path: '/directory/ldap/:orgId/sync',
+      path: '/api/v1/directory/ldap/sync',
       title: 'Trigger LDAP sync',
-      description: 'Initiates an outbound LDAP sync for the organization. Connects to the configured LDAP server, imports users and groups, and updates the lastSyncAt timestamp. Requires SUPER_ADMIN or ORG_ADMIN role.',
+      description: 'Initiates an outbound LDAP sync for the team. Connects to the configured LDAP server, imports users and groups, and updates the lastSyncAt timestamp. Requires SUPER_ADMIN or ORG_ADMIN role.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'b3e1f7a2-4c5d-6e8f-9a0b-1c2d3e4f5a6b',
-        },
       ],
       responseFields: [
         { name: 'status', type: 'string', description: 'Confirmation message indicating the sync has been initiated.' },
@@ -643,7 +603,7 @@ echo $response;`,
           in: 'path',
           type: 'string',
           required: true,
-          description: 'Organization identifier -- a UUID, slug, or legacy org_ prefixed reference.',
+          description: 'Team identifier -- a UUID, slug, or legacy org_ prefixed reference.',
           example: 'my-org',
         },
       ],
@@ -781,7 +741,7 @@ echo $response;`,
           in: 'path',
           type: 'string',
           required: true,
-          description: 'Organization identifier -- a UUID, slug, or legacy org_ prefixed reference.',
+          description: 'Team identifier -- a UUID, slug, or legacy org_ prefixed reference.',
           example: 'my-org',
         },
       ],
@@ -914,7 +874,7 @@ echo $response;`,
           in: 'path',
           type: 'string',
           required: true,
-          description: 'Organization identifier -- a UUID, slug, or legacy org_ prefixed reference.',
+          description: 'Team identifier -- a UUID, slug, or legacy org_ prefixed reference.',
           example: 'my-org',
         },
       ],
@@ -1046,7 +1006,7 @@ echo $response;`,
       method: 'GET',
       path: '/scim/v2/:orgRef/Users',
       title: 'List SCIM users',
-      description: 'Returns a paginated SCIM 2.0 ListResponse of user resources for the organization. Supports filtering by userName, externalId, or id.',
+      description: 'Returns a paginated SCIM 2.0 ListResponse of user resources for the team. Supports filtering by userName, externalId, or id.',
       auth: 'scim-token',
       parameters: [
         {
@@ -1054,7 +1014,7 @@ echo $response;`,
           in: 'path',
           type: 'string',
           required: true,
-          description: 'Organization identifier -- a UUID, slug, or legacy org_ prefixed reference.',
+          description: 'Team identifier -- a UUID, slug, or legacy org_ prefixed reference.',
           example: 'my-org',
         },
         {
@@ -1218,7 +1178,7 @@ echo $response;`,
       method: 'GET',
       path: '/scim/v2/:orgRef/Users/:userId',
       title: 'Get SCIM user by ID',
-      description: 'Returns a single SCIM 2.0 User resource by its SutraID user identifier. The user must be a member of the specified organization.',
+      description: 'Returns a single SCIM 2.0 User resource by its SutraID user identifier. The user must be a member of the specified team.',
       auth: 'scim-token',
       parameters: [
         {
@@ -1226,7 +1186,7 @@ echo $response;`,
           in: 'path',
           type: 'string',
           required: true,
-          description: 'Organization identifier -- a UUID, slug, or legacy org_ prefixed reference.',
+          description: 'Team identifier -- a UUID, slug, or legacy org_ prefixed reference.',
           example: 'my-org',
         },
         {
@@ -1358,7 +1318,7 @@ echo $response;`,
       method: 'POST',
       path: '/scim/v2/:orgRef/Users',
       title: 'Create SCIM user',
-      description: 'Provisions a new user via SCIM 2.0. If a user with the same email already exists, their profile is updated and they are added to the organization. Returns 201 on success.',
+      description: 'Provisions a new user via SCIM 2.0. If a user with the same email already exists, their profile is updated and they are added to the team. Returns 201 on success.',
       auth: 'scim-token',
       parameters: [
         {
@@ -1366,7 +1326,7 @@ echo $response;`,
           in: 'path',
           type: 'string',
           required: true,
-          description: 'Organization identifier -- a UUID, slug, or legacy org_ prefixed reference.',
+          description: 'Team identifier -- a UUID, slug, or legacy org_ prefixed reference.',
           example: 'my-org',
         },
       ],
@@ -1596,7 +1556,7 @@ echo $response;`,
           in: 'path',
           type: 'string',
           required: true,
-          description: 'Organization identifier -- a UUID, slug, or legacy org_ prefixed reference.',
+          description: 'Team identifier -- a UUID, slug, or legacy org_ prefixed reference.',
           example: 'my-org',
         },
         {
@@ -1795,7 +1755,7 @@ echo $response;`,
       method: 'DELETE',
       path: '/scim/v2/:orgRef/Users/:userId',
       title: 'Delete SCIM user',
-      description: 'De-provisions a user via SCIM 2.0. The user is soft-deleted by setting their status to SUSPENDED in both the user record and their organization membership. Returns 204 No Content on success.',
+      description: 'De-provisions a user via SCIM 2.0. The user is soft-deleted by setting their status to SUSPENDED in both the user record and their team membership. Returns 204 No Content on success.',
       auth: 'scim-token',
       parameters: [
         {
@@ -1803,7 +1763,7 @@ echo $response;`,
           in: 'path',
           type: 'string',
           required: true,
-          description: 'Organization identifier -- a UUID, slug, or legacy org_ prefixed reference.',
+          description: 'Team identifier -- a UUID, slug, or legacy org_ prefixed reference.',
           example: 'my-org',
         },
         {
@@ -1923,7 +1883,7 @@ echo $httpCode; // 204`,
       method: 'GET',
       path: '/scim/v2/:orgRef/Groups',
       title: 'List SCIM groups',
-      description: 'Returns a paginated SCIM 2.0 ListResponse of group resources for the organization. Supports filtering by displayName, externalId, or id.',
+      description: 'Returns a paginated SCIM 2.0 ListResponse of group resources for the team. Supports filtering by displayName, externalId, or id.',
       auth: 'scim-token',
       parameters: [
         {
@@ -1931,7 +1891,7 @@ echo $httpCode; // 204`,
           in: 'path',
           type: 'string',
           required: true,
-          description: 'Organization identifier -- a UUID, slug, or legacy org_ prefixed reference.',
+          description: 'Team identifier -- a UUID, slug, or legacy org_ prefixed reference.',
           example: 'my-org',
         },
         {
@@ -2101,7 +2061,7 @@ echo $response;`,
           in: 'path',
           type: 'string',
           required: true,
-          description: 'Organization identifier -- a UUID, slug, or legacy org_ prefixed reference.',
+          description: 'Team identifier -- a UUID, slug, or legacy org_ prefixed reference.',
           example: 'my-org',
         },
         {
@@ -2240,7 +2200,7 @@ echo $response;`,
           in: 'path',
           type: 'string',
           required: true,
-          description: 'Organization identifier -- a UUID, slug, or legacy org_ prefixed reference.',
+          description: 'Team identifier -- a UUID, slug, or legacy org_ prefixed reference.',
           example: 'my-org',
         },
       ],
@@ -2452,7 +2412,7 @@ echo $response;`,
           in: 'path',
           type: 'string',
           required: true,
-          description: 'Organization identifier -- a UUID, slug, or legacy org_ prefixed reference.',
+          description: 'Team identifier -- a UUID, slug, or legacy org_ prefixed reference.',
           example: 'my-org',
         },
         {
@@ -2682,7 +2642,7 @@ echo $response;`,
           in: 'path',
           type: 'string',
           required: true,
-          description: 'Organization identifier -- a UUID, slug, or legacy org_ prefixed reference.',
+          description: 'Team identifier -- a UUID, slug, or legacy org_ prefixed reference.',
           example: 'my-org',
         },
         {

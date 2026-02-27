@@ -13,18 +13,10 @@ export const policiesSection: DocSection = {
       method: 'POST',
       path: '/api/v1/policies',
       title: 'Create a policy',
-      description: 'Creates a new ABAC policy for an organization. Requires SUPER_ADMIN or ORG_ADMIN role.',
+      description: 'Creates a new ABAC policy for an team. Requires SUPER_ADMIN or ORG_ADMIN role.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'org_01hx9z1q2w3e4r5t6y7u',
-        },
-      ],
+        ],
       requestBody: [
         {
           name: 'name',
@@ -111,7 +103,7 @@ export const policiesSection: DocSection = {
       ],
       responseFields: [
         { name: 'id', type: 'string', description: 'Unique identifier of the created policy.' },
-        { name: 'organizationId', type: 'string', description: 'Organization the policy belongs to.' },
+        { name: 'teamId', type: 'string', description: 'Team the policy belongs to.' },
         { name: 'name', type: 'string', description: 'Name of the policy.' },
         { name: 'description', type: 'string | null', description: 'Description of the policy.' },
         { name: 'type', type: 'string', description: 'Policy type: ACCESS, SIGN_ON, MFA, or PASSWORD.' },
@@ -127,7 +119,7 @@ export const policiesSection: DocSection = {
       ],
       responseSample: {
         id: 'pol_01hx9z1q2w3e4r5t6y7u',
-        organizationId: 'org_01hx9z1q2w3e4r5t6y7u',
+        teamId: 'org_01hx9z1q2w3e4r5t6y7u',
         name: 'Allow API read access',
         description: 'Grants read-only access to all API resources.',
         type: 'ACCESS',
@@ -142,7 +134,7 @@ export const policiesSection: DocSection = {
         updatedAt: '2024-06-15T10:00:00Z',
       },
       codeSamples: {
-        curl: `curl -X POST "https://api.sutraid.com/api/v1/organizations/org_01hx9z1q2w3e4r5t6y7u/policies" \\
+        curl: `curl -X POST "https://api.sutraid.com/api/v1/policies" \\
   -H "Authorization: Bearer <your_token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -160,7 +152,7 @@ export const policiesSection: DocSection = {
         python: `import requests
 
 org_id = "org_01hx9z1q2w3e4r5t6y7u"
-url = f"https://api.sutraid.com/api/v1/organizations/{org_id}/policies"
+url = f"https://api.sutraid.com/api/v1/policies"
 headers = {
     "Authorization": "Bearer <your_token>",
     "Content-Type": "application/json",
@@ -185,7 +177,7 @@ print(response.json())`,
 const orgId = 'org_01hx9z1q2w3e4r5t6y7u';
 
 const response = await axios.post(
-  \`https://api.sutraid.com/api/v1/organizations/\${orgId}/policies\`,
+  \`https://api.sutraid.com/api/v1/policies\`,
   {
     name: 'Allow API read access',
     description: 'Grants read-only access to all API resources.',
@@ -231,7 +223,7 @@ HttpClient client = HttpClient.newHttpClient();
 
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create(
-        "https://api.sutraid.com/api/v1/organizations/" + orgId + "/policies"
+        "https://api.sutraid.com/api/v1/policies"
     ))
     .header("Authorization", "Bearer <your_token>")
     .header("Content-Type", "application/json")
@@ -252,7 +244,7 @@ import (
 
 func main() {
     orgID := "org_01hx9z1q2w3e4r5t6y7u"
-    url := "https://api.sutraid.com/api/v1/organizations/" + orgID + "/policies"
+    url := "https://api.sutraid.com/api/v1/policies"
 
     body := strings.NewReader(\`{
       "name": "Allow API read access",
@@ -296,7 +288,7 @@ $payload = json_encode([
 $ch = curl_init();
 
 curl_setopt_array($ch, [
-    CURLOPT_URL => "https://api.sutraid.com/api/v1/organizations/{$orgId}/policies",
+    CURLOPT_URL => "https://api.sutraid.com/api/v1/policies",
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_POST => true,
     CURLOPT_POSTFIELDS => $payload,
@@ -321,17 +313,9 @@ echo $response;`,
       method: 'GET',
       path: '/api/v1/policies',
       title: 'List policies',
-      description: 'Returns all policies for an organization, ordered by priority (descending) then creation date. Optionally filter by policy type. Requires SUPER_ADMIN, ORG_ADMIN, or READ_ONLY_ADMIN role.',
+      description: 'Returns all policies for an team, ordered by priority (descending) then creation date. Optionally filter by policy type. Requires SUPER_ADMIN, ORG_ADMIN, or READ_ONLY_ADMIN role.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'org_01hx9z1q2w3e4r5t6y7u',
-        },
         {
           name: 'type',
           in: 'query',
@@ -345,7 +329,7 @@ echo $response;`,
       responseFields: [
         { name: '[]', type: 'Policy[]', description: 'Array of policy objects.' },
         { name: '[].id', type: 'string', description: 'Unique identifier of the policy.' },
-        { name: '[].organizationId', type: 'string', description: 'Organization the policy belongs to.' },
+        { name: '[].teamId', type: 'string', description: 'Team the policy belongs to.' },
         { name: '[].name', type: 'string', description: 'Name of the policy.' },
         { name: '[].description', type: 'string | null', description: 'Description of the policy.' },
         { name: '[].type', type: 'string', description: 'Policy type: ACCESS, SIGN_ON, MFA, or PASSWORD.' },
@@ -363,7 +347,7 @@ echo $response;`,
         data: [
           {
             id: 'pol_01hx9z1q2w3e4r5t6y7u',
-            organizationId: 'org_01hx9z1q2w3e4r5t6y7u',
+            teamId: 'org_01hx9z1q2w3e4r5t6y7u',
             name: 'Allow API read access',
             description: 'Grants read-only access to all API resources.',
             type: 'ACCESS',
@@ -379,7 +363,7 @@ echo $response;`,
           },
           {
             id: 'pol_02jy0a2r3x4f5s6u7v8w',
-            organizationId: 'org_01hx9z1q2w3e4r5t6y7u',
+            teamId: 'org_01hx9z1q2w3e4r5t6y7u',
             name: 'Default Sign-on Policy',
             description: 'Default authentication rules for all users',
             type: 'SIGN_ON',
@@ -404,13 +388,13 @@ echo $response;`,
         ],
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/organizations/org_01hx9z1q2w3e4r5t6y7u/policies?type=ACCESS" \\
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/policies?type=ACCESS" \\
   -H "Authorization: Bearer <your_token>"`,
 
         python: `import requests
 
 org_id = "org_01hx9z1q2w3e4r5t6y7u"
-url = f"https://api.sutraid.com/api/v1/organizations/{org_id}/policies"
+url = f"https://api.sutraid.com/api/v1/policies"
 headers = {
     "Authorization": "Bearer <your_token>",
 }
@@ -426,7 +410,7 @@ print(response.json())`,
 const orgId = 'org_01hx9z1q2w3e4r5t6y7u';
 
 const response = await axios.get(
-  \`https://api.sutraid.com/api/v1/organizations/\${orgId}/policies\`,
+  \`https://api.sutraid.com/api/v1/policies\`,
   {
     headers: {
       Authorization: 'Bearer <your_token>',
@@ -450,7 +434,7 @@ HttpClient client = HttpClient.newHttpClient();
 
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create(
-        "https://api.sutraid.com/api/v1/organizations/" + orgId +
+        "https://api.sutraid.com/api/v1/teams/" + orgId +
         "/policies?type=ACCESS"
     ))
     .header("Authorization", "Bearer <your_token>")
@@ -470,7 +454,7 @@ import (
 
 func main() {
     orgID := "org_01hx9z1q2w3e4r5t6y7u"
-    url := "https://api.sutraid.com/api/v1/organizations/" + orgID +
+    url := "https://api.sutraid.com/api/v1/teams/" + orgID +
         "/policies?type=ACCESS"
 
     req, _ := http.NewRequest("GET", url, nil)
@@ -490,7 +474,7 @@ $orgId = 'org_01hx9z1q2w3e4r5t6y7u';
 $ch = curl_init();
 
 curl_setopt_array($ch, [
-    CURLOPT_URL => "https://api.sutraid.com/api/v1/organizations/{$orgId}/policies?type=ACCESS",
+    CURLOPT_URL => "https://api.sutraid.com/api/v1/policies?type=ACCESS",
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer <your_token>',
@@ -516,14 +500,6 @@ echo $response;`,
       auth: 'bearer',
       parameters: [
         {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'org_01hx9z1q2w3e4r5t6y7u',
-        },
-        {
           name: 'policyId',
           in: 'path',
           type: 'string (UUID)',
@@ -534,7 +510,7 @@ echo $response;`,
       ],
       responseFields: [
         { name: 'id', type: 'string', description: 'Unique identifier of the policy.' },
-        { name: 'organizationId', type: 'string', description: 'Organization the policy belongs to.' },
+        { name: 'teamId', type: 'string', description: 'Team the policy belongs to.' },
         { name: 'name', type: 'string', description: 'Name of the policy.' },
         { name: 'description', type: 'string | null', description: 'Description of the policy.' },
         { name: 'type', type: 'string', description: 'Policy type: ACCESS, SIGN_ON, MFA, or PASSWORD.' },
@@ -550,7 +526,7 @@ echo $response;`,
       ],
       responseSample: {
         id: 'pol_01hx9z1q2w3e4r5t6y7u',
-        organizationId: 'org_01hx9z1q2w3e4r5t6y7u',
+        teamId: 'org_01hx9z1q2w3e4r5t6y7u',
         name: 'Allow API read access',
         description: 'Grants read-only access to all API resources.',
         type: 'ACCESS',
@@ -565,14 +541,14 @@ echo $response;`,
         updatedAt: '2024-06-15T10:00:00Z',
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/organizations/org_01hx9z1q2w3e4r5t6y7u/policies/pol_01hx9z1q2w3e4r5t6y7u" \\
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/policies/pol_01hx9z1q2w3e4r5t6y7u" \\
   -H "Authorization: Bearer <your_token>"`,
 
         python: `import requests
 
 org_id = "org_01hx9z1q2w3e4r5t6y7u"
 policy_id = "pol_01hx9z1q2w3e4r5t6y7u"
-url = f"https://api.sutraid.com/api/v1/organizations/{org_id}/policies/{policy_id}"
+url = f"https://api.sutraid.com/api/v1/policies/{policy_id}"
 headers = {
     "Authorization": "Bearer <your_token>",
 }
@@ -586,7 +562,7 @@ const orgId = 'org_01hx9z1q2w3e4r5t6y7u';
 const policyId = 'pol_01hx9z1q2w3e4r5t6y7u';
 
 const response = await axios.get(
-  \`https://api.sutraid.com/api/v1/organizations/\${orgId}/policies/\${policyId}\`,
+  \`https://api.sutraid.com/api/v1/policies/\${policyId}\`,
   {
     headers: {
       Authorization: 'Bearer <your_token>',
@@ -608,7 +584,7 @@ HttpClient client = HttpClient.newHttpClient();
 
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create(
-        "https://api.sutraid.com/api/v1/organizations/" + orgId +
+        "https://api.sutraid.com/api/v1/teams/" + orgId +
         "/policies/" + policyId
     ))
     .header("Authorization", "Bearer <your_token>")
@@ -629,7 +605,7 @@ import (
 func main() {
     orgID := "org_01hx9z1q2w3e4r5t6y7u"
     policyID := "pol_01hx9z1q2w3e4r5t6y7u"
-    url := "https://api.sutraid.com/api/v1/organizations/" + orgID +
+    url := "https://api.sutraid.com/api/v1/teams/" + orgID +
         "/policies/" + policyID
 
     req, _ := http.NewRequest("GET", url, nil)
@@ -650,7 +626,7 @@ $policyId = 'pol_01hx9z1q2w3e4r5t6y7u';
 $ch = curl_init();
 
 curl_setopt_array($ch, [
-    CURLOPT_URL => "https://api.sutraid.com/api/v1/organizations/{$orgId}/policies/{$policyId}",
+    CURLOPT_URL => "https://api.sutraid.com/api/v1/policies/{$policyId}",
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer <your_token>',
@@ -675,14 +651,6 @@ echo $response;`,
       description: 'Updates an existing ABAC policy. All body fields are optional; only provided fields are changed. Requires SUPER_ADMIN or ORG_ADMIN role.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'org_01hx9z1q2w3e4r5t6y7u',
-        },
         {
           name: 'policyId',
           in: 'path',
@@ -761,7 +729,7 @@ echo $response;`,
       ],
       responseFields: [
         { name: 'id', type: 'string', description: 'Unique identifier of the policy.' },
-        { name: 'organizationId', type: 'string', description: 'Organization the policy belongs to.' },
+        { name: 'teamId', type: 'string', description: 'Team the policy belongs to.' },
         { name: 'name', type: 'string', description: 'Updated name of the policy.' },
         { name: 'description', type: 'string | null', description: 'Updated description.' },
         { name: 'type', type: 'string', description: 'Policy type: ACCESS, SIGN_ON, MFA, or PASSWORD.' },
@@ -777,7 +745,7 @@ echo $response;`,
       ],
       responseSample: {
         id: 'pol_01hx9z1q2w3e4r5t6y7u',
-        organizationId: 'org_01hx9z1q2w3e4r5t6y7u',
+        teamId: 'org_01hx9z1q2w3e4r5t6y7u',
         name: 'Allow API full access',
         description: 'Grants full access to all API resources.',
         type: 'ACCESS',
@@ -792,7 +760,7 @@ echo $response;`,
         updatedAt: '2024-06-15T14:30:00Z',
       },
       codeSamples: {
-        curl: `curl -X PUT "https://api.sutraid.com/api/v1/organizations/org_01hx9z1q2w3e4r5t6y7u/policies/pol_01hx9z1q2w3e4r5t6y7u" \\
+        curl: `curl -X PUT "https://api.sutraid.com/api/v1/policies/pol_01hx9z1q2w3e4r5t6y7u" \\
   -H "Authorization: Bearer <your_token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -806,7 +774,7 @@ echo $response;`,
 
 org_id = "org_01hx9z1q2w3e4r5t6y7u"
 policy_id = "pol_01hx9z1q2w3e4r5t6y7u"
-url = f"https://api.sutraid.com/api/v1/organizations/{org_id}/policies/{policy_id}"
+url = f"https://api.sutraid.com/api/v1/policies/{policy_id}"
 headers = {
     "Authorization": "Bearer <your_token>",
     "Content-Type": "application/json",
@@ -827,7 +795,7 @@ const orgId = 'org_01hx9z1q2w3e4r5t6y7u';
 const policyId = 'pol_01hx9z1q2w3e4r5t6y7u';
 
 const response = await axios.put(
-  \`https://api.sutraid.com/api/v1/organizations/\${orgId}/policies/\${policyId}\`,
+  \`https://api.sutraid.com/api/v1/policies/\${policyId}\`,
   {
     name: 'Allow API full access',
     actions: ['read', 'write', 'delete'],
@@ -864,7 +832,7 @@ HttpClient client = HttpClient.newHttpClient();
 
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create(
-        "https://api.sutraid.com/api/v1/organizations/" + orgId +
+        "https://api.sutraid.com/api/v1/teams/" + orgId +
         "/policies/" + policyId
     ))
     .header("Authorization", "Bearer <your_token>")
@@ -887,7 +855,7 @@ import (
 func main() {
     orgID := "org_01hx9z1q2w3e4r5t6y7u"
     policyID := "pol_01hx9z1q2w3e4r5t6y7u"
-    url := "https://api.sutraid.com/api/v1/organizations/" + orgID +
+    url := "https://api.sutraid.com/api/v1/teams/" + orgID +
         "/policies/" + policyID
 
     body := strings.NewReader(\`{
@@ -923,7 +891,7 @@ $payload = json_encode([
 $ch = curl_init();
 
 curl_setopt_array($ch, [
-    CURLOPT_URL => "https://api.sutraid.com/api/v1/organizations/{$orgId}/policies/{$policyId}",
+    CURLOPT_URL => "https://api.sutraid.com/api/v1/policies/{$policyId}",
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_CUSTOMREQUEST => 'PUT',
     CURLOPT_POSTFIELDS => $payload,
@@ -952,14 +920,6 @@ echo $response;`,
       auth: 'bearer',
       parameters: [
         {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'org_01hx9z1q2w3e4r5t6y7u',
-        },
-        {
           name: 'policyId',
           in: 'path',
           type: 'string (UUID)',
@@ -975,14 +935,14 @@ echo $response;`,
         message: 'Policy deleted successfully',
       },
       codeSamples: {
-        curl: `curl -X DELETE "https://api.sutraid.com/api/v1/organizations/org_01hx9z1q2w3e4r5t6y7u/policies/pol_01hx9z1q2w3e4r5t6y7u" \\
+        curl: `curl -X DELETE "https://api.sutraid.com/api/v1/policies/pol_01hx9z1q2w3e4r5t6y7u" \\
   -H "Authorization: Bearer <your_token>"`,
 
         python: `import requests
 
 org_id = "org_01hx9z1q2w3e4r5t6y7u"
 policy_id = "pol_01hx9z1q2w3e4r5t6y7u"
-url = f"https://api.sutraid.com/api/v1/organizations/{org_id}/policies/{policy_id}"
+url = f"https://api.sutraid.com/api/v1/policies/{policy_id}"
 headers = {
     "Authorization": "Bearer <your_token>",
 }
@@ -996,7 +956,7 @@ const orgId = 'org_01hx9z1q2w3e4r5t6y7u';
 const policyId = 'pol_01hx9z1q2w3e4r5t6y7u';
 
 const response = await axios.delete(
-  \`https://api.sutraid.com/api/v1/organizations/\${orgId}/policies/\${policyId}\`,
+  \`https://api.sutraid.com/api/v1/policies/\${policyId}\`,
   {
     headers: {
       Authorization: 'Bearer <your_token>',
@@ -1018,7 +978,7 @@ HttpClient client = HttpClient.newHttpClient();
 
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create(
-        "https://api.sutraid.com/api/v1/organizations/" + orgId +
+        "https://api.sutraid.com/api/v1/teams/" + orgId +
         "/policies/" + policyId
     ))
     .header("Authorization", "Bearer <your_token>")
@@ -1039,7 +999,7 @@ import (
 func main() {
     orgID := "org_01hx9z1q2w3e4r5t6y7u"
     policyID := "pol_01hx9z1q2w3e4r5t6y7u"
-    url := "https://api.sutraid.com/api/v1/organizations/" + orgID +
+    url := "https://api.sutraid.com/api/v1/teams/" + orgID +
         "/policies/" + policyID
 
     req, _ := http.NewRequest("DELETE", url, nil)
@@ -1060,7 +1020,7 @@ $policyId = 'pol_01hx9z1q2w3e4r5t6y7u';
 $ch = curl_init();
 
 curl_setopt_array($ch, [
-    CURLOPT_URL => "https://api.sutraid.com/api/v1/organizations/{$orgId}/policies/{$policyId}",
+    CURLOPT_URL => "https://api.sutraid.com/api/v1/policies/{$policyId}",
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_CUSTOMREQUEST => 'DELETE',
     CURLOPT_HTTPHEADER => [
@@ -1083,21 +1043,13 @@ echo $response;`,
       method: 'GET',
       path: '/api/v1/policies/password',
       title: 'Get password policy',
-      description: 'Retrieves the password complexity and lockout policy for an organization. A default policy is auto-created if none exists. Requires SUPER_ADMIN, ORG_ADMIN, or READ_ONLY_ADMIN role.',
+      description: 'Retrieves the password complexity and lockout policy for an team. A default policy is auto-created if none exists. Requires SUPER_ADMIN, ORG_ADMIN, or READ_ONLY_ADMIN role.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'org_01hx9z1q2w3e4r5t6y7u',
-        },
-      ],
+        ],
       responseFields: [
         { name: 'id', type: 'string', description: 'Unique identifier of the password policy.' },
-        { name: 'organizationId', type: 'string', description: 'Organization the policy belongs to.' },
+        { name: 'teamId', type: 'string', description: 'Team the policy belongs to.' },
         { name: 'minLength', type: 'number', description: 'Minimum password length.' },
         { name: 'requireUppercase', type: 'boolean', description: 'Whether uppercase letters are required.' },
         { name: 'requireLowercase', type: 'boolean', description: 'Whether lowercase letters are required.' },
@@ -1112,7 +1064,7 @@ echo $response;`,
       ],
       responseSample: {
         id: 'pwp_01hx9z1q2w3e4r5t6y7u',
-        organizationId: 'org_01hx9z1q2w3e4r5t6y7u',
+        teamId: 'org_01hx9z1q2w3e4r5t6y7u',
         minLength: 12,
         requireUppercase: true,
         requireLowercase: true,
@@ -1126,13 +1078,13 @@ echo $response;`,
         updatedAt: '2024-06-01T08:00:00Z',
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/organizations/org_01hx9z1q2w3e4r5t6y7u/policies/password" \\
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/policies/password" \\
   -H "Authorization: Bearer <your_token>"`,
 
         python: `import requests
 
 org_id = "org_01hx9z1q2w3e4r5t6y7u"
-url = f"https://api.sutraid.com/api/v1/organizations/{org_id}/policies/password"
+url = f"https://api.sutraid.com/api/v1/policies/password"
 headers = {
     "Authorization": "Bearer <your_token>",
 }
@@ -1145,7 +1097,7 @@ print(response.json())`,
 const orgId = 'org_01hx9z1q2w3e4r5t6y7u';
 
 const response = await axios.get(
-  \`https://api.sutraid.com/api/v1/organizations/\${orgId}/policies/password\`,
+  \`https://api.sutraid.com/api/v1/policies/password\`,
   {
     headers: {
       Authorization: 'Bearer <your_token>',
@@ -1166,7 +1118,7 @@ HttpClient client = HttpClient.newHttpClient();
 
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create(
-        "https://api.sutraid.com/api/v1/organizations/" + orgId +
+        "https://api.sutraid.com/api/v1/teams/" + orgId +
         "/policies/password"
     ))
     .header("Authorization", "Bearer <your_token>")
@@ -1186,7 +1138,7 @@ import (
 
 func main() {
     orgID := "org_01hx9z1q2w3e4r5t6y7u"
-    url := "https://api.sutraid.com/api/v1/organizations/" + orgID +
+    url := "https://api.sutraid.com/api/v1/teams/" + orgID +
         "/policies/password"
 
     req, _ := http.NewRequest("GET", url, nil)
@@ -1206,7 +1158,7 @@ $orgId = 'org_01hx9z1q2w3e4r5t6y7u';
 $ch = curl_init();
 
 curl_setopt_array($ch, [
-    CURLOPT_URL => "https://api.sutraid.com/api/v1/organizations/{$orgId}/policies/password",
+    CURLOPT_URL => "https://api.sutraid.com/api/v1/policies/password",
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer <your_token>',
@@ -1228,18 +1180,10 @@ echo $response;`,
       method: 'PUT',
       path: '/api/v1/policies/password',
       title: 'Update password policy',
-      description: 'Updates the password complexity and lockout policy for an organization. All body fields are optional. Requires SUPER_ADMIN or ORG_ADMIN role.',
+      description: 'Updates the password complexity and lockout policy for an team. All body fields are optional. Requires SUPER_ADMIN or ORG_ADMIN role.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'org_01hx9z1q2w3e4r5t6y7u',
-        },
-      ],
+        ],
       requestBody: [
         {
           name: 'minLength',
@@ -1300,7 +1244,7 @@ echo $response;`,
       ],
       responseFields: [
         { name: 'id', type: 'string', description: 'Unique identifier of the password policy.' },
-        { name: 'organizationId', type: 'string', description: 'Organization the policy belongs to.' },
+        { name: 'teamId', type: 'string', description: 'Team the policy belongs to.' },
         { name: 'minLength', type: 'number', description: 'Minimum password length.' },
         { name: 'requireUppercase', type: 'boolean', description: 'Whether uppercase letters are required.' },
         { name: 'requireLowercase', type: 'boolean', description: 'Whether lowercase letters are required.' },
@@ -1315,7 +1259,7 @@ echo $response;`,
       ],
       responseSample: {
         id: 'pwp_01hx9z1q2w3e4r5t6y7u',
-        organizationId: 'org_01hx9z1q2w3e4r5t6y7u',
+        teamId: 'org_01hx9z1q2w3e4r5t6y7u',
         minLength: 14,
         requireUppercase: true,
         requireLowercase: true,
@@ -1329,7 +1273,7 @@ echo $response;`,
         updatedAt: '2024-06-20T11:45:00Z',
       },
       codeSamples: {
-        curl: `curl -X PUT "https://api.sutraid.com/api/v1/organizations/org_01hx9z1q2w3e4r5t6y7u/policies/password" \\
+        curl: `curl -X PUT "https://api.sutraid.com/api/v1/policies/password" \\
   -H "Authorization: Bearer <your_token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1341,7 +1285,7 @@ echo $response;`,
         python: `import requests
 
 org_id = "org_01hx9z1q2w3e4r5t6y7u"
-url = f"https://api.sutraid.com/api/v1/organizations/{org_id}/policies/password"
+url = f"https://api.sutraid.com/api/v1/policies/password"
 headers = {
     "Authorization": "Bearer <your_token>",
     "Content-Type": "application/json",
@@ -1360,7 +1304,7 @@ print(response.json())`,
 const orgId = 'org_01hx9z1q2w3e4r5t6y7u';
 
 const response = await axios.put(
-  \`https://api.sutraid.com/api/v1/organizations/\${orgId}/policies/password\`,
+  \`https://api.sutraid.com/api/v1/policies/password\`,
   {
     minLength: 14,
     lockoutThreshold: 3,
@@ -1394,7 +1338,7 @@ HttpClient client = HttpClient.newHttpClient();
 
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create(
-        "https://api.sutraid.com/api/v1/organizations/" + orgId +
+        "https://api.sutraid.com/api/v1/teams/" + orgId +
         "/policies/password"
     ))
     .header("Authorization", "Bearer <your_token>")
@@ -1416,7 +1360,7 @@ import (
 
 func main() {
     orgID := "org_01hx9z1q2w3e4r5t6y7u"
-    url := "https://api.sutraid.com/api/v1/organizations/" + orgID +
+    url := "https://api.sutraid.com/api/v1/teams/" + orgID +
         "/policies/password"
 
     body := strings.NewReader(\`{
@@ -1449,7 +1393,7 @@ $payload = json_encode([
 $ch = curl_init();
 
 curl_setopt_array($ch, [
-    CURLOPT_URL => "https://api.sutraid.com/api/v1/organizations/{$orgId}/policies/password",
+    CURLOPT_URL => "https://api.sutraid.com/api/v1/policies/password",
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_CUSTOMREQUEST => 'PUT',
     CURLOPT_POSTFIELDS => $payload,
@@ -1477,15 +1421,7 @@ echo $response;`,
       description: 'Tests policy evaluation for a given resource, action, and context. Uses deny-override strategy: if any DENY policy matches, the result is DENY. Returns the decision, the matched policy, and the reason. Requires SUPER_ADMIN or ORG_ADMIN role.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'org_01hx9z1q2w3e4r5t6y7u',
-        },
-      ],
+        ],
       requestBody: [
         {
           name: 'userId',
@@ -1548,7 +1484,7 @@ echo $response;`,
         reason: 'Allowed by policy: Allow API read access',
       },
       codeSamples: {
-        curl: `curl -X POST "https://api.sutraid.com/api/v1/organizations/org_01hx9z1q2w3e4r5t6y7u/policies/evaluate" \\
+        curl: `curl -X POST "https://api.sutraid.com/api/v1/policies/evaluate" \\
   -H "Authorization: Bearer <your_token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1563,7 +1499,7 @@ echo $response;`,
         python: `import requests
 
 org_id = "org_01hx9z1q2w3e4r5t6y7u"
-url = f"https://api.sutraid.com/api/v1/organizations/{org_id}/policies/evaluate"
+url = f"https://api.sutraid.com/api/v1/policies/evaluate"
 headers = {
     "Authorization": "Bearer <your_token>",
     "Content-Type": "application/json",
@@ -1585,7 +1521,7 @@ print(response.json())`,
 const orgId = 'org_01hx9z1q2w3e4r5t6y7u';
 
 const response = await axios.post(
-  \`https://api.sutraid.com/api/v1/organizations/\${orgId}/policies/evaluate\`,
+  \`https://api.sutraid.com/api/v1/policies/evaluate\`,
   {
     resource: 'api:orders:123',
     action: 'read',
@@ -1625,7 +1561,7 @@ HttpClient client = HttpClient.newHttpClient();
 
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create(
-        "https://api.sutraid.com/api/v1/organizations/" + orgId +
+        "https://api.sutraid.com/api/v1/teams/" + orgId +
         "/policies/evaluate"
     ))
     .header("Authorization", "Bearer <your_token>")
@@ -1647,7 +1583,7 @@ import (
 
 func main() {
     orgID := "org_01hx9z1q2w3e4r5t6y7u"
-    url := "https://api.sutraid.com/api/v1/organizations/" + orgID +
+    url := "https://api.sutraid.com/api/v1/teams/" + orgID +
         "/policies/evaluate"
 
     body := strings.NewReader(\`{
@@ -1686,7 +1622,7 @@ $payload = json_encode([
 $ch = curl_init();
 
 curl_setopt_array($ch, [
-    CURLOPT_URL => "https://api.sutraid.com/api/v1/organizations/{$orgId}/policies/evaluate",
+    CURLOPT_URL => "https://api.sutraid.com/api/v1/policies/evaluate",
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_POST => true,
     CURLOPT_POSTFIELDS => $payload,

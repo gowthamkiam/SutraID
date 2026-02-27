@@ -27,32 +27,34 @@ interface SsoProviderInfo {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '0.875rem 1rem',
-  border: '1.5px solid #d1d5db',
-  borderRadius: '10px',
+  padding: '0.875rem 1.25rem',
+  border: '1px solid rgba(255, 255, 255, 0.1)',
+  borderRadius: '12px',
   fontSize: '0.95rem',
   outline: 'none',
-  transition: 'border-color 0.2s, box-shadow 0.2s',
+  transition: 'all 0.2s',
   boxSizing: 'border-box',
-  color: '#111827',
-  background: '#fff',
+  color: '#ffffff',
+  background: 'rgba(255, 255, 255, 0.05)',
 };
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
-  marginBottom: '0.5rem',
-  fontWeight: 500,
+  marginBottom: '0.625rem',
+  fontWeight: 600,
   fontSize: '0.875rem',
-  color: '#374151',
+  color: '#9ca3af',
 };
 
 function handleInputFocus(e: React.FocusEvent<HTMLInputElement>) {
-  e.target.style.borderColor = '#4f46e5';
-  e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
+  e.target.style.borderColor = '#06b6d4';
+  e.target.style.background = 'rgba(255, 255, 255, 0.08)';
+  e.target.style.boxShadow = '0 0 0 4px rgba(6, 182, 212, 0.15)';
 }
 
 function handleInputBlur(e: React.FocusEvent<HTMLInputElement>) {
-  e.target.style.borderColor = '#d1d5db';
+  e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+  e.target.style.background = 'rgba(255, 255, 255, 0.05)';
   e.target.style.boxShadow = 'none';
 }
 
@@ -72,8 +74,9 @@ export default function LoginForm({ branding }: LoginFormProps) {
   const [mfaCode, setMfaCode] = useState('');
   const [isBackupCode, setIsBackupCode] = useState(false);
 
-  const accent = branding?.primaryColor || '#4f46e5';
-  const accentHover = branding?.primaryColor ? darkenHex(branding.primaryColor, 15) : '#4338ca';
+  const accent = branding?.primaryColor || '#6366f1';
+  const accentHover = branding?.primaryColor ? darkenHex(branding.primaryColor, 15) : '#4f46e5';
+  const cyanAccent = '#06b6d4';
 
   const redirectAfterLogin = (_accessToken: string) => {
     const params = new URLSearchParams(window.location.search);
@@ -270,21 +273,20 @@ export default function LoginForm({ branding }: LoginFormProps) {
           />
         ) : (
           <h1 style={{
-            fontSize: '2.25rem',
-            fontWeight: 700,
+            fontSize: '2.5rem',
+            fontWeight: 950,
             margin: 0,
-            letterSpacing: '-0.5px',
-            color: '#111827',
+            letterSpacing: '-0.05em',
+            color: '#ffffff',
           }}>
-            <span style={{ color: accent }}>S</span>utra
-            <span style={{ color: accent }}>ID</span>
+            <span style={{ color: '#4f46e5' }}>S</span>utra<span style={{ color: '#4f46e5' }}>ID</span>
           </h1>
         )}
       </div>
 
       {/* Heading */}
-      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <p style={{ color: '#374151', fontSize: '1.1rem', fontWeight: 500, margin: 0 }}>
+      <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+        <p style={{ color: '#9ca3af', fontSize: '1.15rem', fontWeight: 500, margin: 0, letterSpacing: '-0.01em' }}>
           {mfaRequired ? 'Two-Factor Authentication' : getHeading()}
         </p>
       </div>
@@ -452,13 +454,31 @@ export default function LoginForm({ branding }: LoginFormProps) {
             type="submit"
             disabled={loading}
             style={{
-              width: '100%', padding: '0.9rem', background: loading ? '#9ca3af' : accent,
-              color: '#fff', border: 'none', borderRadius: '50px', fontSize: '1rem',
-              fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background 0.2s, transform 0.1s', letterSpacing: '0.01em',
+              width: '100%',
+              padding: '1rem',
+              background: loading ? 'rgba(255,255,255,0.1)' : 'linear-gradient(to right, #6366f1, #a855f7)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '14px',
+              fontSize: '1rem',
+              fontWeight: 800,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+              letterSpacing: '0.01em',
+              boxShadow: loading ? 'none' : '0 8px 16px rgba(99, 102, 241, 0.2)',
             }}
-            onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = accentHover; }}
-            onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = accent; }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)';
+                e.currentTarget.style.boxShadow = '0 12px 24px rgba(99, 102, 241, 0.3)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!loading) {
+                e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                e.currentTarget.style.boxShadow = '0 8px 16px rgba(99, 102, 241, 0.2)';
+              }
+            }}
           >
             {getButtonLabel()}
           </button>
@@ -478,8 +498,8 @@ export default function LoginForm({ branding }: LoginFormProps) {
 
       {error && (
         <div style={{
-          marginTop: '1.25rem', padding: '1rem', background: '#fef2f2',
-          border: '1px solid #fecaca', borderRadius: '10px', color: '#991b1b',
+          marginTop: '1.25rem', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '14px', color: '#fca5a5',
           fontSize: '0.9rem', textAlign: 'center',
         }}>
           {error}
@@ -488,29 +508,27 @@ export default function LoginForm({ branding }: LoginFormProps) {
 
       {/* Mode toggle links */}
       {!mfaRequired && (
-        <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+        <div style={{ marginTop: '2rem', textAlign: 'center' }}>
           {mode === 'magic-link' && (
             <>
               <button
                 type="button"
                 onClick={() => switchMode('password')}
-                style={{ background: 'none', border: 'none', color: accent, fontSize: '0.9rem', fontWeight: 500, cursor: 'pointer', textDecoration: 'none', padding: 0 }}
-                onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                style={{ background: 'none', border: 'none', color: cyanAccent, fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'none', padding: 0 }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#22d3ee'}
+                onMouseLeave={(e) => e.currentTarget.style.color = cyanAccent}
               >
                 Sign in with password
               </button>
-              <div style={{ marginTop: '0.75rem' }}>
-                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>Don&apos;t have an account? </span>
+              {/* <div style={{ marginTop: '1rem' }}>
+                <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>Don&apos;t have an account? </span>
                 <Link
                   href="/onboard"
-                  style={{ color: accent, fontSize: '0.85rem', fontWeight: 500, textDecoration: 'none' }}
-                  onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                  onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                  style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none', borderBottom: `1px solid ${cyanAccent}` }}
                 >
                   Sign up
                 </Link>
-              </div>
+              </div> */}
             </>
           )}
 
@@ -519,26 +537,23 @@ export default function LoginForm({ branding }: LoginFormProps) {
               <button
                 type="button"
                 onClick={() => switchMode('magic-link')}
-                style={{ background: 'none', border: 'none', color: accent, fontSize: '0.9rem', fontWeight: 500, cursor: 'pointer', textDecoration: 'none', padding: 0 }}
-                onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                style={{ background: 'none', border: 'none', color: cyanAccent, fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'none', padding: 0 }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#22d3ee'}
+                onMouseLeave={(e) => e.currentTarget.style.color = cyanAccent}
               >
                 Sign in with magic link
               </button>
-              <div style={{ marginTop: '0.75rem' }}>
-                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>Don&apos;t have an account? </span>
+              {/* <div style={{ marginTop: '1rem' }}>
+                <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>Don&apos;t have an account? </span>
                 <Link
                   href="/onboard"
-                  style={{ color: accent, fontSize: '0.85rem', fontWeight: 500, textDecoration: 'none' }}
-                  onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                  onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                  style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none', borderBottom: `1px solid ${cyanAccent}` }}
                 >
                   Sign up
                 </Link>
-              </div>
+              </div> */}
             </>
           )}
-
         </div>
       )}
     </>

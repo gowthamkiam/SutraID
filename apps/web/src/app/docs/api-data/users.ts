@@ -3,14 +3,14 @@ import { DocSection } from './types';
 export const usersSection: DocSection = {
   title: 'Users',
   slug: 'users',
-  description: 'Manage organization users, roles, and group/application assignments.',
+  description: 'Manage users, roles, and group/application assignments.',
   endpoints: [
     {
       id: 'list-users',
       method: 'GET',
       path: '/api/v1/users',
-      title: 'List organization users',
-      description: 'Returns a paginated list of users belonging to the current organization. Supports filtering by search term, role, and status.',
+      title: 'List users',
+      description: 'Returns a paginated list of users. Supports filtering by search term, role, and status.',
       auth: 'bearer',
       parameters: [
         {
@@ -26,7 +26,7 @@ export const usersSection: DocSection = {
           in: 'query',
           type: 'string',
           required: false,
-          description: 'Filter users by organization role.',
+          description: 'Filter users by role.',
           enum: ['owner', 'admin', 'member', 'viewer'],
           example: 'admin',
         },
@@ -79,15 +79,13 @@ export const usersSection: DocSection = {
       },
       codeSamples: {
         curl: `curl -X GET "https://api.sutraid.com/api/v1/users?page=1&limit=20" \\
-  -H "Authorization: Bearer <your_token>" \\
-  -H "x-org-id: <your_org_id>"`,
+  -H "Authorization: Bearer <your_token>"`,
 
         python: `import requests
 
 url = "https://api.sutraid.com/api/v1/users"
 headers = {
     "Authorization": "Bearer <your_token>",
-    "x-org-id": "<your_org_id>",
 }
 params = {
     "page": 1,
@@ -102,7 +100,6 @@ print(response.json())`,
 const response = await axios.get('https://api.sutraid.com/api/v1/users', {
   headers: {
     Authorization: 'Bearer <your_token>',
-    'x-org-id': '<your_org_id>',
   },
   params: {
     page: 1,
@@ -122,7 +119,6 @@ HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create("https://api.sutraid.com/api/v1/users?page=1&limit=20"))
     .header("Authorization", "Bearer <your_token>")
-    .header("x-org-id", "<your_org_id>")
     .GET()
     .build();
 
@@ -140,7 +136,6 @@ import (
 func main() {
     req, _ := http.NewRequest("GET", "https://api.sutraid.com/api/v1/users?page=1&limit=20", nil)
     req.Header.Set("Authorization", "Bearer <your_token>")
-    req.Header.Set("x-org-id", "<your_org_id>")
 
     client := &http.Client{}
     resp, _ := client.Do(req)
@@ -158,7 +153,6 @@ curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer <your_token>',
-        'x-org-id: <your_org_id>',
     ],
 ]);
 
@@ -173,8 +167,8 @@ echo $response;`,
       id: 'create-user',
       method: 'POST',
       path: '/api/v1/users',
-      title: 'Create user in organization',
-      description: 'Creates a new user account within the organization. Optionally assigns the user to groups and applications during creation.',
+      title: 'Create user',
+      description: 'Creates a new user account. Optionally assigns the user to groups and applications during creation.',
       auth: 'bearer',
       requestBody: [
         {
@@ -206,7 +200,7 @@ echo $response;`,
           in: 'body',
           type: 'string',
           required: false,
-          description: 'Organization role to assign to the user.',
+          description: 'Role to assign to the user.',
           enum: ['owner', 'admin', 'member', 'viewer'],
           example: 'member',
         },
@@ -248,7 +242,7 @@ echo $response;`,
         { name: 'email', type: 'string', description: 'Email address of the user.' },
         { name: 'firstName', type: 'string', description: 'First name.' },
         { name: 'lastName', type: 'string', description: 'Last name.' },
-        { name: 'role', type: 'string', description: 'Assigned organization role.' },
+        { name: 'role', type: 'string', description: 'Assigned role.' },
         { name: 'status', type: 'string', description: 'Account status.' },
         { name: 'createdAt', type: 'string', description: 'ISO 8601 creation timestamp.' },
       ],
@@ -264,7 +258,6 @@ echo $response;`,
       codeSamples: {
         curl: `curl -X POST "https://api.sutraid.com/api/v1/users" \\
   -H "Authorization: Bearer <your_token>" \\
-  -H "x-org-id: <your_org_id>" \\
   -H "Content-Type: application/json" \\
   -d '{
     "email": "bob@example.com",
@@ -279,7 +272,6 @@ echo $response;`,
 url = "https://api.sutraid.com/api/v1/users"
 headers = {
     "Authorization": "Bearer <your_token>",
-    "x-org-id": "<your_org_id>",
     "Content-Type": "application/json",
 }
 payload = {
@@ -304,7 +296,6 @@ const response = await axios.post('https://api.sutraid.com/api/v1/users', {
 }, {
   headers: {
     Authorization: 'Bearer <your_token>',
-    'x-org-id': '<your_org_id>',
     'Content-Type': 'application/json',
   },
 });
@@ -331,7 +322,6 @@ HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create("https://api.sutraid.com/api/v1/users"))
     .header("Authorization", "Bearer <your_token>")
-    .header("x-org-id", "<your_org_id>")
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString(body))
     .build();
@@ -359,7 +349,6 @@ func main() {
 
     req, _ := http.NewRequest("POST", "https://api.sutraid.com/api/v1/users", bytes.NewBuffer(payload))
     req.Header.Set("Authorization", "Bearer <your_token>")
-    req.Header.Set("x-org-id", "<your_org_id>")
     req.Header.Set("Content-Type", "application/json")
 
     client := &http.Client{}
@@ -388,7 +377,6 @@ curl_setopt_array($ch, [
     CURLOPT_POSTFIELDS => $payload,
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer <your_token>',
-        'x-org-id: <your_org_id>',
         'Content-Type: application/json',
     ],
 ]);
@@ -405,7 +393,7 @@ echo $response;`,
       method: 'PUT',
       path: '/api/v1/users/:id',
       title: 'Update user',
-      description: 'Updates the profile, role, status, or assignments of an existing user in the organization.',
+      description: 'Updates the profile, role, status, or assignments of an existing user.',
       auth: 'bearer',
       parameters: [
         {
@@ -439,7 +427,7 @@ echo $response;`,
           in: 'body',
           type: 'string',
           required: false,
-          description: 'New organization role for the user.',
+          description: 'New role for the user.',
           enum: ['owner', 'admin', 'member', 'viewer'],
           example: 'admin',
         },
@@ -473,7 +461,7 @@ echo $response;`,
         { name: 'email', type: 'string', description: 'Email address.' },
         { name: 'firstName', type: 'string', description: 'Updated first name.' },
         { name: 'lastName', type: 'string', description: 'Updated last name.' },
-        { name: 'role', type: 'string', description: 'Updated organization role.' },
+        { name: 'role', type: 'string', description: 'Updated role.' },
         { name: 'status', type: 'string', description: 'Updated account status.' },
         { name: 'updatedAt', type: 'string', description: 'ISO 8601 timestamp of last update.' },
       ],
@@ -489,7 +477,6 @@ echo $response;`,
       codeSamples: {
         curl: `curl -X PUT "https://api.sutraid.com/api/v1/users/usr_01hx9z1q2w3e4r5t6y7u" \\
   -H "Authorization: Bearer <your_token>" \\
-  -H "x-org-id: <your_org_id>" \\
   -H "Content-Type: application/json" \\
   -d '{
     "firstName": "Alice",
@@ -504,7 +491,6 @@ user_id = "usr_01hx9z1q2w3e4r5t6y7u"
 url = f"https://api.sutraid.com/api/v1/users/{user_id}"
 headers = {
     "Authorization": "Bearer <your_token>",
-    "x-org-id": "<your_org_id>",
     "Content-Type": "application/json",
 }
 payload = {
@@ -529,7 +515,6 @@ const response = await axios.put(\`https://api.sutraid.com/api/v1/users/\${userI
 }, {
   headers: {
     Authorization: 'Bearer <your_token>',
-    'x-org-id': '<your_org_id>',
     'Content-Type': 'application/json',
   },
 });
@@ -556,7 +541,6 @@ HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create("https://api.sutraid.com/api/v1/users/" + userId))
     .header("Authorization", "Bearer <your_token>")
-    .header("x-org-id", "<your_org_id>")
     .header("Content-Type", "application/json")
     .PUT(HttpRequest.BodyPublishers.ofString(body))
     .build();
@@ -584,7 +568,6 @@ func main() {
 
     req, _ := http.NewRequest("PUT", "https://api.sutraid.com/api/v1/users/"+userID, bytes.NewBuffer(payload))
     req.Header.Set("Authorization", "Bearer <your_token>")
-    req.Header.Set("x-org-id", "<your_org_id>")
     req.Header.Set("Content-Type", "application/json")
 
     client := &http.Client{}
@@ -613,7 +596,6 @@ curl_setopt_array($ch, [
     CURLOPT_POSTFIELDS => $payload,
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer <your_token>',
-        'x-org-id: <your_org_id>',
         'Content-Type: application/json',
     ],
 ]);
@@ -630,7 +612,7 @@ echo $response;`,
       method: 'DELETE',
       path: '/api/v1/users/:id',
       title: 'Delete user',
-      description: 'Permanently removes a user from the organization. This action cannot be undone.',
+      description: 'Permanently removes a user from the team. This action cannot be undone.',
       auth: 'bearer',
       parameters: [
         {
@@ -649,9 +631,8 @@ echo $response;`,
         message: 'User deleted',
       },
       codeSamples: {
-        curl: `curl -X DELETE "https://api.sutraid.com/api/v1/users/usr_01hx9z1q2w3e4r5t6y7u" \\
-  -H "Authorization: Bearer <your_token>" \\
-  -H "x-org-id: <your_org_id>"`,
+        curl: `curl -X DELETE "https://api.sutraid.com/api/v1/users/usr_01hx9z1q2w3e4r5t6y7u" \
+  -H "Authorization: Bearer <your_token>"`,
 
         python: `import requests
 
@@ -659,7 +640,6 @@ user_id = "usr_01hx9z1q2w3e4r5t6y7u"
 url = f"https://api.sutraid.com/api/v1/users/{user_id}"
 headers = {
     "Authorization": "Bearer <your_token>",
-    "x-org-id": "<your_org_id>",
 }
 
 response = requests.delete(url, headers=headers)
@@ -672,7 +652,6 @@ const userId = 'usr_01hx9z1q2w3e4r5t6y7u';
 const response = await axios.delete(\`https://api.sutraid.com/api/v1/users/\${userId}\`, {
   headers: {
     Authorization: 'Bearer <your_token>',
-    'x-org-id': '<your_org_id>',
   },
 });
 
@@ -690,7 +669,6 @@ HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create("https://api.sutraid.com/api/v1/users/" + userId))
     .header("Authorization", "Bearer <your_token>")
-    .header("x-org-id", "<your_org_id>")
     .DELETE()
     .build();
 
@@ -710,7 +688,6 @@ func main() {
 
     req, _ := http.NewRequest("DELETE", "https://api.sutraid.com/api/v1/users/"+userID, nil)
     req.Header.Set("Authorization", "Bearer <your_token>")
-    req.Header.Set("x-org-id", "<your_org_id>")
 
     client := &http.Client{}
     resp, _ := client.Do(req)
@@ -731,7 +708,6 @@ curl_setopt_array($ch, [
     CURLOPT_CUSTOMREQUEST => 'DELETE',
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer <your_token>',
-        'x-org-id: <your_org_id>',
     ],
 ]);
 
@@ -783,7 +759,6 @@ echo $response;`,
       codeSamples: {
         curl: `curl -X PUT "https://api.sutraid.com/api/v1/users/usr_01hx9z1q2w3e4r5t6y7u/groups" \\
   -H "Authorization: Bearer <your_token>" \\
-  -H "x-org-id: <your_org_id>" \\
   -H "Content-Type: application/json" \\
   -d '{
     "groupIds": [
@@ -798,7 +773,6 @@ user_id = "usr_01hx9z1q2w3e4r5t6y7u"
 url = f"https://api.sutraid.com/api/v1/users/{user_id}/groups"
 headers = {
     "Authorization": "Bearer <your_token>",
-    "x-org-id": "<your_org_id>",
     "Content-Type": "application/json",
 }
 payload = {
@@ -823,7 +797,6 @@ const response = await axios.put(\`https://api.sutraid.com/api/v1/users/\${userI
 }, {
   headers: {
     Authorization: 'Bearer <your_token>',
-    'x-org-id': '<your_org_id>',
     'Content-Type': 'application/json',
   },
 });
@@ -850,7 +823,6 @@ HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create("https://api.sutraid.com/api/v1/users/" + userId + "/groups"))
     .header("Authorization", "Bearer <your_token>")
-    .header("x-org-id", "<your_org_id>")
     .header("Content-Type", "application/json")
     .PUT(HttpRequest.BodyPublishers.ofString(body))
     .build();
@@ -878,7 +850,6 @@ func main() {
 
     req, _ := http.NewRequest("PUT", "https://api.sutraid.com/api/v1/users/"+userID+"/groups", bytes.NewBuffer(payload))
     req.Header.Set("Authorization", "Bearer <your_token>")
-    req.Header.Set("x-org-id", "<your_org_id>")
     req.Header.Set("Content-Type", "application/json")
 
     client := &http.Client{}
@@ -907,7 +878,6 @@ curl_setopt_array($ch, [
     CURLOPT_POSTFIELDS => $payload,
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer <your_token>',
-        'x-org-id: <your_org_id>',
         'Content-Type: application/json',
     ],
 ]);
@@ -960,7 +930,6 @@ echo $response;`,
       codeSamples: {
         curl: `curl -X PUT "https://api.sutraid.com/api/v1/users/usr_01hx9z1q2w3e4r5t6y7u/applications" \\
   -H "Authorization: Bearer <your_token>" \\
-  -H "x-org-id: <your_org_id>" \\
   -H "Content-Type: application/json" \\
   -d '{
     "applicationIds": [
@@ -975,7 +944,6 @@ user_id = "usr_01hx9z1q2w3e4r5t6y7u"
 url = f"https://api.sutraid.com/api/v1/users/{user_id}/applications"
 headers = {
     "Authorization": "Bearer <your_token>",
-    "x-org-id": "<your_org_id>",
     "Content-Type": "application/json",
 }
 payload = {
@@ -1000,7 +968,6 @@ const response = await axios.put(\`https://api.sutraid.com/api/v1/users/\${userI
 }, {
   headers: {
     Authorization: 'Bearer <your_token>',
-    'x-org-id': '<your_org_id>',
     'Content-Type': 'application/json',
   },
 });
@@ -1027,7 +994,6 @@ HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create("https://api.sutraid.com/api/v1/users/" + userId + "/applications"))
     .header("Authorization", "Bearer <your_token>")
-    .header("x-org-id", "<your_org_id>")
     .header("Content-Type", "application/json")
     .PUT(HttpRequest.BodyPublishers.ofString(body))
     .build();
@@ -1055,7 +1021,6 @@ func main() {
 
     req, _ := http.NewRequest("PUT", "https://api.sutraid.com/api/v1/users/"+userID+"/applications", bytes.NewBuffer(payload))
     req.Header.Set("Authorization", "Bearer <your_token>")
-    req.Header.Set("x-org-id", "<your_org_id>")
     req.Header.Set("Content-Type", "application/json")
 
     client := &http.Client{}
@@ -1084,7 +1049,6 @@ curl_setopt_array($ch, [
     CURLOPT_POSTFIELDS => $payload,
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer <your_token>',
-        'x-org-id: <your_org_id>',
         'Content-Type: application/json',
     ],
 ]);

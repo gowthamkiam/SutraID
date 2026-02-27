@@ -62,7 +62,7 @@ export default function LoginPage() {
   }
 
   const bgColor = branding?.backgroundColor
-    || 'linear-gradient(160deg, #0a1628 0%, #0f2035 25%, #0d2847 50%, #0a2a3c 75%, #0e1f2f 100%)';
+    || 'radial-gradient(circle at 50% -20%, #2e2f5e 0%, #0a0a0b 100%)';
 
   const isGradient = bgColor.includes('gradient') || bgColor.includes('linear');
 
@@ -73,7 +73,7 @@ export default function LoginPage() {
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: '100vh',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       padding: '2rem',
       ...(isGradient
         ? { background: bgColor }
@@ -81,11 +81,37 @@ export default function LoginPage() {
       position: 'relative',
       overflow: 'hidden',
     }}>
+      {/* Subtle grid pattern overlay */}
       <div style={{
-        background: '#ffffff',
-        padding: '3rem 2.5rem',
-        borderRadius: '20px',
-        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)',
+        backgroundSize: '40px 40px',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Decorative background glow */}
+      <div style={{
+        position: 'absolute',
+        top: '20%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '600px',
+        height: '600px',
+        background: 'radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%)',
+        filter: 'blur(80px)',
+        zIndex: 0,
+        pointerEvents: 'none',
+      }} />
+
+      <div style={{
+        background: 'rgba(17, 24, 39, 0.7)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        padding: '3.5rem 2.5rem',
+        borderRadius: '32px',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)',
         maxWidth: '440px',
         width: '100%',
         position: 'relative',

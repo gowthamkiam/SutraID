@@ -13,18 +13,10 @@ export const ssoSection: DocSection = {
       method: 'POST',
       path: '/api/v1/sso/providers',
       title: 'Create SSO Provider',
-      description: 'Create a new SSO provider (SAML 2.0 or OIDC) for an organization. Provide the protocol-specific fields that match the chosen protocol.',
+      description: 'Create a new SSO provider (SAML 2.0 or OIDC) for an team. Provide the protocol-specific fields that match the chosen protocol.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hx9k2m4p',
-        },
-      ],
+        ],
       requestBody: [
         {
           name: 'name',
@@ -175,7 +167,7 @@ export const ssoSection: DocSection = {
       ],
       responseFields: [
         { name: 'id', type: 'string', description: 'Unique identifier of the SSO provider.', example: 'sso_01hx9k2m4p' },
-        { name: 'orgId', type: 'string', description: 'Organization this provider belongs to.', example: 'org_01hx9k2m4p' },
+        { name: 'orgId', type: 'string', description: 'Team this provider belongs to.', example: 'org_01hx9k2m4p' },
         { name: 'name', type: 'string', description: 'Display name of the provider.', example: 'Okta Production' },
         { name: 'type', type: 'string', description: 'Provider type enum value.', example: 'OKTA' },
         { name: 'protocol', type: 'string', description: 'Protocol used (SAML2 or OIDC).', example: 'SAML2' },
@@ -202,7 +194,7 @@ export const ssoSection: DocSection = {
         updatedAt: '2024-01-15T10:00:00.000Z',
       },
       codeSamples: {
-        curl: `curl -X POST https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers \\
+        curl: `curl -X POST https://api.sutraid.com/api/v1/sso/providers \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -217,7 +209,7 @@ export const ssoSection: DocSection = {
   }'`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers"
+url = "https://api.sutraid.com/api/v1/sso/providers"
 headers = {
     "Authorization": "Bearer <token>",
     "Content-Type": "application/json"
@@ -236,7 +228,7 @@ payload = {
 response = requests.post(url, json=payload, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers',
+  'https://api.sutraid.com/api/v1/sso/providers',
   {
     method: 'POST',
     headers: {
@@ -275,7 +267,7 @@ String body = """
     """;
 
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/sso/providers"))
     .header("Authorization", "Bearer <token>")
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -306,7 +298,7 @@ func main() {
     body, _ := json.Marshal(payload)
 
     req, _ := http.NewRequest("POST",
-        "https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers",
+        "https://api.sutraid.com/api/v1/sso/providers",
         bytes.NewBuffer(body))
     req.Header.Set("Authorization", "Bearer <token>")
     req.Header.Set("Content-Type", "application/json")
@@ -328,7 +320,7 @@ $payload = json_encode([
     'allowedDomains'  => ['acme.com'],
 ]);
 
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers');
+$ch = curl_init('https://api.sutraid.com/api/v1/sso/providers');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
@@ -351,18 +343,10 @@ echo $response;`,
       method: 'GET',
       path: '/api/v1/sso/providers',
       title: 'List SSO Providers',
-      description: 'Retrieve all SSO providers configured for an organization.',
+      description: 'Retrieve all SSO providers configured for an team.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hx9k2m4p',
-        },
-      ],
+        ],
       responseFields: [
         { name: '[]', type: 'SsoProvider[]', description: 'Array of SSO provider records.' },
         { name: '[].id', type: 'string', description: 'Unique provider identifier.', example: 'sso_01hx9k2m4p' },
@@ -400,17 +384,17 @@ echo $response;`,
         ],
       },
       codeSamples: {
-        curl: `curl -X GET https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers \\
+        curl: `curl -X GET https://api.sutraid.com/api/v1/sso/providers \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers"
+url = "https://api.sutraid.com/api/v1/sso/providers"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.get(url, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers',
+  'https://api.sutraid.com/api/v1/sso/providers',
   {
     headers: { 'Authorization': 'Bearer <token>' },
   }
@@ -422,7 +406,7 @@ import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/sso/providers"))
     .header("Authorization", "Bearer <token>")
     .GET()
     .build();
@@ -439,7 +423,7 @@ import (
 
 func main() {
     req, _ := http.NewRequest("GET",
-        "https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers",
+        "https://api.sutraid.com/api/v1/sso/providers",
         nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
@@ -450,7 +434,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers');
+$ch = curl_init('https://api.sutraid.com/api/v1/sso/providers');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
     'Authorization: Bearer <token>',
@@ -474,14 +458,6 @@ echo $response;`,
       auth: 'bearer',
       parameters: [
         {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hx9k2m4p',
-        },
-        {
           name: 'providerId',
           in: 'path',
           type: 'string',
@@ -492,7 +468,7 @@ echo $response;`,
       ],
       responseFields: [
         { name: 'id', type: 'string', description: 'Unique provider identifier.', example: 'sso_01hx9k2m4p' },
-        { name: 'orgId', type: 'string', description: 'Owning organization ID.', example: 'org_01hx9k2m4p' },
+        { name: 'orgId', type: 'string', description: 'Owning team ID.', example: 'org_01hx9k2m4p' },
         { name: 'name', type: 'string', description: 'Provider display name.', example: 'Okta Production' },
         { name: 'type', type: 'string', description: 'Provider type.', example: 'OKTA' },
         { name: 'protocol', type: 'string', description: 'Authentication protocol.', example: 'SAML2' },
@@ -519,17 +495,17 @@ echo $response;`,
         updatedAt: '2024-01-15T10:00:00.000Z',
       },
       codeSamples: {
-        curl: `curl -X GET https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p \\
+        curl: `curl -X GET https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p"
+url = "https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.get(url, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p',
+  'https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p',
   {
     headers: { 'Authorization': 'Bearer <token>' },
   }
@@ -541,7 +517,7 @@ import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p"))
     .header("Authorization", "Bearer <token>")
     .GET()
     .build();
@@ -558,7 +534,7 @@ import (
 
 func main() {
     req, _ := http.NewRequest("GET",
-        "https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p",
+        "https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p",
         nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
@@ -569,7 +545,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p');
+$ch = curl_init('https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
     'Authorization: Bearer <token>',
@@ -592,14 +568,6 @@ echo $response;`,
       description: 'Update an existing SSO provider. All fields from CreateSsoProviderDto are accepted; only provided fields are updated.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hx9k2m4p',
-        },
         {
           name: 'providerId',
           in: 'path',
@@ -680,7 +648,7 @@ echo $response;`,
         updatedAt: '2024-03-10T12:00:00.000Z',
       },
       codeSamples: {
-        curl: `curl -X PUT https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p \\
+        curl: `curl -X PUT https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -690,7 +658,7 @@ echo $response;`,
   }'`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p"
+url = "https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p"
 headers = {
     "Authorization": "Bearer <token>",
     "Content-Type": "application/json"
@@ -704,7 +672,7 @@ payload = {
 response = requests.put(url, json=payload, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p',
+  'https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p',
   {
     method: 'PUT',
     headers: {
@@ -733,7 +701,7 @@ String body = """
     """;
 
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p"))
     .header("Authorization", "Bearer <token>")
     .header("Content-Type", "application/json")
     .PUT(HttpRequest.BodyPublishers.ofString(body))
@@ -759,7 +727,7 @@ func main() {
     body, _ := json.Marshal(payload)
 
     req, _ := http.NewRequest("PUT",
-        "https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p",
+        "https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p",
         bytes.NewBuffer(body))
     req.Header.Set("Authorization", "Bearer <token>")
     req.Header.Set("Content-Type", "application/json")
@@ -776,7 +744,7 @@ $payload = json_encode([
     'allowedDomains' => ['acme.com', 'acme.io'],
 ]);
 
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p');
+$ch = curl_init('https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
 curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
@@ -799,17 +767,9 @@ echo $response;`,
       method: 'DELETE',
       path: '/api/v1/sso/providers/:providerId',
       title: 'Delete SSO Provider',
-      description: 'Permanently delete an SSO provider from an organization.',
+      description: 'Permanently delete an SSO provider from an team.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hx9k2m4p',
-        },
         {
           name: 'providerId',
           in: 'path',
@@ -828,17 +788,17 @@ echo $response;`,
         message: 'SSO provider deleted successfully.',
       },
       codeSamples: {
-        curl: `curl -X DELETE https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p \\
+        curl: `curl -X DELETE https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p"
+url = "https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.delete(url, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p',
+  'https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p',
   {
     method: 'DELETE',
     headers: { 'Authorization': 'Bearer <token>' },
@@ -851,7 +811,7 @@ import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p"))
     .header("Authorization", "Bearer <token>")
     .DELETE()
     .build();
@@ -868,7 +828,7 @@ import (
 
 func main() {
     req, _ := http.NewRequest("DELETE",
-        "https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p",
+        "https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p",
         nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
@@ -879,7 +839,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p');
+$ch = curl_init('https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -904,14 +864,6 @@ echo $response;`,
       auth: 'bearer',
       parameters: [
         {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hx9k2m4p',
-        },
-        {
           name: 'providerId',
           in: 'path',
           type: 'string',
@@ -929,17 +881,17 @@ echo $response;`,
         message: 'Connection successful. IdP metadata is reachable.',
       },
       codeSamples: {
-        curl: `curl -X POST https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p/test \\
+        curl: `curl -X POST https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p/test \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p/test"
+url = "https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p/test"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.post(url, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p/test',
+  'https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p/test',
   {
     method: 'POST',
     headers: { 'Authorization': 'Bearer <token>' },
@@ -952,7 +904,7 @@ import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p/test"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p/test"))
     .header("Authorization", "Bearer <token>")
     .POST(HttpRequest.BodyPublishers.noBody())
     .build();
@@ -969,7 +921,7 @@ import (
 
 func main() {
     req, _ := http.NewRequest("POST",
-        "https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p/test",
+        "https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p/test",
         nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
@@ -980,7 +932,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hx9k2m4p/sso/providers/sso_01hx9k2m4p/test');
+$ch = curl_init('https://api.sutraid.com/api/v1/sso/providers/sso_01hx9k2m4p/test');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -1019,7 +971,7 @@ echo $response;`,
         { name: 'providers[].name', type: 'string', description: 'Provider display name.', example: 'Okta Production' },
         { name: 'providers[].type', type: 'string', description: 'Provider type.', example: 'OKTA' },
         { name: 'providers[].protocol', type: 'string', description: 'Authentication protocol.', example: 'SAML2' },
-        { name: 'providers[].orgId', type: 'string', description: 'Organization that owns this provider.', example: 'org_01hx9k2m4p' },
+        { name: 'providers[].orgId', type: 'string', description: 'Team that owns this provider.', example: 'org_01hx9k2m4p' },
       ],
       responseSample: {
         providers: [
@@ -1099,14 +1051,6 @@ echo $response;`,
       auth: 'none',
       parameters: [
         {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The organization whose SAML provider will handle login.',
-          example: 'org_01hx9k2m4p',
-        },
-        {
           name: 'providerId',
           in: 'query',
           type: 'string',
@@ -1177,15 +1121,7 @@ exit;`,
       description: 'Receives the SAML response posted by the IdP after the user authenticates. The server validates the assertion, provisions or resolves the user, issues a JWT, and redirects to the frontend callback URL.',
       auth: 'none',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The organization that owns the SAML provider.',
-          example: 'org_01hx9k2m4p',
-        },
-      ],
+        ],
       requestBody: [
         {
           name: 'SAMLResponse',
@@ -1331,18 +1267,10 @@ echo $response;`,
       method: 'GET',
       path: '/api/v1/sso/saml/:orgId/metadata',
       title: 'Get SAML SP Metadata',
-      description: 'Returns the SAML Service Provider (SP) metadata XML for the given organization. Provide this URL or its content to your IdP during configuration.',
+      description: 'Returns the SAML Service Provider (SP) metadata XML for the given team. Provide this URL or its content to your IdP during configuration.',
       auth: 'none',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The organization whose SP metadata should be returned.',
-          example: 'org_01hx9k2m4p',
-        },
-      ],
+        ],
       responseFields: [
         { name: '(XML document)', type: 'string', description: 'SAML 2.0 EntityDescriptor XML. Content-Type: application/xml.' },
       ],

@@ -41,8 +41,8 @@ const features = [
   },
   {
     icon: Users,
-    title: 'Multi-Tenancy',
-    description: 'Built-in organization management with RBAC. Isolate tenants, manage teams, and control access at every level.',
+    title: 'Team Governance',
+    description: 'Built-in team management with granular RBAC. Secure your environment, manage collaborators, and control access at every level.',
     color: '#8b5cf6',
   },
   {
@@ -87,7 +87,7 @@ const steps = [
   {
     number: '01',
     title: 'Create your project',
-    description: 'Sign up, create an organization, and configure your first application in under a minute.',
+    description: 'Sign up, set up your project, and configure your first application in under a minute.',
   },
   {
     number: '02',
