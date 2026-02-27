@@ -1,4 +1,5 @@
 export { authSection } from './authentication';
+export { settingsSection } from './settings';
 export { usersSection } from './users';
 export { groupsSection } from './groups';
 export { applicationsSection } from './applications';

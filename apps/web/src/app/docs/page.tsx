@@ -11,6 +11,13 @@ const sections = [
     count: 18,
   },
   {
+    title: 'Settings & Configuration',
+    href: '/docs/api-reference/settings',
+    description:
+      'Instance settings, branding configuration, onboarding, and session statistics.',
+    count: 6,
+  },
+  {
     title: 'Users',
     href: '/docs/api-reference/users',
     description:
@@ -144,7 +151,7 @@ export default function DocsHomePage() {
             color: 'var(--text-secondary)',
           }}
         >
-          121 endpoints
+          127 endpoints
         </div>
         <div
           style={{

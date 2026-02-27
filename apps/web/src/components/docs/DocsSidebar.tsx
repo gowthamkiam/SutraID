@@ -14,6 +14,7 @@ const navigation: NavItem[] = [
     label: 'API Reference',
     children: [
       { label: 'Authentication & MFA', href: '/docs/api-reference/authentication' },
+      { label: 'Settings & Configuration', href: '/docs/api-reference/settings' },
       { label: 'Users', href: '/docs/api-reference/users' },
       { label: 'Groups', href: '/docs/api-reference/groups' },
       { label: 'Applications', href: '/docs/api-reference/applications' },
