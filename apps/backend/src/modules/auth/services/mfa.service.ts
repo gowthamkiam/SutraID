@@ -12,11 +12,23 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import * as QRCode from 'qrcode';
 import * as OTPAuth from 'otpauth';
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} from '@simplewebauthn/server';
+import type {
+  RegistrationResponseJSON,
+  AuthenticationResponseJSON,
+  AuthenticatorTransportFuture,
+} from '@simplewebauthn/server';
 
 @Injectable()
 export class MfaService {
   private jwtSecret: Uint8Array;
   private encryptionKey: Buffer;
+  private challengeStore = new Map<string, { challenge: string; expires: number }>();
 
   constructor(
     private prisma: PrismaService,
@@ -408,47 +420,79 @@ export class MfaService {
     }
   }
 
-  /**
-   * Get WebAuthn Passkey options for enrollment
-   */
+  private get rpID(): string {
+    return this.config.get<string>('APP_DOMAIN') || 'localhost';
+  }
+
+  private get expectedOrigin(): string {
+    return this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+  }
+
   async getPasskeyOptions(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
-    const challenge = crypto.randomBytes(32).toString('base64url');
+    const existingDevices = await this.prisma.mfaMethod.findMany({
+      where: { userId, type: 'FIDO2', enabled: true, verified: true },
+    });
 
-    return {
-      challenge,
-      rp: { name: 'SutraID', id: 'localhost' },
-      user: {
-        id: Buffer.from(userId).toString('base64url'),
-        name: user.email,
-        displayName: user.firstName ? `${user.firstName} ${user.lastName}` : user.email,
-      },
-      pubKeyCredParams: [
-        { alg: -7, type: 'public-key' }, // ES256
-        { alg: -257, type: 'public-key' }, // RS256
-      ],
-      timeout: 60000,
-      attestation: 'direct',
+    const options = await generateRegistrationOptions({
+      rpName: 'SutraID',
+      rpID: this.rpID,
+      userName: user.email,
+      userDisplayName: user.firstName ? `${user.firstName} ${user.lastName}` : user.email,
+      attestationType: 'none',
       authenticatorSelection: {
         residentKey: 'required',
         userVerification: 'preferred',
       },
-    };
+      excludeCredentials: existingDevices
+        .filter((d) => d.webAuthnCredentialID)
+        .map((d) => ({
+          id: d.webAuthnCredentialID!,
+          transports: d.webAuthnTransports as AuthenticatorTransportFuture[],
+        })),
+      supportedAlgorithmIDs: [-7, -257],
+    });
+
+    this.challengeStore.set(userId, {
+      challenge: options.challenge,
+      expires: Date.now() + 5 * 60 * 1000,
+    });
+
+    return options;
   }
 
-  /**
-   * Enroll a new Passkey
-   */
-  async enrollPasskey(userId: string, credential: any) {
-    // In a real implementation, verify the attestation response here
-    // For now, we'll store the public key metadata
+  async enrollPasskey(userId: string, credential: RegistrationResponseJSON) {
+    const stored = this.challengeStore.get(userId);
+    if (!stored || Date.now() > stored.expires) {
+      throw new BadRequestException('Challenge expired or not found. Please request new options.');
+    }
+
+    const verification = await verifyRegistrationResponse({
+      response: credential,
+      expectedChallenge: stored.challenge,
+      expectedOrigin: this.expectedOrigin,
+      expectedRPID: this.rpID,
+    });
+
+    if (!verification.verified || !verification.registrationInfo) {
+      throw new BadRequestException('Passkey verification failed');
+    }
+
+    const { credential: cred, credentialDeviceType, credentialBackedUp } =
+      verification.registrationInfo;
+    this.challengeStore.delete(userId);
+
     await this.prisma.mfaMethod.create({
       data: {
         userId,
-        type: 'FIDO2' as any, // FIDO2/PASSKEY
-        name: 'Biometric Passkey',
+        type: 'FIDO2',
+        name: credentialBackedUp ? 'Synced Passkey' : 'Device-bound Passkey',
+        webAuthnCredentialID: cred.id,
+        webAuthnPublicKey: Buffer.from(cred.publicKey).toString('base64url'),
+        webAuthnCounter: cred.counter,
+        webAuthnTransports: (credential.response.transports as string[]) || [],
         verified: true,
         enabled: true,
       },
@@ -459,22 +503,108 @@ export class MfaService {
       data: { mfaEnabled: true },
     });
 
+    try {
+      await this.auditService.log({
+        userId,
+        action: 'user.mfa.enrolled',
+        resource: 'auth:mfa',
+        result: 'SUCCESS',
+        metadata: { type: 'FIDO2', deviceType: credentialDeviceType },
+      });
+    } catch (e) {
+      console.error('Audit log failed:', e);
+    }
+
     return { success: true };
   }
 
-  /**
-   * Toggle Adaptive Auth
-   */
-  async toggleAdaptiveAuth(userId: string, enabled: boolean) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+  async getPasskeyAuthOptions(userId: string) {
+    const methods = await this.prisma.mfaMethod.findMany({
+      where: { userId, type: 'FIDO2', enabled: true, verified: true },
     });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
+    if (methods.length === 0) {
+      throw new BadRequestException('No passkeys enrolled');
     }
 
-    return { success: true, enabled };
+    const options = await generateAuthenticationOptions({
+      rpID: this.rpID,
+      userVerification: 'preferred',
+      allowCredentials: methods
+        .filter((m) => m.webAuthnCredentialID)
+        .map((m) => ({
+          id: m.webAuthnCredentialID!,
+          transports: m.webAuthnTransports as AuthenticatorTransportFuture[],
+        })),
+    });
+
+    this.challengeStore.set(`auth:${userId}`, {
+      challenge: options.challenge,
+      expires: Date.now() + 5 * 60 * 1000,
+    });
+
+    return options;
+  }
+
+  async verifyPasskeyAuth(
+    userId: string,
+    response: AuthenticationResponseJSON,
+  ): Promise<boolean> {
+    const stored = this.challengeStore.get(`auth:${userId}`);
+    if (!stored || Date.now() > stored.expires) return false;
+
+    const method = await this.prisma.mfaMethod.findFirst({
+      where: {
+        userId,
+        type: 'FIDO2',
+        webAuthnCredentialID: response.id,
+        enabled: true,
+        verified: true,
+      },
+    });
+    if (!method || !method.webAuthnPublicKey) return false;
+
+    try {
+      const verification = await verifyAuthenticationResponse({
+        response,
+        expectedChallenge: stored.challenge,
+        expectedOrigin: this.expectedOrigin,
+        expectedRPID: this.rpID,
+        credential: {
+          id: method.webAuthnCredentialID!,
+          publicKey: Buffer.from(method.webAuthnPublicKey, 'base64url'),
+          counter: method.webAuthnCounter || 0,
+          transports: method.webAuthnTransports as AuthenticatorTransportFuture[],
+        },
+      });
+
+      if (verification.verified) {
+        this.challengeStore.delete(`auth:${userId}`);
+        await this.prisma.mfaMethod.update({
+          where: { id: method.id },
+          data: {
+            webAuthnCounter: verification.authenticationInfo.newCounter,
+            lastUsedAt: new Date(),
+          },
+        });
+
+        try {
+          await this.auditService.log({
+            userId,
+            action: 'user.mfa.verified',
+            resource: 'auth:mfa',
+            result: 'SUCCESS',
+            metadata: { type: 'FIDO2' },
+          });
+        } catch (e) {
+          console.error('Audit log failed:', e);
+        }
+      }
+
+      return verification.verified;
+    } catch {
+      return false;
+    }
   }
 
   // ===== Private helpers =====

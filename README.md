@@ -2,6 +2,9 @@
 
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Netlify Status](https://api.netlify.com/api/v1/badges/be04b8f9-2a7f-4d0a-8b12-c40ec8304b55/deploy-status)](https://app.netlify.com/projects/sutraid/deploys)
+[![CISA Secure-by-Design](https://img.shields.io/badge/CISA-Secure--by--Design-blue)](https://www.cisa.gov/securebydesign)
+[![Security Policy](https://img.shields.io/badge/Security-See%20SECURITY.md-brightgreen)](SECURITY.md)
+[![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-success)](scripts/generate-sbom.sh)
 
 <a href="https://www.netlify.com">
   <img src="https://www.netlify.com/assets/badges/netlify-badge-color-accent.svg" alt="Deploys by Netlify" />
@@ -69,6 +72,24 @@ It is designed to authenticate and authorize both **human users** and **AI agent
   - Documentation portal at `/docs`
 
 > **Note:** All billing, pricing tables, and subscription dashboards have been removed from this open-source version. You are free to add your own billing layer on top if needed.
+
+---
+
+## Security Features
+
+SutraID is built with [CISA Secure-by-Design](https://www.cisa.gov/securebydesign) principles:
+
+- **Authentication Security** — Bcrypt-12 password hashing, TOTP MFA with AES-256-GCM encrypted secrets, WebAuthn/Passkey (FIDO2) support, short-lived JWT tokens (15 min), secure httpOnly cookies
+- **Brute Force Protection** — Rate limiting on login, magic link, and password reset endpoints with per-IP+email tracking
+- **Password Policy** — Configurable complexity requirements (uppercase, lowercase, numbers, symbols), common password blocklist
+- **MFA Enforcement** — Organization-level MFA policy with configurable grace period for onboarding
+- **Security Headers** — Helmet.js with CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy
+- **Input Validation** — Global ValidationPipe with class-validator, Prisma ORM (SQL injection prevention)
+- **Supply Chain Security** — CycloneDX SBOM generation, Dependabot automated scanning, CodeQL SAST
+- **Audit Logging** — Comprehensive audit trail for auth events, policy decisions, and admin actions
+- **Security Metrics** — Dashboard tracking MFA adoption, failed logins, and security event trends
+
+See [SECURITY.md](SECURITY.md) for vulnerability reporting | [ROADMAP.md](ROADMAP.md) for planned security features | [CHANGELOG.md](CHANGELOG.md) for security fixes
 
 ---
 

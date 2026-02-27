@@ -16,6 +16,7 @@ import { UsersModule } from './modules/organization/users/users.module';
 import { GroupsModule } from './modules/organization/groups/groups.module';
 import { OnboardModule } from './modules/onboard/onboard.module';
 import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
+import { SecurityMetricsModule } from './modules/security-metrics/security-metrics.module';
 
 @Module({
   imports: [
@@ -52,6 +53,8 @@ import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
     OnboardModule,
     // AI Agent module (AI agent identity & protected endpoints)
     AiAgentModule,
+    // Security metrics module (CISA Goal 7)
+    SecurityMetricsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

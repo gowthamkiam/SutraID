@@ -23,7 +23,7 @@ export class SsoAuthController {
     private readonly oidcClientService: OidcClientService,
     private readonly ssoService: SsoService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   /**
    * Discover SSO providers by email domain (public endpoint for login page)
@@ -123,6 +123,10 @@ export class SsoAuthController {
     res.send(metadata);
   }
 
+  private sanitize(input: string): string {
+    return (input || '').replace(/[<>]/g, '');
+  }
+
   // ============================================================================
   // OIDC Service Provider Endpoints
   // ============================================================================
@@ -149,7 +153,7 @@ export class SsoAuthController {
 
       res.redirect(url);
     } catch (error: any) {
-      throw new BadRequestException(`OIDC login failed: ${error.message}`);
+      throw new BadRequestException(`OIDC login failed: ${this.sanitize(error.message)}`);
     }
   }
 

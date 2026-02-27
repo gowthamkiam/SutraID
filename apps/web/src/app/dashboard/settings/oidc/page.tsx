@@ -185,7 +185,7 @@ export default function OidcSettingsPage() {
                 </div>
             )}
 
-            {!loading && oidcApps.length === 0 && (
+            {oidcApps.length === 0 && (
                 <div style={{
                     padding: '40px',
                     textAlign: 'center',

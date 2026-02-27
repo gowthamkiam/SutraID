@@ -33,7 +33,7 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private appConfigService: AppConfigService,
-  ) {}
+  ) { }
 
   @Get('branding')
   async getBranding(): Promise<BrandingResponseDto> {
@@ -94,7 +94,7 @@ export class AuthController {
     if (result.accessToken && !result.mfaRequired) {
       res.cookie('access_token', result.accessToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: true,
         sameSite: 'lax',
         maxAge: 15 * 60 * 1000,
         path: '/',

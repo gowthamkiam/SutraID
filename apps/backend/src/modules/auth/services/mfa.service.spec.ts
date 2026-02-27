@@ -17,7 +17,10 @@ describe('MfaService', () => {
     },
     mfaMethod: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
+      create: jest.fn(),
+      deleteMany: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -118,14 +121,20 @@ describe('MfaService', () => {
     });
   });
 
-  describe('toggleAdaptiveAuth', () => {
-    it('should return success true and the enabled flag', async () => {
+  describe('getPasskeyOptions', () => {
+    it('should return registration options for a valid user', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-1',
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
       } as any);
+      mockPrismaService.mfaMethod.findMany.mockResolvedValue([]);
 
-      const result = await service.toggleAdaptiveAuth('user-1', true);
-      expect(result).toEqual({ success: true, enabled: true });
+      const result = await service.getPasskeyOptions('user-1');
+      expect(result).toHaveProperty('challenge');
+      expect(result).toHaveProperty('rp');
+      expect(result.rp.name).toBe('SutraID');
     });
   });
 });

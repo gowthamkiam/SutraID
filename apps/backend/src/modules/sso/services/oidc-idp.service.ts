@@ -696,7 +696,8 @@ export class OidcIdpService {
   async dispatchToProvider(applicationId: string, req: any, res: any): Promise<void> {
     const provider = await this.getProviderInstance(applicationId);
     const issuerPath = this.getIssuerPath(applicationId);
-    const originalUrl: string = req.url;
+    let originalUrl: string = req.url || '';
+    originalUrl = originalUrl.replace(/[\n\r]/g, '');
 
     console.log(`🔍 [OIDC] Dispatching request. Original URL: ${originalUrl}, Issuer Path: ${issuerPath}`);
 

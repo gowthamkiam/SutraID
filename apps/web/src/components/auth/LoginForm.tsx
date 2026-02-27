@@ -89,8 +89,11 @@ export default function LoginForm({ branding }: LoginFormProps) {
     const params = new URLSearchParams(window.location.search);
     const returnUrl = params.get('returnUrl');
     if (returnUrl) {
-      window.location.href = decodeURIComponent(returnUrl);
-      return;
+      const decodedUrl = decodeURIComponent(returnUrl);
+      if (decodedUrl.startsWith('/') && !decodedUrl.startsWith('//')) {
+        window.location.href = decodedUrl;
+        return;
+      }
     }
     window.location.href = '/dashboard';
   };
@@ -352,7 +355,7 @@ export default function LoginForm({ branding }: LoginFormProps) {
           <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
               <label htmlFor="email" style={{ ...labelStyle, marginBottom: 0 }}>Email Address</label>
-                <button
+              <button
                 type="button"
                 onMouseEnter={() => setShowDemoTip(true)}
                 onMouseLeave={() => setShowDemoTip(false)}
@@ -372,9 +375,9 @@ export default function LoginForm({ branding }: LoginFormProps) {
                   padding: 0,
                 }}
                 aria-label="Demo environment help text"
-                >
+              >
                 ?
-                </button>
+              </button>
             </div>
 
             {showDemoTip && (
