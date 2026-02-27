@@ -58,13 +58,7 @@ export class AuthService {
     let user = await this.prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      user = await this.prisma.user.create({
-        data: {
-          email,
-          emailVerified: false,
-          status: 'ACTIVE',
-        },
-      });
+      throw new NotFoundException('User not found. Please contact your administrator.');
     }
 
     if (user.status !== 'ACTIVE') {

@@ -106,21 +106,17 @@ describe('AuthService', () => {
   });
 
   describe('requestMagicLink', () => {
-    it('should create user and send magic link for new email', async () => {
+    it('should throw NotFoundException for new email', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null);
-      mockPrismaService.user.create.mockResolvedValue({
-        id: 'user-1',
-        email: 'test@example.com',
-        status: 'ACTIVE',
-      } as any);
-      mockPrismaService.authChallenge.create.mockResolvedValue({} as any);
 
-      const result = await service.requestMagicLink('test@example.com');
+      await expect(
+        service.requestMagicLink('unknown@example.com'),
+      ).rejects.toThrow(NotFoundException);
 
-      expect(result.message).toContain('Magic link sent');
-      expect(mockPrismaService.user.create).toHaveBeenCalled();
-      expect(mockPrismaService.authChallenge.create).toHaveBeenCalled();
+      expect(mockPrismaService.user.create).not.toHaveBeenCalled();
+      expect(mockPrismaService.authChallenge.create).not.toHaveBeenCalled();
     });
+
 
     it('should send magic link for existing user', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({

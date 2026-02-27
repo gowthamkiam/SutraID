@@ -27,34 +27,40 @@ interface SsoProviderInfo {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '0.875rem 1.25rem',
-  border: '1px solid rgba(255, 255, 255, 0.1)',
-  borderRadius: '12px',
+  padding: '0.875rem 1rem',
+  border: '1.5px solid #d1d5db',
+  borderRadius: '10px',
   fontSize: '0.95rem',
   outline: 'none',
-  transition: 'all 0.2s',
+  transition: 'border-color 0.2s, box-shadow 0.2s',
   boxSizing: 'border-box',
-  color: '#ffffff',
-  background: 'rgba(255, 255, 255, 0.05)',
+  color: '#111827',
+  background: '#fff',
 };
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
-  marginBottom: '0.625rem',
-  fontWeight: 600,
-  fontSize: '0.875rem',
-  color: '#9ca3af',
+  fontSize: '0.9rem',
+  fontWeight: '500',
+  marginBottom: '0.5rem',
+  color: '#374151',
 };
 
+function darkenHex(hex: string, percent: number): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.max(0, ((num >> 16) & 0xFF) - Math.round(255 * percent / 100));
+  const g = Math.max(0, ((num >> 8) & 0xFF) - Math.round(255 * percent / 100));
+  const b = Math.max(0, (num & 0xFF) - Math.round(255 * percent / 100));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
 function handleInputFocus(e: React.FocusEvent<HTMLInputElement>) {
-  e.target.style.borderColor = '#06b6d4';
-  e.target.style.background = 'rgba(255, 255, 255, 0.08)';
-  e.target.style.boxShadow = '0 0 0 4px rgba(6, 182, 212, 0.15)';
+  e.target.style.borderColor = '#4f46e5';
+  e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
 }
 
 function handleInputBlur(e: React.FocusEvent<HTMLInputElement>) {
-  e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-  e.target.style.background = 'rgba(255, 255, 255, 0.05)';
+  e.target.style.borderColor = '#d1d5db';
   e.target.style.boxShadow = 'none';
 }
 
@@ -73,6 +79,7 @@ export default function LoginForm({ branding }: LoginFormProps) {
   const [mfaToken, setMfaToken] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [isBackupCode, setIsBackupCode] = useState(false);
+  const [showDemoTip, setShowDemoTip] = useState(false);
 
   const accent = branding?.primaryColor || '#6366f1';
   const accentHover = branding?.primaryColor ? darkenHex(branding.primaryColor, 15) : '#4f46e5';
@@ -246,9 +253,6 @@ export default function LoginForm({ branding }: LoginFormProps) {
     setError('');
   };
 
-  const getHeading = () => {
-    return 'Sign in to your account';
-  };
 
   const getButtonLabel = () => {
     if (loading) {
@@ -264,32 +268,17 @@ export default function LoginForm({ branding }: LoginFormProps) {
       {branding?.customCss && <style dangerouslySetInnerHTML={{ __html: branding.customCss }} />}
 
       {/* Logo */}
-      <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
-        {branding?.logoUrl ? (
+      {branding?.logoUrl && (
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img
             src={branding.logoUrl}
             alt="Logo"
             style={{ maxHeight: '48px', maxWidth: '200px', objectFit: 'contain' }}
           />
-        ) : (
-          <h1 style={{
-            fontSize: '2.5rem',
-            fontWeight: 950,
-            margin: 0,
-            letterSpacing: '-0.05em',
-            color: '#ffffff',
-          }}>
-            <span style={{ color: '#4f46e5' }}>S</span>utra<span style={{ color: '#4f46e5' }}>ID</span>
-          </h1>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Heading */}
-      <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-        <p style={{ color: '#9ca3af', fontSize: '1.15rem', fontWeight: 500, margin: 0, letterSpacing: '-0.01em' }}>
-          {mfaRequired ? 'Two-Factor Authentication' : getHeading()}
-        </p>
-      </div>
+
 
       {/* MFA Challenge Form */}
       {mfaRequired ? (
@@ -329,9 +318,16 @@ export default function LoginForm({ branding }: LoginFormProps) {
             type="submit"
             disabled={loading}
             style={{
-              width: '100%', padding: '0.9rem', background: loading ? '#9ca3af' : accent,
-              color: '#fff', border: 'none', borderRadius: '50px', fontSize: '1rem',
-              fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', transition: 'background 0.2s',
+              width: '100%',
+              padding: '0.75rem 2rem',
+              background: loading ? '#9ca3af' : accent,
+              color: '#fff',
+              border: 'none',
+              borderRadius: '50px',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'background 0.2s',
             }}
             onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = accentHover; }}
             onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = accent; }}
@@ -353,9 +349,62 @@ export default function LoginForm({ branding }: LoginFormProps) {
         </form>
       ) : (
         <form onSubmit={handleSubmit}>
-          {/* Email */}
-          <div style={{ marginBottom: '1.25rem' }}>
-            <label htmlFor="email" style={labelStyle}>Email Address</label>
+          <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
+              <label htmlFor="email" style={{ ...labelStyle, marginBottom: 0 }}>Email Address</label>
+                <button
+                type="button"
+                onMouseEnter={() => setShowDemoTip(true)}
+                onMouseLeave={() => setShowDemoTip(false)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  background: '#e0e7ff',
+                  color: '#4f46e5',
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+                aria-label="Demo environment help text"
+                >
+                ?
+                </button>
+            </div>
+
+            {showDemoTip && (
+              <div style={{
+                position: 'absolute',
+                top: '-10px',
+                right: '0',
+                transform: 'translateY(-100%)',
+                background: '#111827',
+                color: '#fff',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                width: '100%',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                zIndex: 10,
+              }}>
+                <strong>Demo Environment:</strong> Ensure your email is registered first before logging in.
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-5px',
+                  left: '115px',
+                  width: '10px',
+                  height: '10px',
+                  background: '#111827',
+                  transform: 'rotate(45deg)',
+                }} />
+              </div>
+            )}
+
             <input
               id="email"
               type="email"
@@ -450,38 +499,28 @@ export default function LoginForm({ branding }: LoginFormProps) {
           )}
 
           {/* Submit button */}
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '1rem',
-              background: loading ? 'rgba(255,255,255,0.1)' : 'linear-gradient(to right, #6366f1, #a855f7)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '14px',
-              fontSize: '1rem',
-              fontWeight: 800,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-              letterSpacing: '0.01em',
-              boxShadow: loading ? 'none' : '0 8px 16px rgba(99, 102, 241, 0.2)',
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)';
-                e.currentTarget.style.boxShadow = '0 12px 24px rgba(99, 102, 241, 0.3)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!loading) {
-                e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                e.currentTarget.style.boxShadow = '0 8px 16px rgba(99, 102, 241, 0.2)';
-              }
-            }}
-          >
-            {getButtonLabel()}
-          </button>
+          <div style={{ marginTop: '2rem' }}>
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '0.75rem 2rem',
+                background: loading ? '#9ca3af' : accent,
+                color: '#fff',
+                border: 'none',
+                borderRadius: '50px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                transition: 'background 0.2s',
+              }}
+              onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = accentHover; }}
+              onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = accent; }}
+            >
+              {getButtonLabel()}
+            </button>
+          </div>
         </form>
       )}
 
@@ -498,8 +537,8 @@ export default function LoginForm({ branding }: LoginFormProps) {
 
       {error && (
         <div style={{
-          marginTop: '1.25rem', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)',
-          border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '14px', color: '#fca5a5',
+          marginTop: '1.25rem', padding: '1rem', background: '#fef2f2',
+          border: '1px solid #fecaca', borderRadius: '10px', color: '#991b1b',
           fontSize: '0.9rem', textAlign: 'center',
         }}>
           {error}
@@ -514,9 +553,9 @@ export default function LoginForm({ branding }: LoginFormProps) {
               <button
                 type="button"
                 onClick={() => switchMode('password')}
-                style={{ background: 'none', border: 'none', color: cyanAccent, fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'none', padding: 0 }}
-                onMouseEnter={(e) => e.currentTarget.style.color = '#22d3ee'}
-                onMouseLeave={(e) => e.currentTarget.style.color = cyanAccent}
+                style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'none', padding: 0 }}
+                onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+                onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
               >
                 Sign in with password
               </button>
@@ -537,9 +576,9 @@ export default function LoginForm({ branding }: LoginFormProps) {
               <button
                 type="button"
                 onClick={() => switchMode('magic-link')}
-                style={{ background: 'none', border: 'none', color: cyanAccent, fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'none', padding: 0 }}
-                onMouseEnter={(e) => e.currentTarget.style.color = '#22d3ee'}
-                onMouseLeave={(e) => e.currentTarget.style.color = cyanAccent}
+                style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'none', padding: 0 }}
+                onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+                onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
               >
                 Sign in with magic link
               </button>
@@ -558,12 +597,4 @@ export default function LoginForm({ branding }: LoginFormProps) {
       )}
     </>
   );
-}
-
-function darkenHex(hex: string, percent: number): string {
-  const num = parseInt(hex.replace('#', ''), 16);
-  const r = Math.max(0, ((num >> 16) & 0xFF) - Math.round(255 * percent / 100));
-  const g = Math.max(0, ((num >> 8) & 0xFF) - Math.round(255 * percent / 100));
-  const b = Math.max(0, (num & 0xFF) - Math.round(255 * percent / 100));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }

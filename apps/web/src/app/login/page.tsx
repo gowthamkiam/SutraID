@@ -61,11 +61,6 @@ export default function LoginPage() {
     );
   }
 
-  const bgColor = branding?.backgroundColor
-    || 'radial-gradient(circle at 50% -20%, #2e2f5e 0%, #0a0a0b 100%)';
-
-  const isGradient = bgColor.includes('gradient') || bgColor.includes('linear');
-
   return (
     <div style={{
       display: 'flex',
@@ -73,51 +68,57 @@ export default function LoginPage() {
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: '100vh',
-      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       padding: '2rem',
-      ...(isGradient
-        ? { background: bgColor }
-        : { backgroundColor: bgColor }),
+      background: 'linear-gradient(160deg, #0a1628 0%, #0f2035 25%, #0d2847 50%, #0a2a3c 75%, #0e1f2f 100%)',
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* Subtle grid pattern overlay */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)',
-        backgroundSize: '40px 40px',
-        pointerEvents: 'none',
-      }} />
+      <div style={{ maxWidth: '440px', width: '100%', position: 'relative', zIndex: 1 }}>
+        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+          <h1 style={{
+            fontSize: '2.5rem',
+            fontWeight: 700,
+            margin: '0 0 0.5rem 0',
+            letterSpacing: '-0.5px',
+            color: '#ffffff',
+          }}>
+            Welcome to <span style={{ color: '#4f46e5' }}>S</span>utra<span style={{ color: '#4f46e5' }}>ID</span>
+          </h1>
+          <p style={{ color: '#9ca3af', fontSize: '1.1rem', margin: 0 }}>
+            Sign in to continue
+          </p>
+        </div>
 
-      {/* Decorative background glow */}
-      <div style={{
-        position: 'absolute',
-        top: '20%',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '600px',
-        height: '600px',
-        background: 'radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%)',
-        filter: 'blur(80px)',
-        zIndex: 0,
-        pointerEvents: 'none',
-      }} />
+        <div style={{
+          background: '#ffffff',
+          padding: '3rem 2.5rem 1rem', // Reduced bottom padding slightly to pull copyright/footer closer
+          borderRadius: '20px',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+          width: '100%',
+          position: 'relative',
+          zIndex: 1,
+        }}>
+          <LoginForm branding={branding} />
 
-      <div style={{
-        background: 'rgba(17, 24, 39, 0.7)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        padding: '3.5rem 2.5rem',
-        borderRadius: '32px',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)',
-        maxWidth: '440px',
-        width: '100%',
-        position: 'relative',
-        zIndex: 1,
-      }}>
-        <LoginForm branding={branding} />
+          {/* Integrated Simple Footer */}
+          <div style={{
+            marginTop: '2rem',
+            paddingTop: '1.5rem',
+            borderTop: '1px solid #e5e7eb',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.75rem',
+          }}>
+            <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem' }}>
+              <a href="/privacy" style={{ color: '#6b7280', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#111827'} onMouseLeave={(e) => e.currentTarget.style.color = '#6b7280'}>Privacy Policy</a>
+              <a href="/security" style={{ color: '#6b7280', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#111827'} onMouseLeave={(e) => e.currentTarget.style.color = '#6b7280'}>Security</a>
+              <a href="/support" style={{ color: '#6b7280', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#111827'} onMouseLeave={(e) => e.currentTarget.style.color = '#6b7280'}>Contact</a>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: '#9ca3af' }}>&copy; {new Date().getFullYear()} SutraID. All rights reserved.</p>
+          </div>
+        </div>
       </div>
     </div>
   );
