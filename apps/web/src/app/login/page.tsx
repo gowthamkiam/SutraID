@@ -116,7 +116,7 @@ export default function LoginPage() {
               <a href="/security" style={{ color: '#6b7280', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#111827'} onMouseLeave={(e) => e.currentTarget.style.color = '#6b7280'}>Security</a>
               <a href="/support" style={{ color: '#6b7280', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#111827'} onMouseLeave={(e) => e.currentTarget.style.color = '#6b7280'}>Contact</a>
             </div>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: '#9ca3af' }}>&copy; {new Date().getFullYear()} SutraID. All rights reserved.</p>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: '#9ca3af' }}>&copy; {new Date().getFullYear()} SutraID.</p>
           </div>
         </div>
       </div>
