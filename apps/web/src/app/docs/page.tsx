@@ -11,13 +11,6 @@ const sections = [
     count: 18,
   },
   {
-    title: 'Organizations',
-    href: '/docs/api-reference/organizations',
-    description:
-      'Organization management, member invitations, role updates, and settings.',
-    count: 10,
-  },
-  {
     title: 'Users',
     href: '/docs/api-reference/users',
     description:

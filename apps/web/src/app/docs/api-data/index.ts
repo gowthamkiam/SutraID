@@ -1,5 +1,4 @@
 export { authSection } from './authentication';
-export { organizationsSection } from './organizations';
 export { usersSection } from './users';
 export { groupsSection } from './groups';
 export { applicationsSection } from './applications';
