@@ -81,8 +81,9 @@ export default function LoginForm({ branding }: LoginFormProps) {
   const [isBackupCode, setIsBackupCode] = useState(false);
   const [showDemoTip, setShowDemoTip] = useState(false);
 
-  const accent = branding?.primaryColor || '#6366f1';
-  const accentHover = branding?.primaryColor ? darkenHex(branding.primaryColor, 15) : '#4f46e5';
+  const isAccentUnset = !branding?.primaryColor || branding.primaryColor === '#000000';
+  const accent = isAccentUnset ? '#6366f1' : branding!.primaryColor!;
+  const accentHover = isAccentUnset ? '#4f46e5' : darkenHex(branding!.primaryColor!, 15);
   const cyanAccent = '#06b6d4';
 
   const redirectAfterLogin = (_accessToken: string) => {
