@@ -472,7 +472,7 @@ model OidcTokenPolicy {
   applicationId        String      @unique
   accessTokenLifetime  Int         @default(3600)
   idTokenLifetime      Int         @default(3600)
-  refreshTokenLifetime Int         @default(2592000)
+  refreshTokenLifetime Int         @default(86400)
   rotationEnabled      Boolean     @default(true)
   reuseInterval        Int         @default(30)
   createdAt            DateTime    @default(now())

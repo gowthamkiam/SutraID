@@ -1,8 +1,8 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import { User } from '@prisma/client';
 import * as crypto from 'crypto';
+import { generateKeyPair, exportJWK } from 'jose';
 import { RegexService } from '../utils/regex.service';
 import { OidcConfigService } from './oidc-config.service';
 import { AuditService } from '../../audit/audit.service';
@@ -51,13 +51,19 @@ export class OidcIdpService {
       throw new BadRequestException('Application not found');
     }
 
-    // Load dynamic configuration (now at app level)
-    const [tokenPolicy, signingKeys, customScopes, customClaims] = await Promise.all([
+    const [tokenPolicy, existingKeys, customScopes, customClaims] = await Promise.all([
       this.oidcConfigService.getTokenPolicy(applicationId),
       this.oidcConfigService.getSigningKeysWithPrivate(applicationId),
       this.oidcConfigService.getScopes(applicationId),
       this.oidcConfigService.getClaims(applicationId),
     ]);
+
+    // Auto-generate RS256 signing key if none exist
+    let signingKeys = existingKeys;
+    if (signingKeys.length === 0) {
+      const generated = await this.generateAndPersistSigningKey(applicationId);
+      signingKeys = [generated];
+    }
 
     const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
     const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${applicationId}`;
@@ -70,8 +76,6 @@ export class OidcIdpService {
       // Adapter still needs to store tokens — we'll pass applicationId for filtering
       adapter: this.createAdapter(applicationId),
 
-      // Build dynamic grant types based on per-app settings
-      // Client registration - only this specific client for this instance
       clients: (() => {
         const clientGrants = ['authorization_code', 'refresh_token'];
         if (application.allowClientCredentials) clientGrants.push('client_credentials');
@@ -139,9 +143,19 @@ export class OidcIdpService {
         return this.findAccount(applicationId, sub);
       },
 
-      // Extra access token claims for AI agents
       extraAccessTokenClaims: async (ctx: any, token: any) => {
         const claims: any = {};
+
+        // Include roles claim from user
+        if (token.accountId) {
+          const user = await this.prisma.user.findUnique({
+            where: { id: token.accountId },
+            select: { role: true },
+          });
+          if (user?.role) {
+            claims.roles = [user.role];
+          }
+        }
 
         if (application.isAiAgent && ctx.oidc?.grant?.type === 'client_credentials') {
           claims.typ = 'ai_agent';
@@ -157,13 +171,21 @@ export class OidcIdpService {
         return claims;
       },
 
-      // OAuth 2.1: only authorization code flow (no implicit)
+      // Refresh token rotation
+      rotateRefreshToken: (ctx: any) => {
+        if (!tokenPolicy.rotationEnabled) return false;
+        const token = ctx.oidc.entities.RefreshToken;
+        if (!token) return true;
+        const sinceLastRotation = (Date.now() - token.iat * 1000) / 1000;
+        return sinceLastRotation >= tokenPolicy.reuseInterval;
+      },
+
       responseTypes: ['code'],
 
-      // Grant types (dynamic per application)
       grantTypes: (() => {
         const grants = ['authorization_code', 'refresh_token'];
         if (application.allowClientCredentials) grants.push('client_credentials');
+        if (application.allowROPC) grants.push('password');
         return grants;
       })(),
 
@@ -225,11 +247,6 @@ export class OidcIdpService {
       },
     });
 
-    // Register ROPC (password) grant handler if enabled for this application
-    if (application.allowROPC) {
-      await this.registerPasswordGrant(provider, application, applicationId);
-    }
-
     // Cache the instance
     this.providerInstances.set(applicationId, provider);
 
@@ -237,106 +254,24 @@ export class OidcIdpService {
   }
 
   /**
-   * Register custom password (ROPC) grant type on the oidc-provider instance.
-   * Issues access_token only (no id_token). Optional refresh_token based on app config.
+   * Auto-generate and persist an RS256 signing key for an application
    */
-  private async registerPasswordGrant(
-    provider: any,
-    application: any,
-    applicationId: string,
-  ): Promise<void> {
-    const prisma = this.prisma;
-    const auditService = this.auditService;
-    const bcryptMod = await this.dynamicImport('bcrypt');
+  private async generateAndPersistSigningKey(applicationId: string) {
+    const { publicKey, privateKey } = await generateKeyPair('RS256');
+    const publicJwk = await exportJWK(publicKey);
+    const privateJwk = await exportJWK(privateKey);
+    const kid = `sig-${crypto.randomBytes(8).toString('hex')}`;
 
-    provider.registerGrantType('password', async function passwordGrant(ctx: any, next: any) {
-      const { client } = ctx.oidc;
-      const { username, password: pwd, scope: requestedScope } = ctx.oidc.params;
-
-      if (!username || !pwd) {
-        ctx.body = { error: 'invalid_grant', error_description: 'username and password are required' };
-        ctx.status = 400;
-        return next();
-      }
-
-      // Find user
-      const user = await prisma.user.findFirst({
-        where: {
-          email: username,
-        },
-      });
-
-      if (!user || !user.passwordHash) {
-        await auditService.log({
-          action: 'oauth.ropc',
-          resource: `application:${applicationId}`,
-          result: 'FAILURE',
-          metadata: { username, reason: 'invalid_credentials', grant_type: 'password' },
-          riskScore: 0.7,
-        });
-        ctx.body = { error: 'invalid_grant', error_description: 'invalid username or password' };
-        ctx.status = 400;
-        return next();
-      }
-
-      const valid = await bcryptMod.compare(pwd, user.passwordHash);
-      if (!valid) {
-        await auditService.log({
-          userId: user.id,
-          action: 'oauth.ropc',
-          resource: `application:${applicationId}`,
-          result: 'FAILURE',
-          metadata: { username, reason: 'wrong_password', grant_type: 'password' },
-          riskScore: 0.8,
-        });
-        ctx.body = { error: 'invalid_grant', error_description: 'invalid username or password' };
-        ctx.status = 400;
-        return next();
-      }
-
-      // Issue access token only (NO id_token for ROPC per spec)
-      const scope = requestedScope || 'openid';
-      const at = new provider.AccessToken({
-        accountId: user.id,
-        client,
-        grantId: ctx.oidc.uid || crypto.randomUUID(),
-        scope,
-      });
-      at.setAudiences(client.clientId);
-
-      const accessToken = await at.save();
-      const tokenType = at.tokenType || 'Bearer';
-
-      ctx.body = {
-        access_token: accessToken,
-        token_type: tokenType,
-        expires_in: at.expiration,
-        scope,
-      };
-
-      // Optionally issue refresh token
-      if (application.allowRefreshForROPC) {
-        const rt = new provider.RefreshToken({
-          accountId: user.id,
-          client,
-          grantId: ctx.oidc.uid || crypto.randomUUID(),
-          scope,
-        });
-        const refreshToken = await rt.save();
-        ctx.body.refresh_token = refreshToken;
-      }
-
-      await auditService.log({
-        userId: user.id,
-        action: 'oauth.ropc',
-        resource: `application:${applicationId}`,
-        result: 'SUCCESS',
-        metadata: { username, scope, grant_type: 'password' },
-        riskScore: 0.5,
-      });
-
-      await next();
-    }, ['username', 'password', 'scope']);
+    return this.prisma.oidcSigningKey.create({
+      data: {
+        applicationId,
+        kid,
+        algorithm: 'RS256',
+        publicKey: JSON.stringify(publicJwk),
+        privateKey: JSON.stringify({ ...privateJwk, kid, alg: 'RS256', use: 'sig' }),
+        isDefault: true,
+      },
+    });
   }
 
   /**
@@ -470,28 +405,6 @@ export class OidcIdpService {
   }
 
   /**
-   * Get registered OIDC clients (not used in single-app mode, kept for compatibility)
-   */
-  private async getClients(applicationId: string) {
-    const application = await this.prisma.application.findUnique({
-      where: { id: applicationId },
-    });
-
-    if (!application) return [];
-
-    const isPublic = !application.clientSecretHash;
-    return [{
-      client_id: application.clientId,
-      ...(!isPublic ? { client_secret: application.clientSecretHash } : {}),
-      grant_types: ['authorization_code', 'refresh_token'],
-      redirect_uris: application.redirectUris as string[],
-      post_logout_redirect_uris: application.redirectUris as string[],
-      response_types: ['code'],
-      token_endpoint_auth_method: isPublic ? 'none' : 'client_secret_post',
-    }];
-  }
-
-  /**
    * Find user account by ID
    */
   private async findAccount(applicationId: string, userId: string) {
@@ -519,6 +432,10 @@ export class OidcIdpService {
           family_name: user.lastName,
           updated_at: Math.floor(user.updatedAt.getTime() / 1000),
         };
+
+        if (user.role) {
+          claims.roles = [user.role];
+        }
 
         // Process custom claims
         for (const claimDef of customClaims) {
@@ -644,6 +561,7 @@ export class OidcIdpService {
       select: { allowROPC: true, allowClientCredentials: true },
     });
 
+    const oauthBase = `${baseUrl}/api/v1/oauth`;
     const grantTypes = ['authorization_code', 'refresh_token'];
     if (app?.allowClientCredentials) grantTypes.push('client_credentials');
     if (app?.allowROPC) grantTypes.push('password');
@@ -651,16 +569,26 @@ export class OidcIdpService {
     return {
       issuer,
       authorization_endpoint: `${issuer}/authorize`,
-      token_endpoint: `${issuer}/token`,
+      token_endpoint: `${oauthBase}/token`,
       userinfo_endpoint: `${issuer}/userinfo`,
       jwks_uri: `${issuer}/jwks`,
-      registration_endpoint: `${issuer}/register`,
+      revocation_endpoint: `${oauthBase}/revoke`,
+      introspection_endpoint: `${oauthBase}/introspect`,
+      end_session_endpoint: `${issuer}/end-session`,
       scopes_supported: ['openid', 'email', 'profile', 'offline_access'],
       response_types_supported: ['code'],
       grant_types_supported: grantTypes,
       subject_types_supported: ['public'],
       id_token_signing_alg_values_supported: ['RS256'],
       token_endpoint_auth_methods_supported: [
+        'client_secret_post',
+        'client_secret_basic',
+      ],
+      revocation_endpoint_auth_methods_supported: [
+        'client_secret_post',
+        'client_secret_basic',
+      ],
+      introspection_endpoint_auth_methods_supported: [
         'client_secret_post',
         'client_secret_basic',
       ],
@@ -672,6 +600,7 @@ export class OidcIdpService {
         'given_name',
         'family_name',
         'updated_at',
+        'roles',
       ],
       code_challenge_methods_supported: ['S256'],
     };
@@ -697,15 +626,16 @@ export class OidcIdpService {
     const provider = await this.getProviderInstance(applicationId);
     const issuerPath = this.getIssuerPath(applicationId);
     let originalUrl: string = req.url || '';
-    originalUrl = originalUrl.replace(/[\n\r]/g, '');
+    const safeLogUrl = JSON.stringify(originalUrl);
 
-    console.log(`🔍 [OIDC] Dispatching request. Original URL: ${originalUrl}, Issuer Path: ${issuerPath}`);
+    console.log(`🔍 [OIDC] Dispatching request. Original URL: ${safeLogUrl}, Issuer Path: ${issuerPath}`);
 
     req.url = originalUrl.startsWith(issuerPath)
       ? originalUrl.slice(issuerPath.length) || '/'
       : originalUrl;
 
-    console.log(`🔍 [OIDC] Stripped URL: ${req.url}`);
+    const safeStrippedUrl = JSON.stringify(req.url);
+    console.log(`🔍 [OIDC] Stripped URL: ${safeStrippedUrl}`);
 
     await (provider.app.callback())(req, res);
     req.url = originalUrl;

@@ -154,11 +154,6 @@ export class OidcIdpController {
     }
   }
 
-  /**
-   * GET /userinfo
-   * OIDC UserInfo endpoint
-   * Returns user claims based on access token
-   */
   @Get('userinfo')
   @HttpCode(HttpStatus.OK)
   async userinfo(
@@ -169,7 +164,20 @@ export class OidcIdpController {
     try {
       await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
     } catch (error: any) {
-      console.error('❌ OIDC userinfo error:', error);
+      throw new UnauthorizedException(error.message);
+    }
+  }
+
+  @Post('userinfo')
+  @HttpCode(HttpStatus.OK)
+  async userinfoPost(
+    @Param('appId') applicationId: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
+    } catch (error: any) {
       throw new UnauthorizedException(error.message);
     }
   }
@@ -305,10 +313,32 @@ export class OidcIdpController {
     }
   }
 
-  /**
-   * ALL /callback
-   * Callback endpoint (catch-all for oidc-provider internal routes)
-   */
+  @Get('end-session')
+  async endSessionGet(
+    @Param('appId') applicationId: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
+    } catch (error: any) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  @Post('end-session')
+  async endSessionPost(
+    @Param('appId') applicationId: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
+    } catch (error: any) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
   @Get('*')
   @Post('*')
   async callback(

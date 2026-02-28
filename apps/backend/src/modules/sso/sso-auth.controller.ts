@@ -153,7 +153,7 @@ export class SsoAuthController {
 
       res.redirect(url);
     } catch (error: any) {
-      throw new BadRequestException(`OIDC login failed: ${this.sanitize(error.message)}`);
+      throw new BadRequestException('OIDC login failed');
     }
   }
 

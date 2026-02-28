@@ -62,6 +62,11 @@ describe('OidcIdpService', () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
     },
+    oidcSigningKey: {
+      create: jest.fn().mockResolvedValue({
+        id: '1', kid: 'sig-123', algorithm: 'RS256', publicKey: 'PUB', privateKey: 'PRIV', isDefault: true
+      })
+    },
     user: {
       findFirst: jest.fn(),
     },
@@ -190,7 +195,7 @@ describe('OidcIdpService', () => {
         'http://localhost:3000/api/v1/sso/oidc-idp/app-1/authorize',
       );
       expect(metadata.token_endpoint).toBe(
-        'http://localhost:3000/api/v1/sso/oidc-idp/app-1/token',
+        'http://localhost:3000/api/v1/oauth/token',
       );
       expect(metadata.response_types_supported).toEqual(['code']);
       expect(metadata.grant_types_supported).toEqual(['authorization_code', 'refresh_token']);

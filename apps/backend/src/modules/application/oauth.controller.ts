@@ -92,7 +92,6 @@ export class OauthController {
             }
         }
 
-        // Pre-validate grant type before delegating to oidc-provider
         const grantType = req.body?.grant_type;
         if (grantType === 'password' && !application.allowROPC) {
             return res.status(400).json({
@@ -100,16 +99,16 @@ export class OauthController {
                 error_description: 'Password grant is not enabled for this application',
             });
         }
-        if (grantType === 'client_credentials' && !application.allowClientCredentials) {
-            return res.status(400).json({
-                error: 'unsupported_grant_type',
-                error_description: 'Client credentials grant is not enabled for this application',
-            });
-        }
         if (grantType === 'implicit') {
             return res.status(400).json({
                 error: 'unsupported_grant_type',
                 error_description: 'Implicit grant is not supported',
+            });
+        }
+        if (grantType === 'client_credentials' && !application.allowClientCredentials) {
+            return res.status(400).json({
+                error: 'unsupported_grant_type',
+                error_description: 'Client credentials grant is not enabled for this application',
             });
         }
 
@@ -310,7 +309,7 @@ export class OpenidConfigurationController {
     constructor(
         private config: ConfigService,
         private prisma: PrismaService,
-    ) {}
+    ) { }
 
     @Get(':appId')
     async getAppConfiguration(
@@ -323,6 +322,7 @@ export class OpenidConfigurationController {
 
         const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
         const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${appId}`;
+        const oauthBase = `${baseUrl}/api/v1/oauth`;
 
         const grantTypes = ['authorization_code', 'refresh_token'];
         if (app?.allowClientCredentials) grantTypes.push('client_credentials');
@@ -331,10 +331,12 @@ export class OpenidConfigurationController {
         return {
             issuer,
             authorization_endpoint: `${issuer}/authorize`,
-            token_endpoint: `${baseUrl}/api/v1/oauth/token`,
+            token_endpoint: `${oauthBase}/token`,
             userinfo_endpoint: `${issuer}/userinfo`,
             jwks_uri: `${issuer}/jwks`,
-            registration_endpoint: `${issuer}/register`,
+            revocation_endpoint: `${oauthBase}/revoke`,
+            introspection_endpoint: `${oauthBase}/introspect`,
+            end_session_endpoint: `${issuer}/end-session`,
             response_types_supported: ['code'],
             subject_types_supported: ['public'],
             id_token_signing_alg_values_supported: ['RS256'],
@@ -342,11 +344,17 @@ export class OpenidConfigurationController {
             token_endpoint_auth_methods_supported: [
                 'client_secret_post',
                 'client_secret_basic',
-                'private_key_jwt',
+            ],
+            revocation_endpoint_auth_methods_supported: [
+                'client_secret_post',
+                'client_secret_basic',
+            ],
+            introspection_endpoint_auth_methods_supported: [
+                'client_secret_post',
+                'client_secret_basic',
             ],
             grant_types_supported: grantTypes,
             code_challenge_methods_supported: ['S256'],
-            dpop_signing_alg_values_supported: ['RS256', 'ES256'],
             claims_supported: [
                 'sub',
                 'email',
@@ -355,6 +363,7 @@ export class OpenidConfigurationController {
                 'given_name',
                 'family_name',
                 'updated_at',
+                'roles',
             ],
         };
     }

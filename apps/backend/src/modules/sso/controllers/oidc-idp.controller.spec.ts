@@ -41,6 +41,12 @@ describe('OidcIdpController', () => {
     application: {
       findFirst: jest.fn(),
     },
+    userApplicationAssignment: {
+      findUnique: jest.fn().mockResolvedValue({}),
+    },
+    groupApplicationAssignment: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
   };
 
   const mockConfigService = {

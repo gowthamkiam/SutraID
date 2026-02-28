@@ -12,18 +12,11 @@ import {
 import { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 
+import escapeHtml = require('escape-html');
+
 @Controller('saml')
 export class SamlController {
   constructor(private prisma: PrismaService) { }
-
-  private escapeHtml(unsafe: string): string {
-    return (unsafe || '')
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
 
   /**
    * SAML IdP Metadata Endpoint
@@ -45,10 +38,10 @@ export class SamlController {
     const ssoUrl = `${baseUrl}/saml/${appId}/sso`;
     const cert = application.samlCertificate || '';
 
-    const escapedEntityId = this.escapeHtml(entityId);
-    const escapedSsoUrl = this.escapeHtml(ssoUrl);
-    const escapedCert = this.escapeHtml(cert.replace(/-----BEGIN CERTIFICATE-----/g, '').replace(/-----END CERTIFICATE-----/g, '').replace(/\n/g, ''));
-    const escapedNameIdFormat = this.escapeHtml(application.samlNameIdFormat || 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress');
+    const escapedEntityId = escapeHtml(entityId);
+    const escapedSsoUrl = escapeHtml(ssoUrl);
+    const escapedCert = escapeHtml(cert.replace(/-----BEGIN CERTIFICATE-----/g, '').replace(/-----END CERTIFICATE-----/g, '').replace(/\n/g, ''));
+    const escapedNameIdFormat = escapeHtml(application.samlNameIdFormat || 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress');
 
     const metadata = `<?xml version="1.0" encoding="UTF-8"?>
 <EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
@@ -94,9 +87,9 @@ export class SamlController {
 
     const samlResponse = Buffer.from('<samlp:Response>...</samlp:Response>').toString('base64');
 
-    const escapedAcsUrl = this.escapeHtml(acsUrl);
-    const escapedSamlResponse = this.escapeHtml(samlResponse);
-    const escapedRelayState = this.escapeHtml(body.RelayState || '');
+    const escapedAcsUrl = escapeHtml(acsUrl);
+    const escapedSamlResponse = escapeHtml(samlResponse);
+    const escapedRelayState = escapeHtml(body.RelayState || '');
     const html = `
 <!DOCTYPE html>
 <html>
