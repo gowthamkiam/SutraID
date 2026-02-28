@@ -95,6 +95,12 @@ export default function LoginForm({ branding }: LoginFormProps) {
         window.location.href = decodedUrl;
         return;
       }
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+      const apiOrigin = new URL(apiUrl).origin;
+      if (decodedUrl.startsWith(apiOrigin + '/')) {
+        window.location.href = decodedUrl;
+        return;
+      }
     }
     window.location.href = '/dashboard';
   };

@@ -65,6 +65,22 @@ export class OidcIdpController {
         return;
       }
 
+      const authorized = await this.isUserAuthorizedForApp(user.id, applicationId);
+      if (!authorized) {
+        console.log(`⛔ User ${user.id} not authorized for application ${applicationId}`);
+        const redirectUri = req.query.redirect_uri as string;
+        const state = req.query.state as string;
+        if (redirectUri) {
+          const url = new URL(redirectUri);
+          url.searchParams.set('error', 'access_denied');
+          url.searchParams.set('error_description', 'User is not authorized for this application');
+          if (state) url.searchParams.set('state', state);
+          res.redirect(url.toString());
+          return;
+        }
+        throw new BadRequestException('User is not authorized for this application');
+      }
+
       console.log('✅ User authenticated, forwarding to oidc-provider');
       await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
     } catch (error: any) {
@@ -92,6 +108,16 @@ export class OidcIdpController {
       if (!user) {
         const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001').split(',')[0].trim();
         res.redirect(`${frontendUrl}/login`);
+        return;
+      }
+
+      const authorized = await this.isUserAuthorizedForApp(user.id, applicationId);
+      if (!authorized) {
+        console.log(`⛔ User ${user.id} not authorized for application ${applicationId}`);
+        const returnTo = await this.oidcIdpService.handleInteraction(
+          applicationId, uid, user.id, false, req, res,
+        );
+        res.redirect(returnTo);
         return;
       }
 
@@ -247,17 +273,26 @@ export class OidcIdpController {
         throw new UnauthorizedException('User not authenticated');
       }
 
+      let consent = body.consent;
+      if (consent) {
+        const authorized = await this.isUserAuthorizedForApp(user.id, applicationId);
+        if (!authorized) {
+          console.log(`⛔ User ${user.id} not authorized for application ${applicationId}`);
+          consent = false;
+        }
+      }
+
       const redirectTo = await this.oidcIdpService.handleInteraction(
         applicationId,
         uid,
         user.id,
-        body.consent,
+        consent,
         req,
         res,
       );
 
       console.log(
-        `✅ OIDC consent ${body.consent ? 'granted' : 'denied'} by user ${user.id}`,
+        `✅ OIDC consent ${consent ? 'granted' : 'denied'} by user ${user.id}`,
       );
 
       res.json({
@@ -287,6 +322,21 @@ export class OidcIdpController {
       console.error('❌ OIDC callback error:', error);
       throw new BadRequestException(error.message);
     }
+  }
+
+  private async isUserAuthorizedForApp(userId: string, applicationId: string): Promise<boolean> {
+    const directAssignment = await this.prisma.userApplicationAssignment.findUnique({
+      where: { userId_applicationId: { userId, applicationId } },
+    });
+    if (directAssignment) return true;
+
+    const groupAssignment = await this.prisma.groupApplicationAssignment.findFirst({
+      where: {
+        applicationId,
+        group: { members: { some: { userId } } },
+      },
+    });
+    return !!groupAssignment;
   }
 
   /**
