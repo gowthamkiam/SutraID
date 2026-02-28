@@ -280,7 +280,7 @@ export default function AuthConceptsPage() {
           Role-Based Access Control
         </h2>
         <p style={{ color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '1rem' }}>
-          Every organization member has a role that determines which API
+          Every user has a role that determines which API
           endpoints they can access. The role is included in the JWT payload and
           enforced server-side.
         </p>

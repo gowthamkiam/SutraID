@@ -15,7 +15,7 @@ export function IsValidRedirectUri(validationOptions?: ValidationOptions) {
         validate(value: any, args: ValidationArguments) {
           if (!Array.isArray(value)) return false;
 
-          const isDevMode = process.env.NODE_ENV === 'development';
+          const isDevMode = process.env.NODE_ENV !== 'production';
 
           for (const uri of value) {
             if (typeof uri !== 'string') return false;
@@ -27,11 +27,12 @@ export function IsValidRedirectUri(validationOptions?: ValidationOptions) {
                 return false;
               }
 
+              const isLocalhost = /^(localhost|127\.0\.0\.1|::1)$/.test(
+                url.hostname,
+              );
+
               if (url.protocol === 'http:') {
-                if (!isDevMode) {
-                  return false;
-                }
-                if (!url.hostname.match(/^(localhost|127\.0\.0\.1|::1)$/)) {
+                if (!isLocalhost && !isDevMode) {
                   return false;
                 }
               } else if (url.protocol !== 'https:') {
@@ -45,7 +46,7 @@ export function IsValidRedirectUri(validationOptions?: ValidationOptions) {
           return true;
         },
         defaultMessage(args: ValidationArguments) {
-          return 'Redirect URIs must use HTTPS (http://localhost allowed in dev) and must not contain fragments (#)';
+          return 'Redirect URIs must use HTTPS (http://localhost is always allowed). URIs must not contain fragments (#)';
         },
       },
     });

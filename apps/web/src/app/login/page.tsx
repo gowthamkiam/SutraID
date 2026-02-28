@@ -1,68 +1,65 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import LoginForm, { CustomLoginConfig } from '@/components/auth/LoginForm';
 
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '0.875rem 1rem',
-  border: '1.5px solid #d1d5db',
-  borderRadius: '10px',
-  fontSize: '0.95rem',
-  outline: 'none',
-  transition: 'border-color 0.2s, box-shadow 0.2s',
-  boxSizing: 'border-box',
-  color: '#111827',
-  background: '#fff',
-};
+interface BrandingResponse {
+  logoUrl?: string;
+  primaryColor?: string;
+  backgroundColor?: string;
+  customCss?: string;
+}
 
 export default function LoginPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [orgInput, setOrgInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [branding, setBranding] = useState<CustomLoginConfig | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const orgParam = searchParams.get('org');
-    const errorParam = searchParams.get('error');
-
-    if (errorParam === 'org_not_found') {
-      setError('Organization not found. Please check and try again.');
-    }
-
-    if (orgParam) {
-      resolveAndRedirect(orgParam);
-    }
-  }, [searchParams]);
-
-  const resolveAndRedirect = async (identifier: string) => {
-    setLoading(true);
-    setError('');
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
-
-    try {
-      const response = await fetch(`${apiUrl}/auth/org-lookup/${encodeURIComponent(identifier)}`);
-      if (!response.ok) {
-        setError('Organization not found. Please check and try again.');
+    const fetchBranding = async () => {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+      try {
+        const response = await fetch(`${apiUrl}/auth/branding`);
+        if (response.ok) {
+          const data: BrandingResponse = await response.json();
+          setBranding(data);
+        }
+      } catch {
+        // Use default branding
+      } finally {
         setLoading(false);
-        return;
       }
-      const data = await response.json();
-      router.push(`/login/${data.slug}`);
-    } catch {
-      setError('Organization not found. Please check and try again.');
-      setLoading(false);
-    }
-  };
+    };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = orgInput.trim();
-    if (!trimmed) return;
-    resolveAndRedirect(trimmed);
-  };
+    fetchBranding();
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'linear-gradient(160deg, #0a1628 0%, #0f2035 25%, #0d2847 50%, #0a2a3c 75%, #0e1f2f 100%)',
+        color: '#fff',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            border: '3px solid rgba(255,255,255,0.2)',
+            borderTopColor: '#fff',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+            margin: '0 auto 1rem',
+          }} />
+          <style dangerouslySetInnerHTML={{ __html: '@keyframes spin { to { transform: rotate(360deg); } }' }} />
+          <p style={{ margin: 0, fontSize: '0.95rem', opacity: 0.8 }}>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -77,118 +74,50 @@ export default function LoginPage() {
       position: 'relative',
       overflow: 'hidden',
     }}>
-      <div style={{
-        background: '#ffffff',
-        padding: '3rem 2.5rem',
-        borderRadius: '20px',
-        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)',
-        maxWidth: '440px',
-        width: '100%',
-        position: 'relative',
-        zIndex: 1,
-      }}>
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
+      <div style={{ maxWidth: '440px', width: '100%', position: 'relative', zIndex: 1 }}>
+        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
           <h1 style={{
-            fontSize: '2.25rem',
+            fontSize: '2.5rem',
             fontWeight: 700,
-            margin: 0,
+            margin: '0 0 0.5rem 0',
             letterSpacing: '-0.5px',
-            color: '#111827',
+            color: '#ffffff',
           }}>
-            <span style={{ color: '#4f46e5' }}>S</span>utra
-            <span style={{ color: '#4f46e5' }}>ID</span>
+            Welcome to <span style={{ color: '#4f46e5' }}>S</span>utra<span style={{ color: '#4f46e5' }}>ID</span>
           </h1>
-        </div>
-
-        {/* Heading */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <p style={{ color: '#374151', fontSize: '1.1rem', fontWeight: 500, margin: 0 }}>
-            Find your organization
-          </p>
-          <p style={{ color: '#6b7280', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
-            Enter your organization slug or ID to continue
+          <p style={{ color: '#9ca3af', fontSize: '1.1rem', margin: 0 }}>
+            Sign in to continue
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '1.25rem' }}>
-            <label htmlFor="orgSlug" style={{
-              display: 'block',
-              marginBottom: '0.5rem',
-              fontWeight: 500,
-              fontSize: '0.875rem',
-              color: '#374151',
-            }}>
-              Organization
-            </label>
-            <input
-              id="orgSlug"
-              type="text"
-              value={orgInput}
-              onChange={(e) => setOrgInput(e.target.value)}
-              required
-              placeholder="e.g. acme-corp"
-              style={inputStyle}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#4f46e5';
-                e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#d1d5db';
-                e.target.style.boxShadow = 'none';
-              }}
-              autoFocus
-            />
-          </div>
+        <div style={{
+          background: '#ffffff',
+          padding: '3rem 2.5rem 1rem', // Reduced bottom padding slightly to pull copyright/footer closer
+          borderRadius: '20px',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+          width: '100%',
+          position: 'relative',
+          zIndex: 1,
+        }}>
+          <LoginForm branding={branding} />
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '0.9rem',
-              background: loading ? '#9ca3af' : '#4f46e5',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '50px',
-              fontSize: '1rem',
-              fontWeight: 600,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background 0.2s',
-            }}
-            onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = '#4338ca'; }}
-            onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = '#4f46e5'; }}
-          >
-            {loading ? 'Looking up...' : 'Continue'}
-          </button>
-        </form>
-
-        {error && (
+          {/* Integrated Simple Footer */}
           <div style={{
-            marginTop: '1.25rem',
-            padding: '1rem',
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '10px',
-            color: '#991b1b',
-            fontSize: '0.9rem',
-            textAlign: 'center',
+            marginTop: '2rem',
+            paddingTop: '1.5rem',
+            borderTop: '1px solid #e5e7eb',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.75rem',
           }}>
-            {error}
+            <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem' }}>
+              <a href="/privacy" style={{ color: '#6b7280', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#111827'} onMouseLeave={(e) => e.currentTarget.style.color = '#6b7280'}>Privacy Policy</a>
+              <a href="/security" style={{ color: '#6b7280', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#111827'} onMouseLeave={(e) => e.currentTarget.style.color = '#6b7280'}>Security</a>
+              <a href="/support" style={{ color: '#6b7280', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#111827'} onMouseLeave={(e) => e.currentTarget.style.color = '#6b7280'}>Contact</a>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: '#9ca3af' }}>&copy; {new Date().getFullYear()} SutraID.</p>
           </div>
-        )}
-
-        <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-          <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>Don&apos;t have an organization? </span>
-          <Link
-            href="/onboard"
-            style={{ color: '#4f46e5', fontSize: '0.85rem', fontWeight: 500, textDecoration: 'none' }}
-            onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-            onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
-          >
-            Get started
-          </Link>
         </div>
       </div>
     </div>

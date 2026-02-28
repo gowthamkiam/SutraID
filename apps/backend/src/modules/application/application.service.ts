@@ -5,10 +5,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrganizationService } from '../organization/organization.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { CreateAiAgentDto } from './dto/create-ai-agent.dto';
-import { OrgRole, ApplicationProtocol } from '@prisma/client';
+import { ApplicationProtocol } from '@prisma/client';
 import { ApplicationUtils } from './utils/application.utils';
 import { OidcIdpService } from '../sso/services/oidc-idp.service';
 
@@ -16,41 +15,15 @@ import { OidcIdpService } from '../sso/services/oidc-idp.service';
 export class ApplicationService {
   constructor(
     private prisma: PrismaService,
-    private organizationService: OrganizationService,
     private utils: ApplicationUtils,
     private oidcIdpService: OidcIdpService,
     private config: ConfigService,
   ) { }
 
-  /**
-   * Create a new application
-   */
   async create(
-    organizationId: string,
     actorId: string,
     dto: CreateApplicationDto,
   ) {
-    // Check if user has permission
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.APP_ADMIN,
-    ]);
-
-    // Check application limit
-    const org = await this.prisma.organization.findUnique({
-      where: { id: organizationId },
-      include: { _count: { select: { applications: true } } },
-    });
-
-    if (!org) throw new NotFoundException('Organization not found');
-
-    if (org._count.applications >= org.maxApplications) {
-      throw new BadRequestException(
-        `Organization has reached maximum application limit (${org.maxApplications})`,
-      );
-    }
-
     let clientId: string | undefined = undefined;
     let clientSecret: string | undefined = undefined;
     let clientSecretHash: string | undefined = undefined;
@@ -69,10 +42,8 @@ export class ApplicationService {
       samlCert = certificate;
     }
 
-    // Create application
     const application = await this.prisma.application.create({
       data: {
-        organizationId,
         name: dto.name,
         description: dto.description,
         logoUrl: dto.logoUrl,
@@ -105,7 +76,6 @@ export class ApplicationService {
       },
     });
 
-    // Auto-generate default JWKS signing key for OIDC applications
     if (dto.type === ApplicationProtocol.OIDC) {
       const keyPair = await this.utils.generateSigningKeyPair();
       await this.prisma.oidcSigningKey.create({
@@ -122,24 +92,14 @@ export class ApplicationService {
 
     return {
       ...application,
-      clientSecret, // Return plaintext secret once
+      clientSecret,
     };
   }
 
-  /**
-   * Create an AI Agent application
-   */
   async createAiAgent(
-    organizationId: string,
     actorId: string,
     dto: CreateAiAgentDto,
   ) {
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.APP_ADMIN,
-    ]);
-
     const createDto: CreateApplicationDto = {
       name: dto.name,
       description: dto.description,
@@ -159,7 +119,7 @@ export class ApplicationService {
       },
     };
 
-    const application = await this.create(organizationId, actorId, createDto);
+    const application = await this.create(actorId, createDto);
 
     const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
 
@@ -173,20 +133,9 @@ export class ApplicationService {
     };
   }
 
-  /**
-   * List all AI Agent applications
-   */
-  async listAiAgents(organizationId: string, actorId: string) {
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.APP_ADMIN,
-      OrgRole.READ_ONLY_ADMIN,
-    ]);
-
+  async listAiAgents(actorId: string) {
     return this.prisma.application.findMany({
       where: {
-        organizationId,
         isAiAgent: true,
         status: { not: 'ARCHIVED' },
       },
@@ -204,20 +153,9 @@ export class ApplicationService {
     });
   }
 
-  /**
-   * Get all applications for an organization
-   */
-  async findAll(organizationId: string, actorId: string) {
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.APP_ADMIN,
-      OrgRole.READ_ONLY_ADMIN,
-    ]);
-
+  async findAll(actorId: string) {
     return (this.prisma as any).application.findMany({
       where: {
-        organizationId,
         status: { not: 'ARCHIVED' },
       },
       include: {
@@ -232,9 +170,6 @@ export class ApplicationService {
     });
   }
 
-  /**
-   * Get single application details
-   */
   async findOne(applicationId: string, actorId: string) {
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
@@ -242,18 +177,9 @@ export class ApplicationService {
 
     if (!application) throw new NotFoundException('Application not found');
 
-    await this.organizationService.checkPermission(
-      application.organizationId,
-      actorId,
-      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.APP_ADMIN, OrgRole.READ_ONLY_ADMIN],
-    );
-
     return application;
   }
 
-  /**
-   * Update application settings
-   */
   async update(
     applicationId: string,
     actorId: string,
@@ -265,13 +191,6 @@ export class ApplicationService {
 
     if (!application) throw new NotFoundException('Application not found');
 
-    await this.organizationService.checkPermission(
-      application.organizationId,
-      actorId,
-      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.APP_ADMIN],
-    );
-
-    // Validate ROPC requires confidential client
     const effectiveIsPublic = dto.isPublicClient ?? application.isPublicClient;
     const effectiveAllowROPC = dto.allowROPC ?? application.allowROPC;
     if (effectiveAllowROPC && effectiveIsPublic) {
@@ -305,7 +224,6 @@ export class ApplicationService {
       },
     });
 
-    // Invalidate cached OIDC provider instance when grant settings change
     if (
       dto.allowROPC !== undefined ||
       dto.allowClientCredentials !== undefined ||
@@ -318,9 +236,6 @@ export class ApplicationService {
     return updated;
   }
 
-  /**
-   * Rotate client secret
-   */
   async rotateSecret(applicationId: string, actorId: string) {
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
@@ -331,12 +246,6 @@ export class ApplicationService {
     if (application.type !== ApplicationProtocol.OIDC) {
       throw new BadRequestException('Secret rotation is only for OIDC applications');
     }
-
-    await this.organizationService.checkPermission(
-      application.organizationId,
-      actorId,
-      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
-    );
 
     const clientSecret = this.utils.generateClientSecret();
     const clientSecretHash = this.utils.hashSecret(clientSecret);
@@ -353,20 +262,11 @@ export class ApplicationService {
     };
   }
 
-  /**
-   * List signing keys for an application (public info only)
-   */
   async listSigningKeys(applicationId: string, actorId: string) {
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
     });
     if (!application) throw new NotFoundException('Application not found');
-
-    await this.organizationService.checkPermission(
-      application.organizationId,
-      actorId,
-      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN, OrgRole.APP_ADMIN, OrgRole.READ_ONLY_ADMIN],
-    );
 
     return this.prisma.oidcSigningKey.findMany({
       where: { applicationId },
@@ -381,9 +281,6 @@ export class ApplicationService {
     });
   }
 
-  /**
-   * Rotate signing key — generates a new key and deactivates the old default
-   */
   async rotateSigningKey(applicationId: string, actorId: string) {
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
@@ -393,19 +290,11 @@ export class ApplicationService {
       throw new BadRequestException('Signing key rotation is only for OIDC applications');
     }
 
-    await this.organizationService.checkPermission(
-      application.organizationId,
-      actorId,
-      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
-    );
-
-    // Unset current default
     await this.prisma.oidcSigningKey.updateMany({
       where: { applicationId, isDefault: true },
       data: { isDefault: false },
     });
 
-    // Generate new key
     const keyPair = await this.utils.generateSigningKeyPair();
     const newKey = await this.prisma.oidcSigningKey.create({
       data: {
@@ -419,7 +308,6 @@ export class ApplicationService {
       select: { id: true, kid: true, algorithm: true, isDefault: true, createdAt: true },
     });
 
-    // Clear cached provider so new key takes effect
     this.oidcIdpService.clearProviderCache(applicationId);
 
     return {
@@ -428,9 +316,6 @@ export class ApplicationService {
     };
   }
 
-  /**
-   * Delete application (archive)
-   */
   async remove(applicationId: string, actorId: string) {
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
@@ -438,13 +323,6 @@ export class ApplicationService {
 
     if (!application) throw new NotFoundException('Application not found');
 
-    await this.organizationService.checkPermission(
-      application.organizationId,
-      actorId,
-      [OrgRole.SUPER_ADMIN, OrgRole.ORG_ADMIN],
-    );
-
-    // Clean up orphaned OIDC tokens
     await (this.prisma as any).oidcToken?.deleteMany({
       where: { applicationId },
     });
@@ -455,42 +333,29 @@ export class ApplicationService {
   }
 
   async setAssignedUsers(
-    organizationId: string,
     applicationId: string,
     actorId: string,
     userIds: string[],
   ) {
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.APP_ADMIN,
-      OrgRole.USER_ADMIN,
-    ]);
-
     const application = await this.prisma.application.findFirst({
-      where: { id: applicationId, organizationId, status: { not: 'ARCHIVED' } },
+      where: { id: applicationId, status: { not: 'ARCHIVED' } },
       select: { id: true },
     });
     if (!application) throw new NotFoundException('Application not found');
 
     const uniqueUserIds = Array.from(new Set(userIds));
-    const validMembers = await this.prisma.organizationMember.findMany({
+    const validUsers = await this.prisma.user.findMany({
       where: {
-        organizationId,
-        userId: { in: uniqueUserIds },
-        status: 'ACTIVE',
+        id: { in: uniqueUserIds },
       },
-      select: { userId: true },
+      select: { id: true },
     });
-    const validUserIds = validMembers.map((m) => m.userId);
+    const validUserIds = validUsers.map((u) => u.id);
 
     const prismaAny = this.prisma as any;
 
     await prismaAny.userApplicationAssignment.deleteMany({
-      where: {
-        applicationId,
-        user: { organizationId },
-      },
+      where: { applicationId },
     });
 
     if (validUserIds.length > 0) {
@@ -504,27 +369,19 @@ export class ApplicationService {
   }
 
   async setAssignedGroups(
-    organizationId: string,
     applicationId: string,
     actorId: string,
     groupIds: string[],
   ) {
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.APP_ADMIN,
-      OrgRole.GROUP_MEMBERSHIP_ADMIN,
-    ]);
-
     const application = await this.prisma.application.findFirst({
-      where: { id: applicationId, organizationId, status: { not: 'ARCHIVED' } },
+      where: { id: applicationId, status: { not: 'ARCHIVED' } },
       select: { id: true },
     });
     if (!application) throw new NotFoundException('Application not found');
 
     const uniqueGroupIds = Array.from(new Set(groupIds));
     const validGroups = await this.prisma.group.findMany({
-      where: { id: { in: uniqueGroupIds }, organizationId },
+      where: { id: { in: uniqueGroupIds } },
       select: { id: true },
     });
     const validGroupIds = validGroups.map((group) => group.id);
@@ -532,10 +389,7 @@ export class ApplicationService {
     const prismaAny = this.prisma as any;
 
     await prismaAny.groupApplicationAssignment.deleteMany({
-      where: {
-        applicationId,
-        group: { organizationId },
-      },
+      where: { applicationId },
     });
 
     if (validGroupIds.length > 0) {

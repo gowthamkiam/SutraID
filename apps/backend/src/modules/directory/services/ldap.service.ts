@@ -1,14 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { OrgRole } from '@prisma/client';
-import { OrganizationService } from '../../organization/organization.service';
-// import * as ldap from 'ldapjs'; // Assuming ldapjs is available
 
 @Injectable()
 export class LDAPService {
     constructor(
         private prisma: PrismaService,
-        private organizationService: OrganizationService,
     ) { }
 
     private normalizeConfigInput(data: any) {
@@ -23,22 +19,12 @@ export class LDAPService {
         };
     }
 
-    async getConfig(organizationId: string, actorId: string) {
-        await this.organizationService.checkPermission(organizationId, actorId, [
-            OrgRole.SUPER_ADMIN,
-            OrgRole.ORG_ADMIN,
-            OrgRole.READ_ONLY_ADMIN,
-            OrgRole.USER_ADMIN,
-            OrgRole.GROUP_MEMBERSHIP_ADMIN,
-            OrgRole.HELP_DESK_ADMIN,
-            OrgRole.API_ACCESS_MANAGEMENT_ADMIN,
-        ]);
-
-        const config = await this.prisma.directoryConfig.findUnique({
-            where: { organizationId },
+    async getConfig() {
+        const config = await this.prisma.directoryConfig.findFirst({
+            where: { type: 'LDAP' },
         });
 
-        if (!config || config.type !== 'LDAP') {
+        if (!config) {
             return null;
         }
 
@@ -54,45 +40,37 @@ export class LDAPService {
         };
     }
 
-    async updateConfig(organizationId: string, actorId: string, data: any) {
-        await this.organizationService.checkPermission(organizationId, actorId, [
-            OrgRole.SUPER_ADMIN,
-            OrgRole.ORG_ADMIN,
-        ]);
+    async updateConfig(data: any) {
         const normalized = this.normalizeConfigInput(data);
 
-        return this.prisma.directoryConfig.upsert({
-            where: { organizationId },
-            create: {
-                organizationId,
-                type: 'LDAP',
-                ...normalized,
-            },
-            update: {
-                type: 'LDAP',
-                ...normalized,
-            },
+        const existingConfig = await this.prisma.directoryConfig.findFirst({
+            where: { type: 'LDAP' },
         });
+
+        if (existingConfig) {
+            return this.prisma.directoryConfig.update({
+                where: { id: existingConfig.id },
+                data: {
+                    type: 'LDAP',
+                    ...normalized,
+                },
+            });
+        } else {
+            return this.prisma.directoryConfig.create({
+                data: {
+                    type: 'LDAP',
+                    ...normalized,
+                },
+            });
+        }
     }
 
-    async syncOrganization(organizationId: string, actorId: string) {
-        await this.organizationService.checkPermission(organizationId, actorId, [
-            OrgRole.SUPER_ADMIN,
-            OrgRole.ORG_ADMIN,
-        ]);
-        const config = await this.prisma.directoryConfig.findUnique({
-            where: { organizationId },
+    async sync() {
+        const config = await this.prisma.directoryConfig.findFirst({
+            where: { type: 'LDAP' },
         });
 
-        if (!config || config.type !== 'LDAP' || !config.enabled) return;
-
-        // Outbound LDAP Sync Logic (Pseudocode for connectivity)
-        // 1. Create client: ldap.createClient({ url: config.ldapUrl })
-        // 2. Bind: client.bind(config.ldapBindDn, password, ...)
-        // 3. Search Users: client.search(config.ldapBaseDn, { filter: config.ldapUserFilter, scope: 'sub' })
-        // 4. Map & Upsert Users in DB
-        // 5. Search Groups: client.search(config.ldapBaseDn, { filter: config.ldapGroupFilter, scope: 'sub' })
-        // 6. Sync Group Memberships
+        if (!config || !config.enabled) return;
 
         await this.prisma.directoryConfig.update({
             where: { id: config.id },

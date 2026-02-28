@@ -92,7 +92,7 @@ export class MfaController {
     if (session.accessToken) {
       res.cookie('access_token', session.accessToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: true,
         sameSite: 'lax',
         maxAge: 15 * 60 * 1000,
         path: '/',
@@ -122,21 +122,50 @@ export class MfaController {
     return this.mfaService.disableTotp(req.user.id, dto.password);
   }
 
-  @Get('passkey/options')
+  @Post('passkey/register-options')
   @UseGuards(JwtAuthGuard)
   async getPasskeyOptions(@Request() req: any) {
     return this.mfaService.getPasskeyOptions(req.user.id);
   }
 
-  @Post('passkey/enroll')
+  @Post('passkey/register')
   @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
   async enrollPasskey(@Request() req: any, @Body() body: any) {
-    return this.mfaService.enrollPasskey(req.user.id, body.credential);
+    return this.mfaService.enrollPasskey(req.user.id, body);
   }
 
-  @Post('adaptive/toggle')
-  @UseGuards(JwtAuthGuard)
-  async toggleAdaptiveAuth(@Request() req: any, @Body() body: { enabled: boolean }) {
-    return this.mfaService.toggleAdaptiveAuth(req.user.id, body.enabled);
+  @Post('passkey/auth-options')
+  @HttpCode(HttpStatus.OK)
+  async getPasskeyAuthOptions(@Body() body: { mfaToken: string }) {
+    const { userId } = await this.mfaService.verifyMfaToken(body.mfaToken);
+    return this.mfaService.getPasskeyAuthOptions(userId);
+  }
+
+  @Post('passkey/auth')
+  @HttpCode(HttpStatus.OK)
+  async verifyPasskeyAuth(
+    @Body() body: { mfaToken: string; credential: any },
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { userId } = await this.mfaService.verifyMfaToken(body.mfaToken);
+    const isValid = await this.mfaService.verifyPasskeyAuth(userId, body.credential);
+
+    if (!isValid) {
+      throw new UnauthorizedException('Passkey verification failed');
+    }
+
+    const user = await this.authService.getUserById(userId);
+    const session = await this.authService.createSessionForUser(user);
+    if (session.accessToken) {
+      res.cookie('access_token', session.accessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000,
+        path: '/',
+      });
+    }
+    return session;
   }
 }

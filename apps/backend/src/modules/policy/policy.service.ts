@@ -1,8 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { PolicyEffect, OrgRole } from '@prisma/client';
-import { OrganizationService } from '../organization/organization.service';
+import { PolicyEffect } from '@prisma/client';
 
 export interface EvaluationContext {
   ipAddress?: string;
@@ -28,40 +27,13 @@ export class PolicyService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-    private organizationService: OrganizationService,
   ) { }
 
-  async ensureDefaults(organizationId: string) {
-    // 0. Ensure Organization exists (for demo purposes)
-    // In a real app, this would likely throw, but for the demo we auto-seed correctly.
-    const orgExists = await this.prisma.organization.findUnique({
-      where: { id: organizationId },
-    });
-
-    if (!orgExists) {
-      if (organizationId === 'org_sutraid_enterprise_demo') {
-        await this.prisma.organization.create({
-          data: {
-            id: organizationId,
-            name: 'SutraID Enterprise Demo',
-            slug: 'sutraid-demo',
-            domain: 'demo.sutraid.com',
-          }
-        });
-      } else {
-        // If it's a random ID that doesn't exist, we can't create policies for it.
-        // We'll let it fail or throw a clearer error, but the FK constraint is technically correct.
-        throw new NotFoundException(`Organization ${organizationId} not found`);
-      }
-    }
-
-    // 1. Ensure Password Policy exists
-    // Use upsert to handle race conditions where multiple requests try to create it simultaneously
+  async ensureDefaults() {
     await this.prisma.passwordPolicy.upsert({
-      where: { organizationId },
+      where: { id: 'singleton' },
       create: {
-        organizationId,
-        // Default secure settings
+        id: 'singleton',
         minLength: 12,
         requireUppercase: true,
         requireLowercase: true,
@@ -70,20 +42,18 @@ export class PolicyService {
         lockoutThreshold: 5,
         lockoutDuration: 30,
       },
-      update: {}, // No-op if it exists
+      update: {},
     });
 
-    // 2. Ensure Default Sign-on Policy exists
     const signOnPolicy = await this.prisma.policy.findFirst({
       where: {
-        organizationId,
         type: 'SIGN_ON',
         name: 'Default Sign-on Policy',
       },
     });
 
     if (!signOnPolicy) {
-      await this.create(organizationId, 'SYSTEM', {
+      await this.create('SYSTEM', {
         name: 'Default Sign-on Policy',
         description: 'Default authentication rules for all users',
         effect: 'ALLOW',
@@ -91,7 +61,7 @@ export class PolicyService {
         actions: ['login'],
         priority: 0,
         enabled: true,
-        // @ts-ignore - Create DTO mismatch with internal helper
+        // @ts-ignore
         type: 'SIGN_ON',
         rules: [
           {
@@ -106,10 +76,7 @@ export class PolicyService {
     }
   }
 
-  /**
-   * Create a new policy
-   */
-  async create(organizationId: string, actorId: string, data: {
+  async create(actorId: string, data: {
     name: string;
     description?: string;
     effect?: PolicyEffect;
@@ -121,18 +88,8 @@ export class PolicyService {
     type?: 'ACCESS' | 'SIGN_ON' | 'MFA' | 'PASSWORD';
     rules?: any[];
   }) {
-    // Check if user has permission
-    if (actorId !== 'SYSTEM') {
-      await this.organizationService.checkPermission(organizationId, actorId, [
-        OrgRole.SUPER_ADMIN,
-        OrgRole.ORG_ADMIN,
-      ]);
-    }
-
-    // @ts-ignore
     return this.prisma.policy.create({
       data: {
-        organizationId,
         name: data.name,
         description: data.description,
         effect: data.effect || 'ALLOW',
@@ -147,57 +104,21 @@ export class PolicyService {
     });
   }
 
-  /**
-   * List all policies for an organization
-   */
-  async findAll(organizationId: string, actorId: string, type?: string) {
-    // Check if user has permission
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.READ_ONLY_ADMIN,
-    ]);
-
-    await this.ensureDefaults(organizationId);
+  async findAll(type?: string) {
     return this.prisma.policy.findMany({
       where: {
-        organizationId,
         ...(type ? { type: type as any } : {}),
       },
       orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
     });
   }
 
-  /**
-   * Get Password Policy
-   */
-  async getPasswordPolicy(organizationId: string, actorId: string) {
-    // Check if user has permission
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.READ_ONLY_ADMIN,
-    ]);
-
-    await this.ensureDefaults(organizationId);
-    return this.prisma.passwordPolicy.findUniqueOrThrow({
-      where: { organizationId },
-    });
+  async getPasswordPolicy() {
+    return this.prisma.passwordPolicy.findMany();
   }
 
-  /**
-   * Update Password Policy
-   */
-  async updatePasswordPolicy(organizationId: string, actorId: string, data: any) {
-    // Check if user has permission
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-    ]);
-
-    await this.ensureDefaults(organizationId);
-    return this.prisma.passwordPolicy.update({
-      where: { organizationId },
+  async updatePasswordPolicy(data: any) {
+    return this.prisma.passwordPolicy.updateMany({
       data: {
         minLength: data.minLength,
         requireUppercase: data.requireUppercase,
@@ -210,28 +131,15 @@ export class PolicyService {
     });
   }
 
-  /**
-   * Get a single policy
-   */
-  async findOne(organizationId: string, policyId: string, actorId: string) {
-    // Check if user has permission
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.READ_ONLY_ADMIN,
-    ]);
-
+  async findOne(policyId: string) {
     const policy = await this.prisma.policy.findFirst({
-      where: { id: policyId, organizationId },
+      where: { id: policyId },
     });
     if (!policy) throw new NotFoundException('Policy not found');
     return policy;
   }
 
-  /**
-   * Update a policy
-   */
-  async update(organizationId: string, policyId: string, actorId: string, data: {
+  async update(policyId: string, data: {
     name?: string;
     description?: string;
     effect?: PolicyEffect;
@@ -241,40 +149,20 @@ export class PolicyService {
     priority?: number;
     enabled?: boolean;
   }) {
-    // Check if user has permission
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-    ]);
-
-    await this.findOne(organizationId, policyId, actorId);
+    await this.findOne(policyId);
     return this.prisma.policy.update({
       where: { id: policyId },
       data,
     });
   }
 
-  /**
-   * Delete a policy
-   */
-  async delete(organizationId: string, policyId: string, actorId: string) {
-    // Check if user has permission
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-    ]);
-
-    await this.findOne(organizationId, policyId, actorId);
+  async delete(policyId: string) {
+    await this.findOne(policyId);
     await this.prisma.policy.delete({ where: { id: policyId } });
     return { message: 'Policy deleted successfully' };
   }
 
-  /**
-   * Evaluate policies for a request
-   * Uses deny-override: if any DENY policy matches, the result is DENY
-   */
   async evaluate(
-    organizationId: string,
     params: {
       userId?: string;
       agentId?: string;
@@ -283,16 +171,8 @@ export class PolicyService {
       context?: EvaluationContext;
     },
   ): Promise<EvaluationResult> {
-    // Only admins or the user themselves (if authenticated) can evaluate policies
-    // Usually evaluation is internal, but if via API, it's for testing.
-    await this.organizationService.checkPermission(organizationId, params.userId || '', [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-    ]);
-
     const policies = await this.prisma.policy.findMany({
       where: {
-        organizationId,
         enabled: true,
       },
       orderBy: { priority: 'desc' },
@@ -308,7 +188,6 @@ export class PolicyService {
       if (!policy.actions.includes(params.action) && !policy.actions.includes('*')) continue;
       if (!this.matchesConditions(params.context || {}, policy.conditions as Record<string, any>)) continue;
 
-      // Policy matches
       if (policy.effect === 'DENY') {
         result = {
           decision: 'DENY',
@@ -320,7 +199,7 @@ export class PolicyService {
           },
           reason: `Denied by policy: ${policy.name}`,
         };
-        break; // Deny-override: first deny wins
+        break;
       }
 
       if (policy.effect === 'ALLOW' && result.decision === 'DENY') {
@@ -337,9 +216,7 @@ export class PolicyService {
       }
     }
 
-    // Log the evaluation
     await this.auditService.log({
-      organizationId,
       userId: params.userId,
       agentId: params.agentId,
       action: 'policy.evaluated',
@@ -359,23 +236,16 @@ export class PolicyService {
     return result;
   }
 
-  /**
-   * Match a resource against a pattern (supports wildcards)
-   * e.g., "api:orders:*" matches "api:orders:123"
-   */
   private matchesResource(resource: string, pattern: string): boolean {
     if (pattern === '*') return true;
 
     const regexPattern = pattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&') // escape regex chars except *
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
       .replace(/\*/g, '.*');
 
     return new RegExp(`^${regexPattern}$`).test(resource);
   }
 
-  /**
-   * Check if context matches policy conditions
-   */
   private matchesConditions(
     context: EvaluationContext,
     conditions: Record<string, any>,
@@ -400,7 +270,6 @@ export class PolicyService {
           }
           break;
         default:
-          // Generic key-value match
           if (context[key] !== value) return false;
       }
     }
@@ -408,9 +277,6 @@ export class PolicyService {
     return true;
   }
 
-  /**
-   * Basic IP range check (supports CIDR notation)
-   */
   private isIpInRange(ip: string, cidr: string): boolean {
     const [range, bits] = cidr.split('/');
     if (!bits) return ip === range;
@@ -426,9 +292,6 @@ export class PolicyService {
     return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet), 0);
   }
 
-  /**
-   * Check if current time is within a time window (e.g., "09:00-17:00")
-   */
   private isInTimeWindow(window: string): boolean {
     const [start, end] = window.split('-');
     if (!start || !end) return true;
@@ -443,26 +306,15 @@ export class PolicyService {
     return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
   }
 
-  // ============================================
-  // NetworkZone methods
-  // ============================================
-
-  async createNetworkZone(organizationId: string, actorId: string, data: {
+  async createNetworkZone(actorId: string, data: {
     name: string;
     description?: string;
     ipRanges: string[];
     geoLocations?: string[];
     trusted?: boolean;
   }) {
-    // Check if user has permission
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-    ]);
-
     return this.prisma.networkZone.create({
       data: {
-        organizationId,
         name: data.name,
         description: data.description,
         ipRanges: data.ipRanges,
@@ -472,41 +324,24 @@ export class PolicyService {
     });
   }
 
-  async findAllNetworkZones(organizationId: string, actorId: string) {
-    // Check if user has permission
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.READ_ONLY_ADMIN,
-    ]);
-
+  async findAllNetworkZones() {
     return this.prisma.networkZone.findMany({
-      where: { organizationId },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async deleteNetworkZone(organizationId: string, zoneId: string, actorId: string) {
-    // Check if user has permission
-    await this.organizationService.checkPermission(organizationId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-    ]);
-
+  async deleteNetworkZone(zoneId: string) {
     const zone = await this.prisma.networkZone.findFirst({
-      where: { id: zoneId, organizationId },
+      where: { id: zoneId },
     });
     if (!zone) throw new NotFoundException('Network zone not found');
     await this.prisma.networkZone.delete({ where: { id: zoneId } });
     return { message: 'Network zone deleted successfully' };
   }
 
-  /**
-   * Check if an IP is in any trusted network zone
-   */
-  async isIpTrusted(organizationId: string, ipAddress: string): Promise<boolean> {
+  async isIpTrusted(ipAddress: string): Promise<boolean> {
     const zones = await this.prisma.networkZone.findMany({
-      where: { organizationId, trusted: true, enabled: true },
+      where: { trusted: true, enabled: true },
     });
 
     for (const zone of zones) {

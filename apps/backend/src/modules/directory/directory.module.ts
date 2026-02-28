@@ -5,11 +5,11 @@ import { DirectoryScimController } from './controllers/directory-scim.controller
 import { SCIMService } from './services/scim.service';
 import { LDAPService } from './services/ldap.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { OrganizationModule } from '../organization/organization.module';
 import { AuthModule } from '../auth/auth.module';
+import { RbacModule } from '../rbac/rbac.module';
 
 @Module({
-    imports: [PrismaModule, OrganizationModule, AuthModule],
+    imports: [PrismaModule, AuthModule, RbacModule],
     controllers: [SCIMController, LDAPController, DirectoryScimController],
     providers: [SCIMService, LDAPService],
     exports: [SCIMService, LDAPService],

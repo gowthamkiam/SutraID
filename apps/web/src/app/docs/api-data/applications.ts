@@ -12,21 +12,13 @@ export const applicationsSection: DocSection = {
     {
       id: 'create-application',
       method: 'POST',
-      path: '/api/v1/organizations/:orgId/applications',
+      path: '/api/v1/applications',
       title: 'Create Application',
       description:
-        'Create a new OIDC or SAML application within an organization. Returns the newly created application record including the generated clientId and clientSecret.',
+        'Create a new OIDC or SAML application within an team. Returns the newly created application record including the generated clientId and clientSecret.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
-      ],
+        ],
       requestBody: [
         {
           name: 'name',
@@ -204,9 +196,9 @@ export const applicationsSection: DocSection = {
           example: 'cs_secret_value',
         },
         {
-          name: 'organizationId',
+          name: 'teamId',
           type: 'string',
-          description: 'Owning organization ID.',
+          description: 'Owning team ID.',
           example: 'org_01hxyz',
         },
         {
@@ -232,12 +224,12 @@ export const applicationsSection: DocSection = {
         requireDpop: false,
         dpopNonceEnabled: false,
         isAiAgent: false,
-        organizationId: 'org_01hxyz',
+        teamId: 'org_01hxyz',
         createdAt: '2025-01-15T10:30:00Z',
         updatedAt: '2025-01-15T10:30:00Z',
       },
       codeSamples: {
-        curl: `curl -X POST https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications \\
+        curl: `curl -X POST https://api.sutraid.com/api/v1/applications \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -253,7 +245,7 @@ export const applicationsSection: DocSection = {
   }'`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications"
+url = "https://api.sutraid.com/api/v1/applications"
 headers = {
     "Authorization": "Bearer <token>",
     "Content-Type": "application/json"
@@ -273,7 +265,7 @@ payload = {
 response = requests.post(url, headers=headers, json=payload)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications',
+  'https://api.sutraid.com/api/v1/applications',
   {
     method: 'POST',
     headers: {
@@ -314,7 +306,7 @@ String body = """
     """;
 
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications"))
     .header("Authorization", "Bearer <token>")
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -346,7 +338,7 @@ func main() {
     jsonData, _ := json.Marshal(payload)
 
     req, _ := http.NewRequest("POST",
-        "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications",
+        "https://api.sutraid.com/api/v1/applications",
         bytes.NewBuffer(jsonData))
     req.Header.Set("Authorization", "Bearer <token>")
     req.Header.Set("Content-Type", "application/json")
@@ -357,7 +349,7 @@ func main() {
     fmt.Println(resp.Status)
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications');
 $payload = json_encode([
     'name'        => 'My Web App',
     'description' => 'Customer-facing web application.',
@@ -392,27 +384,19 @@ echo $response;`,
     {
       id: 'list-applications',
       method: 'GET',
-      path: '/api/v1/organizations/:orgId/applications',
+      path: '/api/v1/applications',
       title: 'List Applications',
       description:
-        'Retrieve all applications belonging to an organization.',
+        'Retrieve all applications belonging to an team.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
-      ],
+        ],
       responseFields: [
         { name: 'id', type: 'string', description: 'Application ID.', example: 'app_01hxyz' },
         { name: 'name', type: 'string', description: 'Application name.', example: 'My Web App' },
         { name: 'type', type: 'string', description: 'Protocol type.', example: 'OIDC' },
         { name: 'clientId', type: 'string', description: 'OAuth 2.0 client ID.', example: 'cid_abc123' },
-        { name: 'organizationId', type: 'string', description: 'Owning organization ID.', example: 'org_01hxyz' },
+        { name: 'teamId', type: 'string', description: 'Owning team ID.', example: 'org_01hxyz' },
         { name: 'createdAt', type: 'string', description: 'ISO 8601 creation timestamp.', example: '2025-01-15T10:30:00Z' },
       ],
       responseSample: {
@@ -422,7 +406,7 @@ echo $response;`,
             name: 'My Web App',
             type: 'OIDC',
             clientId: 'cid_abc123',
-            organizationId: 'org_01hxyz',
+            teamId: 'org_01hxyz',
             createdAt: '2025-01-15T10:30:00Z',
             updatedAt: '2025-01-15T10:30:00Z',
           },
@@ -431,24 +415,24 @@ echo $response;`,
             name: 'Enterprise SAML App',
             type: 'SAML',
             clientId: 'cid_def456',
-            organizationId: 'org_01hxyz',
+            teamId: 'org_01hxyz',
             createdAt: '2025-01-20T09:00:00Z',
             updatedAt: '2025-01-20T09:00:00Z',
           },
         ],
       },
       codeSamples: {
-        curl: `curl -X GET https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications \\
+        curl: `curl -X GET https://api.sutraid.com/api/v1/applications \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications"
+url = "https://api.sutraid.com/api/v1/applications"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.get(url, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications',
+  'https://api.sutraid.com/api/v1/applications',
   {
     method: 'GET',
     headers: { 'Authorization': 'Bearer <token>' },
@@ -461,7 +445,7 @@ import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications"))
     .header("Authorization", "Bearer <token>")
     .GET()
     .build();
@@ -478,7 +462,7 @@ import (
 
 func main() {
     req, _ := http.NewRequest("GET",
-        "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications", nil)
+        "https://api.sutraid.com/api/v1/applications", nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
     client := &http.Client{}
@@ -488,7 +472,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications');
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER     => ['Authorization: Bearer <token>'],
@@ -506,19 +490,11 @@ echo $response;`,
     {
       id: 'get-application',
       method: 'GET',
-      path: '/api/v1/organizations/:orgId/applications/:appId',
+      path: '/api/v1/applications/:appId',
       title: 'Get Application',
       description: 'Retrieve a single application by its ID.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -536,7 +512,7 @@ echo $response;`,
         { name: 'redirectUris', type: 'string[]', description: 'Allowed redirect URIs.', example: '["https://app.example.com/callback"]' },
         { name: 'grantTypes', type: 'string[]', description: 'Allowed grant types.', example: '["authorization_code"]' },
         { name: 'scopes', type: 'string[]', description: 'Allowed scopes.', example: '["openid", "profile", "email"]' },
-        { name: 'organizationId', type: 'string', description: 'Owning organization ID.', example: 'org_01hxyz' },
+        { name: 'teamId', type: 'string', description: 'Owning team ID.', example: 'org_01hxyz' },
         { name: 'createdAt', type: 'string', description: 'ISO 8601 creation timestamp.', example: '2025-01-15T10:30:00Z' },
       ],
       responseSample: {
@@ -554,22 +530,22 @@ echo $response;`,
         requireDpop: false,
         dpopNonceEnabled: false,
         isAiAgent: false,
-        organizationId: 'org_01hxyz',
+        teamId: 'org_01hxyz',
         createdAt: '2025-01-15T10:30:00Z',
         updatedAt: '2025-01-15T10:30:00Z',
       },
       codeSamples: {
-        curl: `curl -X GET https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz \\
+        curl: `curl -X GET https://api.sutraid.com/api/v1/applications/app_01hxyz \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.get(url, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz',
   {
     method: 'GET',
     headers: { 'Authorization': 'Bearer <token>' },
@@ -582,7 +558,7 @@ import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz"))
     .header("Authorization", "Bearer <token>")
     .GET()
     .build();
@@ -599,7 +575,7 @@ import (
 
 func main() {
     req, _ := http.NewRequest("GET",
-        "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz", nil)
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz", nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
     client := &http.Client{}
@@ -609,7 +585,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz');
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER     => ['Authorization: Bearer <token>'],
@@ -627,20 +603,12 @@ echo $response;`,
     {
       id: 'update-application',
       method: 'PUT',
-      path: '/api/v1/organizations/:orgId/applications/:appId',
+      path: '/api/v1/applications/:appId',
       title: 'Update Application',
       description:
         'Update an existing application. All body fields mirror CreateApplicationDto and are optional (partial update).',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -701,12 +669,12 @@ echo $response;`,
         scopes: ['openid', 'profile', 'email', 'phone'],
         tokenEndpointAuthMethod: 'client_secret_post',
         isPublicClient: false,
-        organizationId: 'org_01hxyz',
+        teamId: 'org_01hxyz',
         createdAt: '2025-01-15T10:30:00Z',
         updatedAt: '2025-02-01T12:00:00Z',
       },
       codeSamples: {
-        curl: `curl -X PUT https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz \\
+        curl: `curl -X PUT https://api.sutraid.com/api/v1/applications/app_01hxyz \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -716,7 +684,7 @@ echo $response;`,
   }'`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz"
 headers = {
     "Authorization": "Bearer <token>",
     "Content-Type": "application/json"
@@ -730,7 +698,7 @@ payload = {
 response = requests.put(url, headers=headers, json=payload)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz',
   {
     method: 'PUT',
     headers: {
@@ -759,7 +727,7 @@ String body = """
     """;
 
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz"))
     .header("Authorization", "Bearer <token>")
     .header("Content-Type", "application/json")
     .PUT(HttpRequest.BodyPublishers.ofString(body))
@@ -788,7 +756,7 @@ func main() {
     jsonData, _ := json.Marshal(payload)
 
     req, _ := http.NewRequest("PUT",
-        "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz",
         bytes.NewBuffer(jsonData))
     req.Header.Set("Authorization", "Bearer <token>")
     req.Header.Set("Content-Type", "application/json")
@@ -799,7 +767,7 @@ func main() {
     fmt.Println(resp.Status)
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz');
 $payload = json_encode([
     'name'         => 'My Updated App',
     'redirectUris' => ['https://app.example.com/callback', 'https://app.example.com/silent-renew'],
@@ -828,20 +796,12 @@ echo $response;`,
     {
       id: 'rotate-client-secret',
       method: 'POST',
-      path: '/api/v1/organizations/:orgId/applications/:appId/rotate-secret',
+      path: '/api/v1/applications/:appId/rotate-secret',
       title: 'Rotate Client Secret',
       description:
         'Generate a new client secret for an application, invalidating the previous one. Store the returned secret immediately — it will not be shown again.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -863,17 +823,17 @@ echo $response;`,
         clientSecret: 'cs_new_secret_value',
       },
       codeSamples: {
-        curl: `curl -X POST https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/rotate-secret \\
+        curl: `curl -X POST https://api.sutraid.com/api/v1/applications/app_01hxyz/rotate-secret \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/rotate-secret"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz/rotate-secret"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.post(url, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/rotate-secret',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz/rotate-secret',
   {
     method: 'POST',
     headers: { 'Authorization': 'Bearer <token>' },
@@ -886,7 +846,7 @@ import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/rotate-secret"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz/rotate-secret"))
     .header("Authorization", "Bearer <token>")
     .POST(HttpRequest.BodyPublishers.noBody())
     .build();
@@ -903,7 +863,7 @@ import (
 
 func main() {
     req, _ := http.NewRequest("POST",
-        "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/rotate-secret",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz/rotate-secret",
         nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
@@ -914,7 +874,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/rotate-secret');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz/rotate-secret');
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_POST           => true,
@@ -933,20 +893,12 @@ echo $response;`,
     {
       id: 'delete-application',
       method: 'DELETE',
-      path: '/api/v1/organizations/:orgId/applications/:appId',
+      path: '/api/v1/applications/:appId',
       title: 'Delete Application',
       description:
         'Permanently delete an application and all associated OAuth tokens and configurations.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -975,17 +927,17 @@ echo $response;`,
         id: 'app_01hxyz',
       },
       codeSamples: {
-        curl: `curl -X DELETE https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz \\
+        curl: `curl -X DELETE https://api.sutraid.com/api/v1/applications/app_01hxyz \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.delete(url, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz',
   {
     method: 'DELETE',
     headers: { 'Authorization': 'Bearer <token>' },
@@ -998,7 +950,7 @@ import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz"))
     .header("Authorization", "Bearer <token>")
     .DELETE()
     .build();
@@ -1015,7 +967,7 @@ import (
 
 func main() {
     req, _ := http.NewRequest("DELETE",
-        "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz", nil)
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz", nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
     client := &http.Client{}
@@ -1025,7 +977,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz');
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_CUSTOMREQUEST  => 'DELETE',
@@ -1044,20 +996,12 @@ echo $response;`,
     {
       id: 'assign-users-to-application',
       method: 'PUT',
-      path: '/api/v1/organizations/:orgId/applications/:appId/users',
+      path: '/api/v1/applications/:appId/users',
       title: 'Assign Users to Application',
       description:
         'Replace the full set of users assigned to an application. The provided list of userIds becomes the authoritative assignment.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -1096,13 +1040,13 @@ echo $response;`,
         userIds: ['user_abc', 'user_def'],
       },
       codeSamples: {
-        curl: `curl -X PUT https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/users \\
+        curl: `curl -X PUT https://api.sutraid.com/api/v1/applications/app_01hxyz/users \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{"userIds": ["user_abc", "user_def"]}'`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/users"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz/users"
 headers = {
     "Authorization": "Bearer <token>",
     "Content-Type": "application/json"
@@ -1112,7 +1056,7 @@ payload = {"userIds": ["user_abc", "user_def"]}
 response = requests.put(url, headers=headers, json=payload)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/users',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz/users',
   {
     method: 'PUT',
     headers: {
@@ -1131,7 +1075,7 @@ HttpClient client = HttpClient.newHttpClient();
 String body = "{\"userIds\": [\"user_abc\", \"user_def\"]}";
 
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/users"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz/users"))
     .header("Authorization", "Bearer <token>")
     .header("Content-Type", "application/json")
     .PUT(HttpRequest.BodyPublishers.ofString(body))
@@ -1155,7 +1099,7 @@ func main() {
     jsonData, _ := json.Marshal(payload)
 
     req, _ := http.NewRequest("PUT",
-        "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/users",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz/users",
         bytes.NewBuffer(jsonData))
     req.Header.Set("Authorization", "Bearer <token>")
     req.Header.Set("Content-Type", "application/json")
@@ -1166,7 +1110,7 @@ func main() {
     fmt.Println(resp.Status)
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/users');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz/users');
 $payload = json_encode(['userIds' => ['user_abc', 'user_def']]);
 
 curl_setopt_array($ch, [
@@ -1191,20 +1135,12 @@ echo $response;`,
     {
       id: 'assign-groups-to-application',
       method: 'PUT',
-      path: '/api/v1/organizations/:orgId/applications/:appId/groups',
+      path: '/api/v1/applications/:appId/groups',
       title: 'Assign Groups to Application',
       description:
         'Replace the full set of groups assigned to an application. The provided list of groupIds becomes the authoritative assignment.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -1243,13 +1179,13 @@ echo $response;`,
         groupIds: ['grp_xyz', 'grp_abc'],
       },
       codeSamples: {
-        curl: `curl -X PUT https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/groups \\
+        curl: `curl -X PUT https://api.sutraid.com/api/v1/applications/app_01hxyz/groups \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{"groupIds": ["grp_xyz", "grp_abc"]}'`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/groups"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz/groups"
 headers = {
     "Authorization": "Bearer <token>",
     "Content-Type": "application/json"
@@ -1259,7 +1195,7 @@ payload = {"groupIds": ["grp_xyz", "grp_abc"]}
 response = requests.put(url, headers=headers, json=payload)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/groups',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz/groups',
   {
     method: 'PUT',
     headers: {
@@ -1278,7 +1214,7 @@ HttpClient client = HttpClient.newHttpClient();
 String body = "{\"groupIds\": [\"grp_xyz\", \"grp_abc\"]}";
 
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/groups"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz/groups"))
     .header("Authorization", "Bearer <token>")
     .header("Content-Type", "application/json")
     .PUT(HttpRequest.BodyPublishers.ofString(body))
@@ -1302,7 +1238,7 @@ func main() {
     jsonData, _ := json.Marshal(payload)
 
     req, _ := http.NewRequest("PUT",
-        "https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/groups",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz/groups",
         bytes.NewBuffer(jsonData))
     req.Header.Set("Authorization", "Bearer <token>")
     req.Header.Set("Content-Type", "application/json")
@@ -1313,7 +1249,7 @@ func main() {
     fmt.Println(resp.Status)
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/organizations/org_01hxyz/applications/app_01hxyz/groups');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz/groups');
 $payload = json_encode(['groupIds' => ['grp_xyz', 'grp_abc']]);
 
 curl_setopt_array($ch, [
@@ -1861,11 +1797,11 @@ echo $response;`,
           example: 'My AI Agent',
         },
         {
-          name: 'organization_id',
+          name: 'team_id',
           in: 'body',
           type: 'string',
           required: true,
-          description: 'Organization ID the client will be registered under.',
+          description: 'Team ID the client will be registered under.',
           example: 'org_01hxyz',
         },
         {
@@ -1923,7 +1859,7 @@ echo $response;`,
   -H "Content-Type: application/json" \\
   -d '{
     "client_name": "My AI Agent",
-    "organization_id": "org_01hxyz",
+    "team_id": "org_01hxyz",
     "scope": "openid profile email"
   }'`,
         python: `import requests
@@ -1935,7 +1871,7 @@ headers = {
 }
 payload = {
     "client_name": "My AI Agent",
-    "organization_id": "org_01hxyz",
+    "team_id": "org_01hxyz",
     "scope": "openid profile email"
 }
 
@@ -1949,7 +1885,7 @@ print(response.json())`,
   },
   body: JSON.stringify({
     client_name: 'My AI Agent',
-    organization_id: 'org_01hxyz',
+    team_id: 'org_01hxyz',
     scope: 'openid profile email',
   }),
 });
@@ -1962,7 +1898,7 @@ HttpClient client = HttpClient.newHttpClient();
 String body = """
     {
       "client_name": "My AI Agent",
-      "organization_id": "org_01hxyz",
+      "team_id": "org_01hxyz",
       "scope": "openid profile email"
     }
     """;
@@ -1989,7 +1925,7 @@ import (
 func main() {
     payload := map[string]string{
         "client_name":     "My AI Agent",
-        "organization_id": "org_01hxyz",
+        "team_id": "org_01hxyz",
         "scope":           "openid profile email",
     }
     jsonData, _ := json.Marshal(payload)
@@ -2010,7 +1946,7 @@ func main() {
 $ch = curl_init('https://api.sutraid.com/api/v1/oauth/register');
 $payload = json_encode([
     'client_name'     => 'My AI Agent',
-    'organization_id' => 'org_01hxyz',
+    'team_id' => 'org_01hxyz',
     'scope'           => 'openid profile email',
 ]);
 
@@ -2039,18 +1975,10 @@ echo $response;`,
       path: '/api/v1/.well-known/openid-configuration/:orgId',
       title: 'OIDC Discovery',
       description:
-        'Retrieve the OpenID Connect discovery document for an organization. Clients use this endpoint to auto-configure OIDC parameters such as the issuer, authorization endpoint, token endpoint, and supported algorithms.',
+        'Retrieve the OpenID Connect discovery document for an team. Clients use this endpoint to auto-configure OIDC parameters such as the issuer, authorization endpoint, token endpoint, and supported algorithms.',
       auth: 'none',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
-      ],
+        ],
       responseFields: [
         { name: 'issuer', type: 'string', description: 'Token issuer identifier.', example: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hxyz' },
         { name: 'authorization_endpoint', type: 'string', description: 'Authorization endpoint URL.', example: 'https://api.sutraid.com/api/v1/sso/oidc-idp/org_01hxyz/authorize' },
@@ -2145,14 +2073,6 @@ echo $response;`,
         'Retrieve the SAML Identity Provider metadata XML for a specific application. Provide this to your Service Provider to configure the SAML trust relationship.',
       auth: 'none',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -2255,14 +2175,6 @@ echo $response; // XML content`,
         'SAML Single Sign-On endpoint. Receives a SAMLRequest from the Service Provider, validates it, authenticates the user, and returns an HTML page with an auto-submitting form containing the signed SAMLResponse destined for the SP Assertion Consumer Service URL.',
       auth: 'none',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',

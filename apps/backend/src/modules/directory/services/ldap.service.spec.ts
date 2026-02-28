@@ -1,24 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LDAPService } from './ldap.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { OrganizationService } from '../../organization/organization.service';
-import { OrgRole } from '@prisma/client';
 
 describe('LDAPService', () => {
     let service: LDAPService;
     let prisma: jest.Mocked<PrismaService>;
-    let organizationService: jest.Mocked<OrganizationService>;
 
     const mockPrisma = {
         directoryConfig: {
-            findUnique: jest.fn(),
-            upsert: jest.fn(),
+            findFirst: jest.fn(),
+            create: jest.fn(),
             update: jest.fn(),
         },
-    };
-
-    const mockOrganizationService = {
-        checkPermission: jest.fn(),
     };
 
     beforeEach(async () => {
@@ -29,16 +22,11 @@ describe('LDAPService', () => {
                     provide: PrismaService,
                     useValue: mockPrisma,
                 },
-                {
-                    provide: OrganizationService,
-                    useValue: mockOrganizationService,
-                },
             ],
         }).compile();
 
         service = module.get<LDAPService>(LDAPService);
         prisma = module.get(PrismaService);
-        organizationService = module.get(OrganizationService);
     });
 
     afterEach(() => {
@@ -46,56 +34,42 @@ describe('LDAPService', () => {
     });
 
     describe('updateConfig', () => {
-        it('should update LDAP config if user has permission', async () => {
-            const orgId = 'org-1';
-            const actorId = 'actor-1';
+        it('should update LDAP config', async () => {
             const data = { ldapUrl: 'ldap://localhost' };
+            mockPrisma.directoryConfig.findFirst.mockResolvedValue({ id: 'config-1' } as any);
+            mockPrisma.directoryConfig.update.mockResolvedValue({} as any);
 
-            mockOrganizationService.checkPermission.mockResolvedValue({} as any);
-            mockPrisma.directoryConfig.upsert.mockResolvedValue({} as any);
+            await service.updateConfig(data);
 
-            await service.updateConfig(orgId, actorId, data);
+            expect(mockPrisma.directoryConfig.update).toHaveBeenCalled();
+        });
 
-            expect(mockOrganizationService.checkPermission).toHaveBeenCalledWith(orgId, actorId, [
-                OrgRole.SUPER_ADMIN,
-                OrgRole.ORG_ADMIN,
-            ]);
-            expect(mockPrisma.directoryConfig.upsert).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    where: { organizationId: orgId },
-                    create: expect.objectContaining({ type: 'LDAP' }),
-                }),
-            );
+        it('should create LDAP config if not exists', async () => {
+            const data = { ldapUrl: 'ldap://localhost' };
+            mockPrisma.directoryConfig.findFirst.mockResolvedValue(null);
+            mockPrisma.directoryConfig.create.mockResolvedValue({} as any);
+
+            await service.updateConfig(data);
+
+            expect(mockPrisma.directoryConfig.create).toHaveBeenCalled();
         });
     });
 
-    describe('syncOrganization', () => {
-        it('should trigger sync if config is valid and user has permission', async () => {
-            const orgId = 'org-1';
-            const actorId = 'actor-1';
+    describe('sync', () => {
+        it('should trigger sync if config is valid', async () => {
             const mockConfig = { id: 'config-1', type: 'LDAP', enabled: true };
-
-            mockOrganizationService.checkPermission.mockResolvedValue({} as any);
-            mockPrisma.directoryConfig.findUnique.mockResolvedValue(mockConfig as any);
+            mockPrisma.directoryConfig.findFirst.mockResolvedValue(mockConfig as any);
             mockPrisma.directoryConfig.update.mockResolvedValue({} as any);
 
-            await service.syncOrganization(orgId, actorId);
+            await service.sync();
 
-            expect(mockOrganizationService.checkPermission).toHaveBeenCalledWith(orgId, actorId, [
-                OrgRole.SUPER_ADMIN,
-                OrgRole.ORG_ADMIN,
-            ]);
             expect(mockPrisma.directoryConfig.update).toHaveBeenCalled();
         });
 
         it('should not sync if config is missing', async () => {
-            const orgId = 'org-1';
-            const actorId = 'actor-1';
+            mockPrisma.directoryConfig.findFirst.mockResolvedValue(null);
 
-            mockOrganizationService.checkPermission.mockResolvedValue({} as any);
-            mockPrisma.directoryConfig.findUnique.mockResolvedValue(null);
-
-            await service.syncOrganization(orgId, actorId);
+            await service.sync();
 
             expect(mockPrisma.directoryConfig.update).not.toHaveBeenCalled();
         });

@@ -32,14 +32,13 @@ export class AiAgentAuthGuard implements CanActivate {
         throw new UnauthorizedException('Token is not for AI agent');
       }
 
-      if (!payload.agent_id || !payload.org_id) {
+      if (!payload.agent_id) {
         throw new UnauthorizedException('Invalid AI agent token');
       }
 
       const application = await this.prisma.application.findFirst({
         where: {
           clientId: payload.agent_id as string,
-          organizationId: payload.org_id as string,
           isAiAgent: true,
           status: 'ACTIVE',
         },
@@ -51,7 +50,6 @@ export class AiAgentAuthGuard implements CanActivate {
 
       request.agent = {
         id: payload.agent_id,
-        orgId: payload.org_id,
         scopes: (payload.scope as string)?.split(' ') || [],
         version: payload.agent_version,
       };

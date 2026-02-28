@@ -12,10 +12,9 @@ describe('OnboardService', () => {
     let appService: ApplicationService;
 
     const mockPrisma = {
-        organization: {
+        appConfig: {
+            upsert: jest.fn(),
             findUnique: jest.fn(),
-            findFirst: jest.fn(),
-            create: jest.fn(),
         },
         user: {
             findUnique: jest.fn(),
@@ -53,61 +52,27 @@ describe('OnboardService', () => {
     });
 
     const baseDto = {
-        organization: { name: 'Acme Inc', slug: 'acme-inc', primaryColor: '#ff0000' },
-        application: { name: 'MyApp', type: 'WEB' as any, redirectUris: ['https://example.com/callback'] },
         adminEmail: 'admin@example.com',
     };
 
-    it('should successfully onboard with application', async () => {
-        mockPrisma.organization.findUnique
-            .mockResolvedValueOnce(null) // slug check
-            .mockResolvedValueOnce(null); // name check
+    it('should successfully onboard', async () => {
         mockPrisma.user.findUnique.mockResolvedValue(null);
         mockPrisma.user.create.mockResolvedValue({ id: 'user-id', email: baseDto.adminEmail } as any);
-        mockPrisma.organization.create.mockResolvedValue({ id: 'org-id' } as any);
-        mockPrisma.user.update.mockResolvedValue({} as any);
+        mockPrisma.appConfig.upsert.mockResolvedValue({ id: 'singleton' } as any);
 
         await expect(service.onboard(baseDto)).resolves.not.toThrow();
-        expect(mockPrisma.organization.create).toHaveBeenCalled();
-        expect(mockAppService.create).toHaveBeenCalledWith('org-id', 'user-id', expect.any(Object));
+        expect(mockPrisma.appConfig.upsert).toHaveBeenCalled();
         expect(mockAuthService.requestMagicLink).toHaveBeenCalledWith(baseDto.adminEmail);
     });
 
-    it('should successfully onboard without application when skipped', async () => {
-        const dto = { ...baseDto, application: undefined };
-        mockPrisma.organization.findUnique
-            .mockResolvedValueOnce(null) // slug check
-            .mockResolvedValueOnce(null); // name check
+    it('should throw ConflictException when admin email already exists', async () => {
+        mockPrisma.user.findUnique.mockResolvedValue({ id: 'existing' } as any);
+        await expect(service.onboard(baseDto)).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw InternalServerErrorException on database error', async () => {
         mockPrisma.user.findUnique.mockResolvedValue(null);
-        mockPrisma.user.create.mockResolvedValue({ id: 'user-id', email: dto.adminEmail } as any);
-        mockPrisma.organization.create.mockResolvedValue({ id: 'org-id' } as any);
-        mockPrisma.user.update.mockResolvedValue({} as any);
-
-        await expect(service.onboard(dto)).resolves.not.toThrow();
-        expect(mockAppService.create).not.toHaveBeenCalled();
-    });
-
-    it('should throw ConflictException when slug already exists', async () => {
-        mockPrisma.organization.findUnique.mockResolvedValue({ id: 'existing' } as any);
-        await expect(service.onboard(baseDto)).rejects.toThrow(ConflictException);
-    });
-
-    it('should throw ConflictException when name already exists', async () => {
-        // slug is free, name is taken
-        mockPrisma.organization.findUnique
-            .mockResolvedValueOnce(null) // slug check
-            .mockResolvedValueOnce({ id: 'existing' } as any); // name check
-        await expect(service.onboard(baseDto)).rejects.toThrow(ConflictException);
-    });
-
-    it('should throw when admin email already has an organization', async () => {
-        mockPrisma.organization.findUnique
-            .mockResolvedValueOnce(null) // slug check
-            .mockResolvedValueOnce(null); // name check
-        mockPrisma.user.findUnique.mockResolvedValue({
-            id: 'user-id',
-            organizationMembers: [{ id: 'mem-1', status: 'ACTIVE' }],
-        } as any);
+        mockPrisma.user.create.mockRejectedValue(new Error('Db error'));
         await expect(service.onboard(baseDto)).rejects.toThrow(InternalServerErrorException);
     });
 });

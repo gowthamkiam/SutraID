@@ -16,17 +16,24 @@ export interface OrgPublicInfo {
   } | null;
 }
 
-export async function orgLookup(identifier: string): Promise<OrgPublicInfo> {
-  const response = await fetch(`${API_URL}/auth/org-lookup/${encodeURIComponent(identifier)}`);
+export interface BrandingInfo {
+  logoUrl?: string;
+  primaryColor?: string;
+  backgroundColor?: string;
+  customCss?: string;
+  customHtmlTemplate?: string;
+}
+
+export async function fetchBranding(): Promise<BrandingInfo> {
+  const response = await fetch(`${API_URL}/auth/branding`);
   if (!response.ok) {
-    throw new Error('Organization not found');
+    throw new Error('Failed to fetch branding');
   }
   return response.json();
 }
 
 export interface SsoProvider {
   id: string;
-  organizationId: string;
   name: string;
   type: 'OKTA' | 'AZURE_AD' | 'GOOGLE_WORKSPACE' | 'GENERIC_SAML' | 'GENERIC_OIDC';
   protocol: 'SAML2' | 'OIDC';
@@ -84,9 +91,8 @@ function getAuthHeaders(): HeadersInit {
 }
 
 export const ssoApi = {
-  // List all SSO providers for an organization
-  async listProviders(orgId: string): Promise<SsoProvider[]> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/sso/providers`, {
+  async listProviders(): Promise<SsoProvider[]> {
+    const response = await fetch(`${API_URL}/sso/providers`, {
       headers: getAuthHeaders(),
     });
 
@@ -97,9 +103,8 @@ export const ssoApi = {
     return response.json();
   },
 
-  // Get a single SSO provider
-  async getProvider(orgId: string, providerId: string): Promise<SsoProvider> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/sso/providers/${providerId}`, {
+  async getProvider(providerId: string): Promise<SsoProvider> {
+    const response = await fetch(`${API_URL}/sso/providers/${providerId}`, {
       headers: getAuthHeaders(),
     });
 
@@ -110,9 +115,8 @@ export const ssoApi = {
     return response.json();
   },
 
-  // Create a new SSO provider
-  async createProvider(orgId: string, data: CreateSsoProviderDto): Promise<SsoProvider> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/sso/providers`, {
+  async createProvider(data: CreateSsoProviderDto): Promise<SsoProvider> {
+    const response = await fetch(`${API_URL}/sso/providers`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -126,9 +130,8 @@ export const ssoApi = {
     return response.json();
   },
 
-  // Update an SSO provider
-  async updateProvider(orgId: string, providerId: string, data: Partial<CreateSsoProviderDto>): Promise<SsoProvider> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/sso/providers/${providerId}`, {
+  async updateProvider(providerId: string, data: Partial<CreateSsoProviderDto>): Promise<SsoProvider> {
+    const response = await fetch(`${API_URL}/sso/providers/${providerId}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -142,9 +145,8 @@ export const ssoApi = {
     return response.json();
   },
 
-  // Delete an SSO provider
-  async deleteProvider(orgId: string, providerId: string): Promise<void> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/sso/providers/${providerId}`, {
+  async deleteProvider(providerId: string): Promise<void> {
+    const response = await fetch(`${API_URL}/sso/providers/${providerId}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -154,23 +156,19 @@ export const ssoApi = {
     }
   },
 
-  // Get SAML metadata URL for a provider
-  getSamlMetadataUrl(orgId: string): string {
-    return `${API_URL}/sso/saml/${orgId}/metadata`;
+  getSamlMetadataUrl(): string {
+    return `${API_URL}/sso/saml/metadata`;
   },
 
-  // Get SAML login URL
-  getSamlLoginUrl(orgId: string, providerId: string): string {
-    return `${API_URL}/sso/saml/${orgId}/login?providerId=${providerId}`;
+  getSamlLoginUrl(providerId: string): string {
+    return `${API_URL}/sso/saml/login?providerId=${providerId}`;
   },
 
-  // Get OIDC login URL
   getOidcLoginUrl(providerId: string): string {
     return `${API_URL}/sso/oidc/${providerId}/login`;
   },
 
-  // Discover SSO providers by email domain (public, no auth needed)
-  async discoverProviders(domain: string): Promise<{ providers: Array<{ id: string; name: string; type: string; protocol: string; organizationId: string }> }> {
+  async discoverProviders(domain: string): Promise<{ providers: Array<{ id: string; name: string; type: string; protocol: string }> }> {
     const response = await fetch(`${API_URL}/sso/discover?domain=${encodeURIComponent(domain)}`);
 
     if (!response.ok) {
@@ -180,9 +178,8 @@ export const ssoApi = {
     return response.json();
   },
 
-  // Test SSO provider connection
-  async testConnection(orgId: string, providerId: string): Promise<{ success: boolean; checks: Array<{ name: string; passed: boolean; message: string }> }> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/sso/providers/${providerId}/test`, {
+  async testConnection(providerId: string): Promise<{ success: boolean; checks: Array<{ name: string; passed: boolean; message: string }> }> {
+    const response = await fetch(`${API_URL}/sso/providers/${providerId}/test`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -200,7 +197,6 @@ export type AppStatus = 'ACTIVE' | 'DISABLED' | 'ARCHIVED';
 
 export interface Application {
   id: string;
-  organizationId: string;
   name: string;
   description?: string;
   logoUrl?: string;
@@ -264,24 +260,24 @@ export interface CreateApplicationDto {
 }
 
 export const applicationApi = {
-  async list(orgId: string): Promise<Application[]> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/applications`, {
+  async list(): Promise<Application[]> {
+    const response = await fetch(`${API_URL}/applications`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch applications');
     return response.json();
   },
 
-  async get(orgId: string, appId: string): Promise<Application> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/applications/${appId}`, {
+  async get(appId: string): Promise<Application> {
+    const response = await fetch(`${API_URL}/applications/${appId}`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch application');
     return response.json();
   },
 
-  async create(orgId: string, data: CreateApplicationDto): Promise<Application & { clientSecret?: string }> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/applications`, {
+  async create(data: CreateApplicationDto): Promise<Application & { clientSecret?: string }> {
+    const response = await fetch(`${API_URL}/applications`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -293,8 +289,8 @@ export const applicationApi = {
     return response.json();
   },
 
-  async update(orgId: string, appId: string, data: Partial<CreateApplicationDto>): Promise<Application> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/applications/${appId}`, {
+  async update(appId: string, data: Partial<CreateApplicationDto>): Promise<Application> {
+    const response = await fetch(`${API_URL}/applications/${appId}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -306,8 +302,8 @@ export const applicationApi = {
     return response.json();
   },
 
-  async rotateSecret(orgId: string, appId: string): Promise<{ clientId: string; clientSecret: string; message: string }> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/applications/${appId}/rotate-secret`, {
+  async rotateSecret(appId: string): Promise<{ clientId: string; clientSecret: string; message: string }> {
+    const response = await fetch(`${API_URL}/applications/${appId}/rotate-secret`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -315,16 +311,16 @@ export const applicationApi = {
     return response.json();
   },
 
-  async remove(orgId: string, appId: string): Promise<void> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/applications/${appId}`, {
+  async remove(appId: string): Promise<void> {
+    const response = await fetch(`${API_URL}/applications/${appId}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete application');
   },
 
-  async setUsers(orgId: string, appId: string, userIds: string[]): Promise<{ success: boolean; userIds: string[] }> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/applications/${appId}/users`, {
+  async setUsers(appId: string, userIds: string[]): Promise<{ success: boolean; userIds: string[] }> {
+    const response = await fetch(`${API_URL}/applications/${appId}/users`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify({ userIds }),
@@ -333,8 +329,8 @@ export const applicationApi = {
     return response.json();
   },
 
-  async setGroups(orgId: string, appId: string, groupIds: string[]): Promise<{ success: boolean; groupIds: string[] }> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/applications/${appId}/groups`, {
+  async setGroups(appId: string, groupIds: string[]): Promise<{ success: boolean; groupIds: string[] }> {
+    const response = await fetch(`${API_URL}/applications/${appId}/groups`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify({ groupIds }),
@@ -343,41 +339,38 @@ export const applicationApi = {
     return response.json();
   },
 
-  // SAML endpoints
-  getSamlMetadataUrl(orgId: string, appId: string): string {
-    return `${API_URL.replace('/api/v1', '')}/saml/${orgId}/${appId}/metadata.xml`;
+  getSamlMetadataUrl(appId: string): string {
+    return `${API_URL.replace('/api/v1', '')}/saml/${appId}/metadata.xml`;
   },
 
-  getSamlSsoUrl(orgId: string, appId: string): string {
-    return `${API_URL.replace('/api/v1', '')}/saml/${orgId}/${appId}/sso`;
+  getSamlSsoUrl(appId: string): string {
+    return `${API_URL.replace('/api/v1', '')}/saml/${appId}/sso`;
   },
 
-  // OIDC endpoints
-  getOidcDiscoveryUrl(orgId: string, appId: string): string {
-    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/.well-known/openid-configuration`;
+  getOidcDiscoveryUrl(appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${appId}/.well-known/openid-configuration`;
   },
 
-  getTokenUrl(orgId: string, appId: string): string {
-    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/oauth/token`;
+  getTokenUrl(appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${appId}/oauth/token`;
   },
 
-  getIntrospectUrl(orgId: string, appId: string): string {
-    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/oauth/introspect`;
+  getIntrospectUrl(appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${appId}/oauth/introspect`;
   },
 
-  getRevokeUrl(orgId: string, appId: string): string {
-    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/oauth/revoke`;
+  getRevokeUrl(appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${appId}/oauth/revoke`;
   },
 
-  getDcrUrl(orgId: string, appId: string): string {
-    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/oauth/register`;
+  getDcrUrl(appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${appId}/oauth/register`;
   },
 
-  getAuthorizeUrl(orgId: string, appId: string): string {
-    return `${API_URL}/sso/oidc-idp/${orgId}/${appId}/authorize`;
+  getAuthorizeUrl(appId: string): string {
+    return `${API_URL}/sso/oidc-idp/${appId}/authorize`;
   },
 
-  // Guide
   getGuideUrl(orgSlug: string, appId: string): string {
     return `${API_URL.replace('/api/v1', '')}/guide/${orgSlug}/${appId}`;
   },
@@ -389,7 +382,6 @@ export const applicationApi = {
 
 export interface AuditLogEntry {
   id: string;
-  organizationId: string | null;
   userId: string | null;
   agentId: string | null;
   action: string;
@@ -409,7 +401,7 @@ export interface AuditQueryResult {
 }
 
 export const auditApi = {
-  async getLogs(orgId: string, params?: {
+  async getLogs(params?: {
     userId?: string;
     action?: string;
     result?: string;
@@ -428,17 +420,17 @@ export const auditApi = {
     if (params?.limit) searchParams.set('limit', String(params.limit));
 
     const response = await fetch(
-      `${API_URL}/organizations/${orgId}/audit/logs?${searchParams.toString()}`,
+      `${API_URL}/audit/logs?${searchParams.toString()}`,
       { headers: getAuthHeaders() },
     );
     if (!response.ok) throw new Error('Failed to fetch audit logs');
     return response.json();
   },
 
-  async getStats(orgId: string, days?: number): Promise<any> {
+  async getStats(days?: number): Promise<any> {
     const params = days ? `?days=${days}` : '';
     const response = await fetch(
-      `${API_URL}/organizations/${orgId}/audit/stats${params}`,
+      `${API_URL}/audit/stats${params}`,
       { headers: getAuthHeaders() },
     );
     if (!response.ok) throw new Error('Failed to fetch audit stats');
@@ -451,9 +443,9 @@ export const auditApi = {
 // ============================================================================
 
 export const statsApi = {
-  async getActiveSessions(orgId: string): Promise<{ activeSessions: number; periodHours: number }> {
+  async getActiveSessions(): Promise<{ activeSessions: number; periodHours: number }> {
     const response = await fetch(
-      `${API_URL}/organizations/${orgId}/stats/active-sessions`,
+      `${API_URL}/stats/active-sessions`,
       { headers: getAuthHeaders() },
     );
     if (!response.ok) throw new Error('Failed to fetch active sessions');
@@ -467,7 +459,6 @@ export const statsApi = {
 
 export interface Policy {
   id: string;
-  organizationId: string;
   name: string;
   description: string | null;
   effect: 'ALLOW' | 'DENY';
@@ -498,24 +489,24 @@ export interface EvaluationResult {
 }
 
 export const policyApi = {
-  async list(orgId: string): Promise<Policy[]> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/policies`, {
+  async list(): Promise<Policy[]> {
+    const response = await fetch(`${API_URL}/policies`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch policies');
     return response.json();
   },
 
-  async get(orgId: string, policyId: string): Promise<Policy> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/policies/${policyId}`, {
+  async get(policyId: string): Promise<Policy> {
+    const response = await fetch(`${API_URL}/policies/${policyId}`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch policy');
     return response.json();
   },
 
-  async create(orgId: string, data: CreatePolicyDto): Promise<Policy> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/policies`, {
+  async create(data: CreatePolicyDto): Promise<Policy> {
+    const response = await fetch(`${API_URL}/policies`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -527,8 +518,8 @@ export const policyApi = {
     return response.json();
   },
 
-  async update(orgId: string, policyId: string, data: Partial<CreatePolicyDto>): Promise<Policy> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/policies/${policyId}`, {
+  async update(policyId: string, data: Partial<CreatePolicyDto>): Promise<Policy> {
+    const response = await fetch(`${API_URL}/policies/${policyId}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -540,23 +531,23 @@ export const policyApi = {
     return response.json();
   },
 
-  async delete(orgId: string, policyId: string): Promise<void> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/policies/${policyId}`, {
+  async delete(policyId: string): Promise<void> {
+    const response = await fetch(`${API_URL}/policies/${policyId}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete policy');
   },
 
-  async listByType(orgId: string, type: string): Promise<Policy[]> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/policies?type=${type}`, {
+  async listByType(type: string): Promise<Policy[]> {
+    const response = await fetch(`${API_URL}/policies?type=${type}`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch policies');
     return response.json();
   },
 
-  async evaluate(orgId: string, data: {
+  async evaluate(data: {
     userId?: string;
     agentId?: string;
     resource: string;
@@ -569,7 +560,7 @@ export const policyApi = {
       location?: string;
     };
   }): Promise<EvaluationResult> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/policies/evaluate`, {
+    const response = await fetch(`${API_URL}/policies/evaluate`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -580,16 +571,16 @@ export const policyApi = {
 };
 
 export const passwordPolicyApi = {
-  async get(orgId: string): Promise<any> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/policies/password`, {
+  async get(): Promise<any> {
+    const response = await fetch(`${API_URL}/policies/password`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch password policy');
     return response.json();
   },
 
-  async update(orgId: string, data: any): Promise<any> {
-    const response = await fetch(`${API_URL}/organizations/${orgId}/policies/password`, {
+  async update(data: any): Promise<any> {
+    const response = await fetch(`${API_URL}/policies/password`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -656,7 +647,6 @@ export const mfaApi = {
     return response.json();
   },
 
-  // Passkey / WebAuthn Methods
   async getPasskeyOptions(): Promise<PublicKeyCredentialCreationOptionsJSON> {
     const response = await fetch(`${API_URL}/auth/passkey/options`, {
       headers: getAuthHeaders(),
@@ -675,7 +665,6 @@ export const mfaApi = {
     return response.json();
   },
 
-  // Magic Link / OTP
   async sendMagicLink(email: string): Promise<void> {
     const response = await fetch(`${API_URL}/auth/magic-link/send`, {
       method: 'POST',
@@ -692,7 +681,6 @@ export const mfaApi = {
     if (!response.ok) throw new Error('Failed to send OTP');
   },
 
-  // Adaptive Auth
   async checkRisk(context: any): Promise<{ riskScore: number; recommendation: 'ALLOW' | 'CHALLENGE' | 'DENY' }> {
     const response = await fetch(`${API_URL}/auth/adaptive/check`, {
       method: 'POST',
@@ -774,16 +762,16 @@ export interface OidcTokenPolicy {
 }
 
 export const oidcConfigApi = {
-  async getConfig(orgId: string, appId: string): Promise<any> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config`, {
+  async getConfig(appId: string): Promise<any> {
+    const response = await fetch(`${API_URL}/applications/${appId}/oidc-config`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch OIDC configuration');
     return response.json();
   },
 
-  async createScope(orgId: string, appId: string, data: any): Promise<OidcScope> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/scopes`, {
+  async createScope(appId: string, data: any): Promise<OidcScope> {
+    const response = await fetch(`${API_URL}/applications/${appId}/oidc-config/scopes`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -791,16 +779,16 @@ export const oidcConfigApi = {
     return response.json();
   },
 
-  async getClaims(orgId: string, appId: string): Promise<OidcClaim[]> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/claims`, {
+  async getClaims(appId: string): Promise<OidcClaim[]> {
+    const response = await fetch(`${API_URL}/applications/${appId}/oidc-config/claims`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch claims');
     return response.json();
   },
 
-  async createClaim(orgId: string, appId: string, data: any): Promise<OidcClaim> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/claims`, {
+  async createClaim(appId: string, data: any): Promise<OidcClaim> {
+    const response = await fetch(`${API_URL}/applications/${appId}/oidc-config/claims`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -809,16 +797,16 @@ export const oidcConfigApi = {
     return response.json();
   },
 
-  async getRegexRules(orgId: string, appId: string): Promise<OidcRegexRule[]> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/regex-rules`, {
+  async getRegexRules(appId: string): Promise<OidcRegexRule[]> {
+    const response = await fetch(`${API_URL}/applications/${appId}/oidc-config/regex-rules`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch regex rules');
     return response.json();
   },
 
-  async createRegexRule(orgId: string, appId: string, data: any): Promise<OidcRegexRule> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/regex-rules`, {
+  async createRegexRule(appId: string, data: any): Promise<OidcRegexRule> {
+    const response = await fetch(`${API_URL}/applications/${appId}/oidc-config/regex-rules`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -827,8 +815,8 @@ export const oidcConfigApi = {
     return response.json();
   },
 
-  async createSigningKey(orgId: string, appId: string, data: any): Promise<OidcSigningKey> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/signing-keys`, {
+  async createSigningKey(appId: string, data: any): Promise<OidcSigningKey> {
+    const response = await fetch(`${API_URL}/applications/${appId}/oidc-config/signing-keys`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -836,8 +824,8 @@ export const oidcConfigApi = {
     return response.json();
   },
 
-  async updateTokenPolicy(orgId: string, appId: string, data: Partial<OidcTokenPolicy>): Promise<OidcTokenPolicy> {
-    const response = await fetch(`${API_URL}/orgs/${orgId}/applications/${appId}/oidc-config/token-policy`, {
+  async updateTokenPolicy(appId: string, data: Partial<OidcTokenPolicy>): Promise<OidcTokenPolicy> {
+    const response = await fetch(`${API_URL}/applications/${appId}/oidc-config/token-policy`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -851,16 +839,16 @@ export const oidcConfigApi = {
 // ============================================================================
 
 export const directoryApi = {
-  async getConfig(orgId: string): Promise<any> {
-    const response = await fetch(`${API_URL}/directory/ldap/${orgId}/config`, {
+  async getConfig(): Promise<any> {
+    const response = await fetch(`${API_URL}/directory/ldap/config`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) return null;
     return response.json();
   },
 
-  async updateConfig(orgId: string, data: any): Promise<any> {
-    const response = await fetch(`${API_URL}/directory/ldap/${orgId}/config`, {
+  async updateConfig(data: any): Promise<any> {
+    const response = await fetch(`${API_URL}/directory/ldap/config`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -869,8 +857,8 @@ export const directoryApi = {
     return response.json();
   },
 
-  async sync(orgId: string): Promise<{ status: string }> {
-    const response = await fetch(`${API_URL}/directory/ldap/${orgId}/sync`, {
+  async sync(): Promise<{ status: string }> {
+    const response = await fetch(`${API_URL}/directory/ldap/sync`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -878,9 +866,8 @@ export const directoryApi = {
     return response.json();
   },
 
-  async generateScimToken(orgId: string): Promise<{ token: string }> {
-    // Shared with existing SCIM logic
-    const response = await fetch(`${API_URL}/directory/scim/${orgId}/token`, {
+  async generateScimToken(): Promise<{ token: string }> {
+    const response = await fetch(`${API_URL}/directory/scim/token`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });

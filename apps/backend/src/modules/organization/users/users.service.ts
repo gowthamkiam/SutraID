@@ -5,11 +5,10 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { OrgRole, MemberStatus, UserStatus } from '@prisma/client';
+import { OrgRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { OrganizationService } from '../organization.service';
 import { AuthService } from '../../auth/services/auth.service';
 import * as bcrypt from 'bcrypt';
 import { UserOnboardingMethod } from './dto/create-user.dto';
@@ -31,12 +30,10 @@ const ROLE_WEIGHT: Record<OrgRole, number> = {
 export class UsersService {
   constructor(
     private prisma: PrismaService,
-    private orgService: OrganizationService,
     private authService: AuthService,
   ) {}
 
   async list(
-    orgId: string,
     options: {
       search?: string;
       role?: OrgRole;
@@ -44,110 +41,86 @@ export class UsersService {
       page?: number;
       limit?: number;
     },
-    actorId: string,
   ) {
-    await this.orgService.checkPermission(orgId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.USER_ADMIN,
-      OrgRole.HELP_DESK_ADMIN,
-      OrgRole.READ_ONLY_ADMIN,
-      OrgRole.REPORT_ADMIN,
-    ]);
-
     const page = options.page || 1;
     const limit = Math.min(options.limit || 20, 100);
     const skip = (page - 1) * limit;
 
-    const where: any = {
-      organizationId: orgId,
-      status: MemberStatus.ACTIVE,
-    };
+    const where: any = {};
 
     if (options.role) where.role = options.role;
 
     if (options.status) {
-      where.user = { status: options.status as UserStatus };
+      where.status = options.status as UserStatus;
     }
 
     if (options.search) {
-      where.user = {
-        ...where.user,
-        OR: [
-          { email: { contains: options.search, mode: 'insensitive' } },
-          { firstName: { contains: options.search, mode: 'insensitive' } },
-          { lastName: { contains: options.search, mode: 'insensitive' } },
-        ],
-      };
+      where.OR = [
+        { email: { contains: options.search, mode: 'insensitive' } },
+        { firstName: { contains: options.search, mode: 'insensitive' } },
+        { lastName: { contains: options.search, mode: 'insensitive' } },
+      ];
     }
 
-    const prismaAny = this.prisma as any;
-
-    const [members, total] = await Promise.all([
-      prismaAny.organizationMember.findMany({
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
         where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-              status: true,
-              lastLoginAt: true,
-              createdAt: true,
-              mustChangePassword: true,
-              groups: {
-                where: {
-                  group: { organizationId: orgId },
-                },
-                include: {
-                  group: {
-                    select: {
-                      id: true,
-                      name: true,
-                    },
-                  },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          status: true,
+          role: true,
+          lastLoginAt: true,
+          createdAt: true,
+          mustChangePassword: true,
+          groups: {
+            include: {
+              group: {
+                select: {
+                  id: true,
+                  name: true,
                 },
               },
-              applicationAssignments: {
-                where: {
-                  application: { organizationId: orgId, status: { not: 'ARCHIVED' } },
-                },
-                include: {
-                  application: {
-                    select: {
-                      id: true,
-                      name: true,
-                      type: true,
-                      status: true,
-                    },
-                  },
+            },
+          },
+          applicationAssignments: {
+            where: {
+              application: { status: { not: 'ARCHIVED' } },
+            },
+            include: {
+              application: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                  status: true,
                 },
               },
             },
           },
         },
       }),
-      prismaAny.organizationMember.count({ where }),
+      this.prisma.user.count({ where }),
     ]);
 
     return {
-      users: members.map((member: any) => ({
-        id: member.user.id,
-        email: member.user.email,
-        firstName: member.user.firstName,
-        lastName: member.user.lastName,
-        status: member.user.status,
-        role: member.role,
-        createdAt: member.user.createdAt,
-        lastLoginAt: member.user.lastLoginAt,
-        mustChangePassword: member.user.mustChangePassword,
-        groups: member.user.groups.map((entry: any) => entry.group),
-        applications: member.user.applicationAssignments.map((entry: any) => entry.application),
+      users: users.map((user: any) => ({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        status: user.status,
+        role: user.role,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt,
+        mustChangePassword: user.mustChangePassword,
+        groups: user.groups.map((entry: any) => entry.group),
+        applications: user.applicationAssignments.map((entry: any) => entry.application),
       })),
       total,
       page,
@@ -156,14 +129,9 @@ export class UsersService {
     };
   }
 
-  async create(orgId: string, dto: CreateUserDto, actorId: string) {
-    const actorMembership = await this.orgService.checkPermission(orgId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.USER_ADMIN,
-    ]);
-
-    const actorRole = (actorMembership as any)?.role || OrgRole.SUPER_ADMIN;
+  async create(dto: CreateUserDto, actorId: string) {
+    const actor = await this.prisma.user.findUnique({ where: { id: actorId } });
+    const actorRole = actor?.role || OrgRole.SUPER_ADMIN;
     const targetRole = dto.role || OrgRole.READ_ONLY_ADMIN;
     this.assertRoleHierarchy(actorRole, targetRole);
 
@@ -171,63 +139,27 @@ export class UsersService {
 
     const onboardingMethod = dto.onboardingMethod || UserOnboardingMethod.MAGIC_LINK;
 
-    if (!user) {
-      user = await this.prisma.user.create({
-        data: {
-          email: dto.email,
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          status: 'ACTIVE',
-          mustChangePassword: onboardingMethod === UserOnboardingMethod.TEMP_PASSWORD,
-        } as any,
-      });
-    } else if (dto.firstName || dto.lastName) {
-      user = await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          firstName: dto.firstName ?? user.firstName,
-          lastName: dto.lastName ?? user.lastName,
-        },
-      });
+    if (user) {
+      throw new ConflictException('User already exists');
     }
 
-    const existingMembership = await this.prisma.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: orgId,
-          userId: user.id,
-        },
-      },
-    });
-
-    if (existingMembership) {
-      throw new ConflictException('User already exists in this organization');
-    }
-
-    await this.prisma.organizationMember.create({
+    user = await this.prisma.user.create({
       data: {
-        organizationId: orgId,
-        userId: user.id,
+        email: dto.email,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
         role: targetRole,
-        status: MemberStatus.ACTIVE,
-        joinedAt: new Date(),
-      },
-    });
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        organizationId: orgId,
-        role: targetRole,
+        status: 'ACTIVE',
+        mustChangePassword: onboardingMethod === UserOnboardingMethod.TEMP_PASSWORD,
       } as any,
     });
 
     if (dto.groupIds?.length) {
-      await this.assignGroups(orgId, user.id, dto.groupIds);
+      await this.assignGroups(user.id, dto.groupIds);
     }
 
     if (dto.applicationIds?.length) {
-      await this.assignApplications(orgId, user.id, dto.applicationIds);
+      await this.assignApplications(user.id, dto.applicationIds);
     }
 
     if (onboardingMethod === UserOnboardingMethod.TEMP_PASSWORD) {
@@ -248,47 +180,28 @@ export class UsersService {
       await this.authService.requestMagicLink(user.email);
     }
 
-    return this.getOne(orgId, user.id);
+    return this.getOne(user.id);
   }
 
   async update(
-    orgId: string,
     userId: string,
     dto: UpdateUserDto,
     actorId: string,
   ) {
-    const actorMembership = await this.orgService.checkPermission(orgId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.USER_ADMIN,
-      OrgRole.HELP_DESK_ADMIN,
-    ]);
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-    const member = await this.prisma.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: orgId,
-          userId,
-        },
-      },
-    });
-
-    if (!member) {
-      throw new NotFoundException('User not found in this organization');
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
-    const actorRole = (actorMembership as any)?.role || OrgRole.SUPER_ADMIN;
+    const actor = await this.prisma.user.findUnique({ where: { id: actorId } });
+    const actorRole = actor?.role || OrgRole.SUPER_ADMIN;
 
     if (dto.role) {
       this.assertRoleHierarchy(actorRole, dto.role);
-      if (member.role === OrgRole.SUPER_ADMIN && actorRole !== OrgRole.SUPER_ADMIN) {
+      if (user.role === OrgRole.SUPER_ADMIN && actorRole !== OrgRole.SUPER_ADMIN) {
         throw new ForbiddenException('Only SUPER_ADMIN can modify another SUPER_ADMIN');
       }
-
-      await this.prisma.organizationMember.update({
-        where: { id: member.id },
-        data: { role: dto.role },
-      });
     }
 
     await this.prisma.user.update({
@@ -297,80 +210,53 @@ export class UsersService {
         firstName: dto.firstName,
         lastName: dto.lastName,
         status: dto.status,
+        role: dto.role,
       },
     });
 
     if (dto.groupIds) {
-      await this.assignGroups(orgId, userId, dto.groupIds);
+      await this.assignGroups(userId, dto.groupIds);
     }
 
     if (dto.applicationIds) {
-      await this.assignApplications(orgId, userId, dto.applicationIds);
+      await this.assignApplications(userId, dto.applicationIds);
     }
 
-    return this.getOne(orgId, userId);
+    return this.getOne(userId);
   }
 
-  async remove(orgId: string, userId: string, actorId: string) {
-    const actorMembership = await this.orgService.checkPermission(orgId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.USER_ADMIN,
-    ]);
-
+  async remove(userId: string, actorId: string) {
     if (userId === actorId) {
-      throw new ForbiddenException('Cannot remove yourself from the organization');
+      throw new ForbiddenException('Cannot remove yourself');
     }
 
-    const member = await this.prisma.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: orgId,
-          userId,
-        },
-      },
-    });
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-    if (!member) {
-      throw new NotFoundException('User not found in this organization');
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
-    const actorRole = (actorMembership as any)?.role || OrgRole.SUPER_ADMIN;
+    const actor = await this.prisma.user.findUnique({ where: { id: actorId } });
+    const actorRole = actor?.role || OrgRole.SUPER_ADMIN;
 
-    if (userId === actorId && member.role === OrgRole.SUPER_ADMIN) {
-      throw new ForbiddenException('SUPER_ADMIN cannot delete self before ownership transfer');
-    }
-
-    if (member.role === OrgRole.SUPER_ADMIN && actorRole !== OrgRole.SUPER_ADMIN) {
+    if (user.role === OrgRole.SUPER_ADMIN && actorRole !== OrgRole.SUPER_ADMIN) {
       throw new ForbiddenException('Only SUPER_ADMIN can remove another SUPER_ADMIN');
     }
 
     await this.prisma.groupMember.deleteMany({
-      where: {
-        userId,
-        group: {
-          organizationId: orgId,
-        },
-      },
+      where: { userId },
     });
 
-    await this.prisma.organizationMember.delete({ where: { id: member.id } });
+    await this.prisma.user.delete({ where: { id: userId } });
 
     return { success: true };
   }
 
-  async assignGroups(orgId: string, userId: string, groupIds: string[]) {
-    const userMembership = await this.prisma.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: orgId,
-          userId,
-        },
-      },
-    });
+  async assignGroups(userId: string, groupIds: string[]) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-    if (!userMembership) {
-      throw new NotFoundException('User not found in this organization');
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
     const uniqueIds = Array.from(new Set(groupIds));
@@ -378,7 +264,6 @@ export class UsersService {
     const validGroups = await this.prisma.group.findMany({
       where: {
         id: { in: uniqueIds },
-        organizationId: orgId,
       },
       select: { id: true },
     });
@@ -386,10 +271,7 @@ export class UsersService {
     const validGroupIds = validGroups.map((group) => group.id);
 
     await this.prisma.groupMember.deleteMany({
-      where: {
-        userId,
-        group: { organizationId: orgId },
-      },
+      where: { userId },
     });
 
     if (validGroupIds.length > 0) {
@@ -402,26 +284,18 @@ export class UsersService {
     return { success: true, groupIds: validGroupIds };
   }
 
-  async assignApplications(orgId: string, userId: string, applicationIds: string[]) {
+  async assignApplications(userId: string, applicationIds: string[]) {
     const prismaAny = this.prisma as any;
-    const userMembership = await this.prisma.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: orgId,
-          userId,
-        },
-      },
-    });
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-    if (!userMembership) {
-      throw new NotFoundException('User not found in this organization');
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
     const uniqueIds = Array.from(new Set(applicationIds));
     const validApps = await this.prisma.application.findMany({
       where: {
         id: { in: uniqueIds },
-        organizationId: orgId,
         status: { not: 'ARCHIVED' },
       },
       select: { id: true },
@@ -430,10 +304,7 @@ export class UsersService {
     const validApplicationIds = validApps.map((app) => app.id);
 
     await prismaAny.userApplicationAssignment.deleteMany({
-      where: {
-        userId,
-        application: { organizationId: orgId },
-      },
+      where: { userId },
     });
 
     if (validApplicationIds.length > 0) {
@@ -446,30 +317,17 @@ export class UsersService {
     return { success: true, applicationIds: validApplicationIds };
   }
 
-  async assignGroup(orgId: string, userId: string, groupId: string, actorId: string) {
-    await this.orgService.checkPermission(orgId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.GROUP_MEMBERSHIP_ADMIN,
-    ]);
-
+  async assignGroup(userId: string, groupId: string, actorId: string) {
     const group = await this.prisma.group.findFirst({
-      where: { id: groupId, organizationId: orgId },
+      where: { id: groupId },
     });
     if (!group) {
       throw new NotFoundException('Group not found');
     }
 
-    const member = await this.prisma.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: orgId,
-          userId,
-        },
-      },
-    });
-    if (!member) {
-      throw new NotFoundException('User not found in this organization');
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
     const existing = await this.prisma.groupMember.findUnique({
@@ -485,15 +343,9 @@ export class UsersService {
     return { success: true };
   }
 
-  async removeGroup(orgId: string, userId: string, groupId: string, actorId: string) {
-    await this.orgService.checkPermission(orgId, actorId, [
-      OrgRole.SUPER_ADMIN,
-      OrgRole.ORG_ADMIN,
-      OrgRole.GROUP_MEMBERSHIP_ADMIN,
-    ]);
-
+  async removeGroup(userId: string, groupId: string, actorId: string) {
     const group = await this.prisma.group.findFirst({
-      where: { id: groupId, organizationId: orgId },
+      where: { id: groupId },
     });
     if (!group) {
       throw new NotFoundException('Group not found');
@@ -513,42 +365,33 @@ export class UsersService {
     return { success: true };
   }
 
-  private async getOne(orgId: string, userId: string) {
-    const member = await (this.prisma as any).organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: orgId,
-          userId,
+  private async getOne(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        status: true,
+        role: true,
+        createdAt: true,
+        lastLoginAt: true,
+        mustChangePassword: true,
+        groups: {
+          include: { group: { select: { id: true, name: true } } },
         },
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            status: true,
-            createdAt: true,
-            lastLoginAt: true,
-            mustChangePassword: true,
-            groups: {
-              where: { group: { organizationId: orgId } },
-              include: { group: { select: { id: true, name: true } } },
-            },
-            applicationAssignments: {
-              where: {
-                application: { organizationId: orgId, status: { not: 'ARCHIVED' } },
-              },
-              include: {
-                application: {
-                  select: {
-                    id: true,
-                    name: true,
-                    type: true,
-                    status: true,
-                  },
-                },
+        applicationAssignments: {
+          where: {
+            application: { status: { not: 'ARCHIVED' } },
+          },
+          include: {
+            application: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                status: true,
               },
             },
           },
@@ -556,22 +399,22 @@ export class UsersService {
       },
     });
 
-    if (!member) {
-      throw new NotFoundException('User not found in this organization');
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
     return {
-      id: member.user.id,
-      email: member.user.email,
-      firstName: member.user.firstName,
-      lastName: member.user.lastName,
-      status: member.user.status,
-      role: member.role,
-      createdAt: member.user.createdAt,
-      lastLoginAt: member.user.lastLoginAt,
-      mustChangePassword: member.user.mustChangePassword,
-      groups: member.user.groups.map((entry: any) => entry.group),
-      applications: member.user.applicationAssignments.map((entry: any) => entry.application),
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      status: user.status,
+      role: user.role,
+      createdAt: user.createdAt,
+      lastLoginAt: user.lastLoginAt,
+      mustChangePassword: user.mustChangePassword,
+      groups: (user.groups as any[]).map((entry: any) => entry.group),
+      applications: (user.applicationAssignments as any[]).map((entry: any) => entry.application),
     };
   }
 

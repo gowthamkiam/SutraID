@@ -26,7 +26,7 @@ interface SidebarProps {
   onToggle: (collapsed: boolean) => void;
   user: any;
   onLogout: () => void;
-  currentOrgId: string | null;
+  currentOrgId?: string;
 }
 
 const navItems = [
@@ -47,7 +47,7 @@ export default function Sidebar({ collapsed, onToggle, user, onLogout, currentOr
   const role = (user?.role as OrgRole) || 'READ_ONLY_ADMIN';
   const visibleKeys = new Set(roleVisibleTabs[role] || roleVisibleTabs.READ_ONLY_ADMIN);
 
-  const orgPrefix = currentOrgId ? `/dashboard/${currentOrgId}` : '/dashboard';
+  const orgPrefix = '/dashboard';
 
   const items = navItems
     .filter((item) => visibleKeys.has(item.key))

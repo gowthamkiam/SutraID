@@ -10,7 +10,6 @@ import {
     HttpStatus,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { OrgGuard } from '../../auth/guards/org.guard';
 import { OidcConfigService } from '../services/oidc-config.service';
 import {
     CreateOidcScopeDto,
@@ -20,8 +19,8 @@ import {
     UpdateOidcTokenPolicyDto,
 } from '../dto/oidc-config.dto';
 
-@Controller('orgs/:orgId/applications/:appId/oidc-config')
-@UseGuards(JwtAuthGuard, OrgGuard)
+@Controller('applications/:appId/oidc-config')
+@UseGuards(JwtAuthGuard)
 export class OidcConfigController {
     constructor(private readonly oidcConfigService: OidcConfigService) { }
 

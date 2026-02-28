@@ -17,11 +17,10 @@ import { Request, Response } from 'express';
 import { OidcIdpService } from '../services/oidc-idp.service';
 import { AuthService } from '../../auth/services/auth.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { OrgGuard } from '../../auth/guards/org.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
-@Controller('sso/oidc-idp/:orgId/:appId')
+@Controller('sso/oidc-idp/:appId')
 export class OidcIdpController {
   constructor(
     private oidcIdpService: OidcIdpService,
@@ -37,10 +36,9 @@ export class OidcIdpController {
   @Get('.well-known/openid-configuration')
   @HttpCode(HttpStatus.OK)
   async getDiscovery(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
   ) {
-    return this.oidcIdpService.getDiscoveryMetadata(organizationId, applicationId);
+    return this.oidcIdpService.getDiscoveryMetadata(applicationId);
   }
 
   /**
@@ -49,7 +47,6 @@ export class OidcIdpController {
    */
   @Get('authorize')
   async authorize(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
@@ -68,8 +65,24 @@ export class OidcIdpController {
         return;
       }
 
+      const authorized = await this.isUserAuthorizedForApp(user.id, applicationId);
+      if (!authorized) {
+        console.log(`⛔ User ${user.id} not authorized for application ${applicationId}`);
+        const redirectUri = req.query.redirect_uri as string;
+        const state = req.query.state as string;
+        if (redirectUri) {
+          const url = new URL(redirectUri);
+          url.searchParams.set('error', 'access_denied');
+          url.searchParams.set('error_description', 'User is not authorized for this application');
+          if (state) url.searchParams.set('state', state);
+          res.redirect(url.toString());
+          return;
+        }
+        throw new BadRequestException('User is not authorized for this application');
+      }
+
       console.log('✅ User authenticated, forwarding to oidc-provider');
-      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC authorization error:', error);
       throw new BadRequestException(error.message);
@@ -83,7 +96,6 @@ export class OidcIdpController {
    */
   @Get('auto-confirm')
   async autoConfirm(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Query('uid') uid: string,
     @Req() req: Request,
@@ -99,8 +111,18 @@ export class OidcIdpController {
         return;
       }
 
+      const authorized = await this.isUserAuthorizedForApp(user.id, applicationId);
+      if (!authorized) {
+        console.log(`⛔ User ${user.id} not authorized for application ${applicationId}`);
+        const returnTo = await this.oidcIdpService.handleInteraction(
+          applicationId, uid, user.id, false, req, res,
+        );
+        res.redirect(returnTo);
+        return;
+      }
+
       const returnTo = await this.oidcIdpService.handleInteraction(
-        organizationId, applicationId, uid, user.id, true, req, res,
+        applicationId, uid, user.id, true, req, res,
       );
 
       console.log(`✅ Interaction auto-confirmed, resuming at ${returnTo}`);
@@ -119,37 +141,43 @@ export class OidcIdpController {
   @Post('token')
   @HttpCode(HttpStatus.OK)
   async token(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
     try {
       console.log('📥 OIDC token request received');
-      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC token error:', error);
       throw new BadRequestException(error.message);
     }
   }
 
-  /**
-   * GET /userinfo
-   * OIDC UserInfo endpoint
-   * Returns user claims based on access token
-   */
   @Get('userinfo')
   @HttpCode(HttpStatus.OK)
   async userinfo(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
     try {
-      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
     } catch (error: any) {
-      console.error('❌ OIDC userinfo error:', error);
+      throw new UnauthorizedException(error.message);
+    }
+  }
+
+  @Post('userinfo')
+  @HttpCode(HttpStatus.OK)
+  async userinfoPost(
+    @Param('appId') applicationId: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
+    } catch (error: any) {
       throw new UnauthorizedException(error.message);
     }
   }
@@ -162,13 +190,12 @@ export class OidcIdpController {
   @Get('jwks')
   @HttpCode(HttpStatus.OK)
   async jwks(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
     try {
-      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC jwks error:', error);
       throw new BadRequestException(error.message);
@@ -180,9 +207,8 @@ export class OidcIdpController {
    * Get interaction details for consent screen
    */
   @Get('interaction/:uid')
-  @UseGuards(JwtAuthGuard, OrgGuard)
+  @UseGuards(JwtAuthGuard)
   async getInteraction(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Param('uid') uid: string,
     @Req() req: Request,
@@ -206,7 +232,6 @@ export class OidcIdpController {
       const application = await this.prisma.application.findFirst({
         where: {
           id: applicationId,
-          organizationId,
           status: 'ACTIVE',
         },
         select: {
@@ -240,10 +265,9 @@ export class OidcIdpController {
    * Confirm or deny consent
    */
   @Post('interaction/:uid/confirm')
-  @UseGuards(JwtAuthGuard, OrgGuard)
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async confirmInteraction(
-    @Param('orgId') organizationId: string,
     @Param('appId') applicationId: string,
     @Param('uid') uid: string,
     @Body() body: { consent: boolean },
@@ -257,18 +281,26 @@ export class OidcIdpController {
         throw new UnauthorizedException('User not authenticated');
       }
 
+      let consent = body.consent;
+      if (consent) {
+        const authorized = await this.isUserAuthorizedForApp(user.id, applicationId);
+        if (!authorized) {
+          console.log(`⛔ User ${user.id} not authorized for application ${applicationId}`);
+          consent = false;
+        }
+      }
+
       const redirectTo = await this.oidcIdpService.handleInteraction(
-        organizationId,
         applicationId,
         uid,
         user.id,
-        body.consent,
+        consent,
         req,
         res,
       );
 
       console.log(
-        `✅ OIDC consent ${body.consent ? 'granted' : 'denied'} by user ${user.id}`,
+        `✅ OIDC consent ${consent ? 'granted' : 'denied'} by user ${user.id}`,
       );
 
       res.json({
@@ -281,24 +313,60 @@ export class OidcIdpController {
     }
   }
 
-  /**
-   * ALL /callback
-   * Callback endpoint (catch-all for oidc-provider internal routes)
-   */
-  @Get('*')
-  @Post('*')
-  async callback(
-    @Param('orgId') organizationId: string,
+  @Get('end-session')
+  async endSessionGet(
     @Param('appId') applicationId: string,
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
     try {
-      await this.oidcIdpService.dispatchToProvider(organizationId, applicationId, req, res);
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
+    } catch (error: any) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  @Post('end-session')
+  async endSessionPost(
+    @Param('appId') applicationId: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
+    } catch (error: any) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  @Get('*')
+  @Post('*')
+  async callback(
+    @Param('appId') applicationId: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      await this.oidcIdpService.dispatchToProvider(applicationId, req, res);
     } catch (error: any) {
       console.error('❌ OIDC callback error:', error);
       throw new BadRequestException(error.message);
     }
+  }
+
+  private async isUserAuthorizedForApp(userId: string, applicationId: string): Promise<boolean> {
+    const directAssignment = await this.prisma.userApplicationAssignment.findUnique({
+      where: { userId_applicationId: { userId, applicationId } },
+    });
+    if (directAssignment) return true;
+
+    const groupAssignment = await this.prisma.groupApplicationAssignment.findFirst({
+      where: {
+        applicationId,
+        group: { members: { some: { userId } } },
+      },
+    });
+    return !!groupAssignment;
   }
 
   /**

@@ -30,7 +30,6 @@ function ConsentPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const uid = searchParams.get('uid');
-  const orgId = searchParams.get('orgId') || '';
   const appId = searchParams.get('appId') || '';
 
   const [interaction, setInteraction] = useState<InteractionDetails | null>(
@@ -40,12 +39,8 @@ function ConsentPageContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // No need for stateful orgId if we get it from params
-
-  // Removed useEffect that was getting orgId from localStorage
-
   useEffect(() => {
-    if (!uid || !orgId || !appId) {
+    if (!uid || !appId) {
       return;
     }
 
@@ -53,7 +48,7 @@ function ConsentPageContent() {
     const fetchInteraction = async () => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/v1/sso/oidc-idp/${orgId}/${appId}/interaction/${uid}`,
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/v1/sso/oidc-idp/${appId}/interaction/${uid}`,
           {
             credentials: 'include',
             headers: {
@@ -76,17 +71,17 @@ function ConsentPageContent() {
     };
 
     fetchInteraction();
-  }, [uid, orgId, appId]);
+  }, [uid, appId]);
 
   const handleConsent = async (consent: boolean) => {
-    if (!uid || !orgId || !appId) return;
+    if (!uid || !appId) return;
 
     setSubmitting(true);
     setError(null);
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/v1/sso/oidc-idp/${orgId}/${appId}/interaction/${uid}/confirm`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/v1/sso/oidc-idp/${appId}/interaction/${uid}/confirm`,
         {
           method: 'POST',
           credentials: 'include',

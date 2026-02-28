@@ -115,7 +115,7 @@ echo $response;`,
       path: '/api/v1/auth/verify',
       title: 'Verify Magic Link Token',
       description:
-        'Exchanges a magic link token (extracted from the emailed URL) for a full session. Returns access and refresh tokens along with user and organization context. If MFA is required, returns mfaRequired: true and an mfaToken to complete the MFA challenge instead.',
+        'Exchanges a magic link token (extracted from the emailed URL) for a full session. Returns access and refresh tokens along with user and team context. If MFA is required, returns mfaRequired: true and an mfaToken to complete the MFA challenge instead.',
       auth: 'none',
       requestBody: [
         {
@@ -136,12 +136,12 @@ echo $response;`,
         { name: 'user.email', type: 'string', description: 'User email address.' },
         { name: 'user.firstName', type: 'string', description: 'User first name.' },
         { name: 'user.lastName', type: 'string', description: 'User last name.' },
-        { name: 'user.organizationId', type: 'string', description: 'Current organization UUID.' },
-        { name: 'user.role', type: 'string', description: 'User role within the organization.' },
-        { name: 'organization.id', type: 'string', description: 'Organization UUID.' },
-        { name: 'organization.name', type: 'string', description: 'Organization display name.' },
-        { name: 'organization.slug', type: 'string', description: 'URL-safe organization slug.' },
-        { name: 'organization.role', type: 'string', description: 'User role in the organization.' },
+        { name: 'user.teamId', type: 'string', description: 'Current team UUID.' },
+        { name: 'user.role', type: 'string', description: 'User role within the team.' },
+        { name: 'team.id', type: 'string', description: 'Team UUID.' },
+        { name: 'team.name', type: 'string', description: 'Team display name.' },
+        { name: 'team.slug', type: 'string', description: 'URL-safe team slug.' },
+        { name: 'team.role', type: 'string', description: 'User role in the team.' },
         { name: 'mfaRequired', type: 'boolean', description: 'Present and true when MFA must be completed.' },
         { name: 'mfaToken', type: 'string', description: 'Short-lived token to pass to the MFA challenge endpoint.' },
       ],
@@ -155,10 +155,10 @@ echo $response;`,
           email: 'alice@example.com',
           firstName: 'Alice',
           lastName: 'Smith',
-          organizationId: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
+          teamId: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
           role: 'ADMIN',
         },
-        organization: {
+        team: {
           id: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
           name: 'Acme Corp',
           slug: 'acme-corp',
@@ -275,7 +275,7 @@ echo $response["accessToken"];`,
         { name: 'expiresIn', type: 'number', description: 'Access token TTL in seconds.' },
         { name: 'tokenType', type: 'string', description: 'Always "Bearer".' },
         { name: 'user', type: 'object', description: 'Newly created user object.' },
-        { name: 'organization', type: 'object', description: 'Default organization assigned to the user.' },
+        { name: 'team', type: 'object', description: 'Default team assigned to the user.' },
       ],
       responseSample: {
         accessToken: 'eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c3JfbmV3In0.sig',
@@ -287,13 +287,13 @@ echo $response["accessToken"];`,
           email: 'bob@example.com',
           firstName: null,
           lastName: null,
-          organizationId: 'org_02ab3cd4ef5g6h7i8j9k0l1m',
+          teamId: 'org_02ab3cd4ef5g6h7i8j9k0l1m',
           role: 'OWNER',
         },
-        organization: {
+        team: {
           id: 'org_02ab3cd4ef5g6h7i8j9k0l1m',
-          name: "Bob's Organization",
-          slug: 'bobs-organization',
+          name: "Bob's Team",
+          slug: 'bobs-team',
           role: 'OWNER',
         },
       },
@@ -398,7 +398,7 @@ echo $response["accessToken"];`,
       path: '/api/v1/auth/login',
       title: 'Login with Password',
       description:
-        'Authenticates a user with their email and password. Optionally accepts an organizationId to log into a specific organization context. If the account has MFA enabled, the response will include mfaRequired: true and an mfaToken — use the MFA Verify Challenge endpoint to complete the login.',
+        'Authenticates a user with their email and password. Optionally accepts an teamId to log into a specific team context. If the account has MFA enabled, the response will include mfaRequired: true and an mfaToken — use the MFA Verify Challenge endpoint to complete the login.',
       auth: 'none',
       requestBody: [
         {
@@ -418,11 +418,11 @@ echo $response["accessToken"];`,
           example: 'Sup3rS3cur3!',
         },
         {
-          name: 'organizationId',
+          name: 'teamId',
           in: 'body',
           type: 'string',
           required: false,
-          description: 'Optional organization UUID to log into a specific organization context.',
+          description: 'Optional team UUID to log into a specific team context.',
           example: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
         },
       ],
@@ -432,7 +432,7 @@ echo $response["accessToken"];`,
         { name: 'expiresIn', type: 'number', description: 'Access token TTL in seconds.' },
         { name: 'tokenType', type: 'string', description: 'Always "Bearer".' },
         { name: 'user', type: 'object', description: 'Authenticated user.' },
-        { name: 'organization', type: 'object', description: 'Active organization context.' },
+        { name: 'team', type: 'object', description: 'Active team context.' },
         { name: 'mfaRequired', type: 'boolean', description: 'True when an MFA challenge must be completed.' },
         { name: 'mfaToken', type: 'string', description: 'Short-lived token for the MFA challenge flow.' },
       ],
@@ -446,10 +446,10 @@ echo $response["accessToken"];`,
           email: 'alice@example.com',
           firstName: 'Alice',
           lastName: 'Smith',
-          organizationId: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
+          teamId: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
           role: 'ADMIN',
         },
-        organization: {
+        team: {
           id: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
           name: 'Acme Corp',
           slug: 'acme-corp',
@@ -462,7 +462,7 @@ echo $response["accessToken"];`,
   -d '{
     "email": "alice@example.com",
     "password": "Sup3rS3cur3!",
-    "organizationId": "org_01hz1a2b3c4d5e6f7g8h9i0j"
+    "teamId": "org_01hz1a2b3c4d5e6f7g8h9i0j"
   }'`,
 
         python: `import requests
@@ -471,7 +471,7 @@ url = "https://api.sutraid.com/api/v1/auth/login"
 payload = {
     "email": "alice@example.com",
     "password": "Sup3rS3cur3!",
-    "organizationId": "org_01hz1a2b3c4d5e6f7g8h9i0j"
+    "teamId": "org_01hz1a2b3c4d5e6f7g8h9i0j"
 }
 
 response = requests.post(url, json=payload)
@@ -489,7 +489,7 @@ const response = await axios.post(
   {
     email: 'alice@example.com',
     password: 'Sup3rS3cur3!',
-    organizationId: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
+    teamId: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
   }
 );
 
@@ -508,7 +508,7 @@ String body = """
     {
         "email": "alice@example.com",
         "password": "Sup3rS3cur3!",
-        "organizationId": "org_01hz1a2b3c4d5e6f7g8h9i0j"
+        "teamId": "org_01hz1a2b3c4d5e6f7g8h9i0j"
     }
     """;
 
@@ -535,7 +535,7 @@ func main() {
     payload := map[string]string{
         "email":          "alice@example.com",
         "password":       "Sup3rS3cur3!",
-        "organizationId": "org_01hz1a2b3c4d5e6f7g8h9i0j",
+        "teamId": "org_01hz1a2b3c4d5e6f7g8h9i0j",
     }
     data, _ := json.Marshal(payload)
 
@@ -557,7 +557,7 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
     "email"          => "alice@example.com",
     "password"       => "Sup3rS3cur3!",
-    "organizationId" => "org_01hz1a2b3c4d5e6f7g8h9i0j"
+    "teamId" => "org_01hz1a2b3c4d5e6f7g8h9i0j"
 ]));
 
 $response = json_decode(curl_exec($ch), true);
@@ -959,8 +959,8 @@ echo $response["message"];`,
         { name: 'user.email', type: 'string', description: 'User email address.' },
         { name: 'user.firstName', type: 'string', description: 'User first name.' },
         { name: 'user.lastName', type: 'string', description: 'User last name.' },
-        { name: 'user.organizationId', type: 'string', description: 'Current organization UUID.' },
-        { name: 'user.role', type: 'string', description: 'User role within the organization.' },
+        { name: 'user.teamId', type: 'string', description: 'Current team UUID.' },
+        { name: 'user.role', type: 'string', description: 'User role within the team.' },
       ],
       responseSample: {
         user: {
@@ -968,7 +968,7 @@ echo $response["message"];`,
           email: 'alice@example.com',
           firstName: 'Alice',
           lastName: 'Smith',
-          organizationId: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
+          teamId: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
           role: 'ADMIN',
         },
       },
@@ -1537,7 +1537,7 @@ echo $response["success"] ? "Enrolled!" : "Failed";`,
         { name: 'expiresIn', type: 'number', description: 'Access token TTL in seconds.' },
         { name: 'tokenType', type: 'string', description: 'Always "Bearer".' },
         { name: 'user', type: 'object', description: 'Authenticated user.' },
-        { name: 'organization', type: 'object', description: 'Active organization context.' },
+        { name: 'team', type: 'object', description: 'Active team context.' },
       ],
       responseSample: {
         accessToken: 'eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c3JfMTIzIn0.sig',
@@ -1549,10 +1549,10 @@ echo $response["success"] ? "Enrolled!" : "Failed";`,
           email: 'alice@example.com',
           firstName: 'Alice',
           lastName: 'Smith',
-          organizationId: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
+          teamId: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
           role: 'ADMIN',
         },
-        organization: {
+        team: {
           id: 'org_01hz1a2b3c4d5e6f7g8h9i0j',
           name: 'Acme Corp',
           slug: 'acme-corp',

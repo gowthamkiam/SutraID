@@ -41,6 +41,12 @@ describe('OidcIdpController', () => {
     application: {
       findFirst: jest.fn(),
     },
+    userApplicationAssignment: {
+      findUnique: jest.fn().mockResolvedValue({}),
+    },
+    groupApplicationAssignment: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
   };
 
   const mockConfigService = {
@@ -98,8 +104,6 @@ describe('OidcIdpController', () => {
     })
       .overrideGuard(require('../../auth/guards/jwt-auth.guard').JwtAuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(require('../../auth/guards/org.guard').OrgGuard)
-      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<OidcIdpController>(OidcIdpController);
@@ -120,10 +124,10 @@ describe('OidcIdpController', () => {
       };
       mockOidcIdpService.getDiscoveryMetadata.mockResolvedValue(metadata);
 
-      const result = await controller.getDiscovery(TEST_ORG_ID, TEST_APP_ID);
+      const result = await controller.getDiscovery(TEST_APP_ID);
 
       expect(result).toEqual(metadata);
-      expect(mockOidcIdpService.getDiscoveryMetadata).toHaveBeenCalledWith(TEST_ORG_ID, TEST_APP_ID);
+      expect(mockOidcIdpService.getDiscoveryMetadata).toHaveBeenCalledWith(TEST_APP_ID);
     });
   });
 
@@ -134,7 +138,7 @@ describe('OidcIdpController', () => {
       const req = createMockReq();
       const res = createMockRes();
 
-      await controller.authorize(TEST_ORG_ID, TEST_APP_ID, req, res);
+      await controller.authorize(TEST_APP_ID, req, res);
 
       expect(res.redirect).toHaveBeenCalledWith(
         expect.stringContaining('http://localhost:3001/login?returnUrl='),
@@ -151,10 +155,9 @@ describe('OidcIdpController', () => {
       mockAuthService.getUserById.mockResolvedValue(TEST_USER);
       mockOidcIdpService.dispatchToProvider.mockResolvedValue(undefined);
 
-      await controller.authorize(TEST_ORG_ID, TEST_APP_ID, req, res);
+      await controller.authorize(TEST_APP_ID, req, res);
 
       expect(mockOidcIdpService.dispatchToProvider).toHaveBeenCalledWith(
-        TEST_ORG_ID,
         TEST_APP_ID,
         req,
         res,
@@ -171,10 +174,9 @@ describe('OidcIdpController', () => {
       mockAuthService.getUserById.mockResolvedValue(TEST_USER);
       mockOidcIdpService.dispatchToProvider.mockResolvedValue(undefined);
 
-      await controller.authorize(TEST_ORG_ID, TEST_APP_ID, req, res);
+      await controller.authorize(TEST_APP_ID, req, res);
 
       expect(mockOidcIdpService.dispatchToProvider).toHaveBeenCalledWith(
-        TEST_ORG_ID,
         TEST_APP_ID,
         req,
         res,
@@ -193,7 +195,7 @@ describe('OidcIdpController', () => {
 
       // dispatchToProvider is returned (not awaited) inside try/catch, so
       // the raw rejection propagates without being wrapped.
-      await expect(controller.authorize(TEST_ORG_ID, TEST_APP_ID, req, res)).rejects.toThrow(
+      await expect(controller.authorize(TEST_APP_ID, req, res)).rejects.toThrow(
         'provider error',
       );
     });
@@ -206,7 +208,7 @@ describe('OidcIdpController', () => {
       const req = createMockReq();
       const res = createMockRes();
 
-      await controller.autoConfirm(TEST_ORG_ID, TEST_APP_ID, 'uid-123', req, res);
+      await controller.autoConfirm(TEST_APP_ID, 'uid-123', req, res);
 
       expect(res.redirect).toHaveBeenCalledWith('http://localhost:3001/login');
     });
@@ -223,10 +225,9 @@ describe('OidcIdpController', () => {
         'http://localhost:3000/api/v1/sso/oidc-idp/org-1/authorize/uid-resume',
       );
 
-      await controller.autoConfirm(TEST_ORG_ID, TEST_APP_ID, 'uid-123', req, res);
+      await controller.autoConfirm(TEST_APP_ID, 'uid-123', req, res);
 
       expect(mockOidcIdpService.handleInteraction).toHaveBeenCalledWith(
-        TEST_ORG_ID,
         TEST_APP_ID,
         'uid-123',
         TEST_USER.id,
@@ -248,10 +249,9 @@ describe('OidcIdpController', () => {
       const res = createMockRes();
       mockOidcIdpService.dispatchToProvider.mockResolvedValue(undefined);
 
-      await controller.token(TEST_ORG_ID, TEST_APP_ID, req, res);
+      await controller.token(TEST_APP_ID, req, res);
 
       expect(mockOidcIdpService.dispatchToProvider).toHaveBeenCalledWith(
-        TEST_ORG_ID,
         TEST_APP_ID,
         req,
         res,
@@ -267,10 +267,9 @@ describe('OidcIdpController', () => {
       const res = createMockRes();
       mockOidcIdpService.dispatchToProvider.mockResolvedValue(undefined);
 
-      await controller.userinfo(TEST_ORG_ID, TEST_APP_ID, req, res);
+      await controller.userinfo(TEST_APP_ID, req, res);
 
       expect(mockOidcIdpService.dispatchToProvider).toHaveBeenCalledWith(
-        TEST_ORG_ID,
         TEST_APP_ID,
         req,
         res,
@@ -286,10 +285,9 @@ describe('OidcIdpController', () => {
       const res = createMockRes();
       mockOidcIdpService.dispatchToProvider.mockResolvedValue(undefined);
 
-      await controller.jwks(TEST_ORG_ID, TEST_APP_ID, req, res);
+      await controller.jwks(TEST_APP_ID, req, res);
 
       expect(mockOidcIdpService.dispatchToProvider).toHaveBeenCalledWith(
-        TEST_ORG_ID,
         TEST_APP_ID,
         req,
         res,
@@ -304,7 +302,7 @@ describe('OidcIdpController', () => {
       const req = createMockReq();
       const res = createMockRes();
 
-      await controller.getInteraction(TEST_ORG_ID, TEST_APP_ID, 'uid-123', req, res);
+      await controller.getInteraction(TEST_APP_ID, 'uid-123', req, res);
 
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith({ message: 'Unauthorized' });
@@ -338,7 +336,7 @@ describe('OidcIdpController', () => {
       };
       mockPrismaService.application.findFirst.mockResolvedValue(mockApp);
 
-      await controller.getInteraction(TEST_ORG_ID, TEST_APP_ID, 'uid-123', req, res);
+      await controller.getInteraction(TEST_APP_ID, 'uid-123', req, res);
 
       expect(res.json).toHaveBeenCalledWith({
         uid: 'uid-123',
@@ -366,7 +364,7 @@ describe('OidcIdpController', () => {
       mockPrismaService.application.findFirst.mockResolvedValue(null);
 
       await expect(
-        controller.getInteraction(TEST_ORG_ID, TEST_APP_ID, 'uid-123', req, res),
+        controller.getInteraction(TEST_APP_ID, 'uid-123', req, res),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -382,7 +380,6 @@ describe('OidcIdpController', () => {
       // re-throws as BadRequestException.
       await expect(
         controller.confirmInteraction(
-          TEST_ORG_ID,
           TEST_APP_ID,
           'uid-123',
           { consent: true },
@@ -405,7 +402,6 @@ describe('OidcIdpController', () => {
       );
 
       await controller.confirmInteraction(
-        TEST_ORG_ID,
         TEST_APP_ID,
         'uid-123',
         { consent: true },
@@ -414,7 +410,6 @@ describe('OidcIdpController', () => {
       );
 
       expect(mockOidcIdpService.handleInteraction).toHaveBeenCalledWith(
-        TEST_ORG_ID,
         TEST_APP_ID,
         'uid-123',
         TEST_USER.id,
@@ -441,7 +436,6 @@ describe('OidcIdpController', () => {
       );
 
       await controller.confirmInteraction(
-        TEST_ORG_ID,
         TEST_APP_ID,
         'uid-123',
         { consent: false },
@@ -450,7 +444,6 @@ describe('OidcIdpController', () => {
       );
 
       expect(mockOidcIdpService.handleInteraction).toHaveBeenCalledWith(
-        TEST_ORG_ID,
         TEST_APP_ID,
         'uid-123',
         TEST_USER.id,
@@ -469,10 +462,9 @@ describe('OidcIdpController', () => {
       const res = createMockRes();
       mockOidcIdpService.dispatchToProvider.mockResolvedValue(undefined);
 
-      await controller.callback(TEST_ORG_ID, TEST_APP_ID, req, res);
+      await controller.callback(TEST_APP_ID, req, res);
 
       expect(mockOidcIdpService.dispatchToProvider).toHaveBeenCalledWith(
-        TEST_ORG_ID,
         TEST_APP_ID,
         req,
         res,

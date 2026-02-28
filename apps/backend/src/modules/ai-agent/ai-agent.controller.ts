@@ -20,7 +20,6 @@ export class AiAgentController {
   async getIdentity(@Req() req: any) {
     return {
       agent_id: req.agent.id,
-      organization_id: req.agent.orgId,
       scopes: req.agent.scopes,
       version: req.agent.version,
     };
@@ -38,7 +37,6 @@ export class AiAgentController {
     }
 
     return this.aiAgentService.executeTool(
-      req.agent.orgId,
       req.agent.id,
       dto,
     );

@@ -17,10 +17,10 @@ describe('MfaService', () => {
     },
     mfaMethod: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
-    },
-    organization: {
-      update: jest.fn(),
+      create: jest.fn(),
+      deleteMany: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -121,31 +121,20 @@ describe('MfaService', () => {
     });
   });
 
-  describe('toggleAdaptiveAuth', () => {
-    it('should update organization and return enabled flag', async () => {
+  describe('getPasskeyOptions', () => {
+    it('should return registration options for a valid user', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-1',
-        organizationMembers: [{ organizationId: 'org-1' }],
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
       } as any);
+      mockPrismaService.mfaMethod.findMany.mockResolvedValue([]);
 
-      const result = await service.toggleAdaptiveAuth('user-1', true);
-
-      expect(mockPrismaService.organization.update).toHaveBeenCalledWith({
-        where: { id: 'org-1' },
-        data: {},
-      });
-      expect(result).toEqual({ success: true, enabled: true });
-    });
-
-    it('should throw NotFoundException when user has no organization', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: 'user-1',
-        organizationMembers: [],
-      } as any);
-
-      await expect(service.toggleAdaptiveAuth('user-1', false)).rejects.toThrow(
-        NotFoundException,
-      );
+      const result = await service.getPasskeyOptions('user-1');
+      expect(result).toHaveProperty('challenge');
+      expect(result).toHaveProperty('rp');
+      expect(result.rp.name).toBe('SutraID');
     });
   });
 });

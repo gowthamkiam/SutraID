@@ -1,12 +1,8 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-// oidc-provider v9 is ESM-only — must use dynamic import().
-// TypeScript with "module": "commonjs" compiles import() to require(),
-// so we use new Function() to prevent the transformation.
-const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
-import { User } from '@prisma/client';
 import * as crypto from 'crypto';
+import { generateKeyPair, exportJWK } from 'jose';
 import { RegexService } from '../utils/regex.service';
 import { OidcConfigService } from './oidc-config.service';
 import { AuditService } from '../../audit/audit.service';
@@ -16,9 +12,14 @@ export class OidcIdpService {
   private providerInstances: Map<string, any> = new Map();
   private ProviderClass: any;
 
+  protected async dynamicImport(specifier: string) {
+    const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+    return dynamicImport(specifier);
+  }
+
   protected async loadProvider() {
     if (!this.ProviderClass) {
-      const mod = await dynamicImport('oidc-provider');
+      const mod = await this.dynamicImport('oidc-provider');
       this.ProviderClass = mod.default;
     }
     return this.ProviderClass;
@@ -41,39 +42,40 @@ export class OidcIdpService {
       return this.providerInstances.get(applicationId)!;
     }
 
-    // Get application and its organization
+    // Get application
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
-      include: { organization: true },
     });
 
     if (!application) {
       throw new BadRequestException('Application not found');
     }
 
-    const organizationId = application.organizationId;
-
-    // Load dynamic configuration (now at app level)
-    const [tokenPolicy, signingKeys, customScopes, customClaims] = await Promise.all([
+    const [tokenPolicy, existingKeys, customScopes, customClaims] = await Promise.all([
       this.oidcConfigService.getTokenPolicy(applicationId),
       this.oidcConfigService.getSigningKeysWithPrivate(applicationId),
       this.oidcConfigService.getScopes(applicationId),
       this.oidcConfigService.getClaims(applicationId),
     ]);
 
+    // Auto-generate RS256 signing key if none exist
+    let signingKeys = existingKeys;
+    if (signingKeys.length === 0) {
+      const generated = await this.generateAndPersistSigningKey(applicationId);
+      signingKeys = [generated];
+    }
+
     const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
-    const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}/${applicationId}`;
+    const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${applicationId}`;
 
     // Create OIDC Provider instance
     const ProviderClass = await this.loadProvider();
     const provider = new ProviderClass(issuer, {
       proxy: true,
 
-      // Adapter still needs to store tokens — we'll pass both IDs for filtering if needed
-      adapter: this.createAdapter(organizationId, applicationId),
+      // Adapter still needs to store tokens — we'll pass applicationId for filtering
+      adapter: this.createAdapter(applicationId),
 
-      // Build dynamic grant types based on per-app settings
-      // Client registration - only this specific client for this instance
       clients: (() => {
         const clientGrants = ['authorization_code', 'refresh_token'];
         if (application.allowClientCredentials) clientGrants.push('client_credentials');
@@ -141,15 +143,23 @@ export class OidcIdpService {
         return this.findAccount(applicationId, sub);
       },
 
-      // Extra access token claims for AI agents
       extraAccessTokenClaims: async (ctx: any, token: any) => {
         const claims: any = {};
+
+        // Include roles claim from user
+        if (token.accountId) {
+          const user = await this.prisma.user.findUnique({
+            where: { id: token.accountId },
+            select: { role: true },
+          });
+          if (user?.role) {
+            claims.roles = [user.role];
+          }
+        }
 
         if (application.isAiAgent && ctx.oidc?.grant?.type === 'client_credentials') {
           claims.typ = 'ai_agent';
           claims.agent_id = application.clientId;
-          claims.org_id = application.organizationId;
-          claims.org_name = application.organization?.name;
 
           if (application.aiAgentMetadata) {
             const metadata = application.aiAgentMetadata as any;
@@ -161,17 +171,25 @@ export class OidcIdpService {
         return claims;
       },
 
-      // OAuth 2.1: only authorization code flow (no implicit)
+      // Refresh token rotation
+      rotateRefreshToken: (ctx: any) => {
+        if (!tokenPolicy.rotationEnabled) return false;
+        const token = ctx.oidc.entities.RefreshToken;
+        if (!token) return true;
+        const sinceLastRotation = (Date.now() - token.iat * 1000) / 1000;
+        return sinceLastRotation >= tokenPolicy.reuseInterval;
+      },
+
       responseTypes: ['code'],
 
-      // Grant types (dynamic per application)
       grantTypes: (() => {
         const grants = ['authorization_code', 'refresh_token'];
         if (application.allowClientCredentials) grants.push('client_credentials');
+        if (application.allowROPC) grants.push('password');
         return grants;
       })(),
 
-      // Route paths — must match what NestJS exposes under /:orgId/
+      // Route paths — must match what NestJS exposes
       routes: {
         authorization: '/authorize',
         resume: '/authorize/:uid',
@@ -190,7 +208,7 @@ export class OidcIdpService {
         url: async (ctx: any, interaction: any): Promise<string> => {
           const backendUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
           const apiPrefix = this.config.get<string>('API_PREFIX') || 'api/v1';
-          return `${backendUrl}/${apiPrefix}/sso/oidc-idp/${organizationId}/${applicationId}/auto-confirm?uid=${interaction.uid}`;
+          return `${backendUrl}/${apiPrefix}/sso/oidc-idp/${applicationId}/auto-confirm?uid=${interaction.uid}`;
         },
       },
 
@@ -229,11 +247,6 @@ export class OidcIdpService {
       },
     });
 
-    // Register ROPC (password) grant handler if enabled for this application
-    if (application.allowROPC) {
-      await this.registerPasswordGrant(provider, application, organizationId, applicationId);
-    }
-
     // Cache the instance
     this.providerInstances.set(applicationId, provider);
 
@@ -241,119 +254,30 @@ export class OidcIdpService {
   }
 
   /**
-   * Register custom password (ROPC) grant type on the oidc-provider instance.
-   * Issues access_token only (no id_token). Optional refresh_token based on app config.
+   * Auto-generate and persist an RS256 signing key for an application
    */
-  private async registerPasswordGrant(
-    provider: any,
-    application: any,
-    organizationId: string,
-    applicationId: string,
-  ): Promise<void> {
-    const prisma = this.prisma;
-    const auditService = this.auditService;
-    const bcryptMod = await dynamicImport('bcrypt');
+  private async generateAndPersistSigningKey(applicationId: string) {
+    const { publicKey, privateKey } = await generateKeyPair('RS256');
+    const publicJwk = await exportJWK(publicKey);
+    const privateJwk = await exportJWK(privateKey);
+    const kid = `sig-${crypto.randomBytes(8).toString('hex')}`;
 
-    provider.registerGrantType('password', async function passwordGrant(ctx: any, next: any) {
-      const { client } = ctx.oidc;
-      const { username, password: pwd, scope: requestedScope } = ctx.oidc.params;
-
-      if (!username || !pwd) {
-        ctx.body = { error: 'invalid_grant', error_description: 'username and password are required' };
-        ctx.status = 400;
-        return next();
-      }
-
-      // Find user in this org
-      const user = await prisma.user.findFirst({
-        where: {
-          email: username,
-          organizationMembers: {
-            some: { organizationId, status: 'ACTIVE' },
-          },
-        },
-      });
-
-      if (!user || !user.passwordHash) {
-        await auditService.log({
-          organizationId,
-          action: 'oauth.ropc',
-          resource: `application:${applicationId}`,
-          result: 'FAILURE',
-          metadata: { username, reason: 'invalid_credentials', grant_type: 'password' },
-          riskScore: 0.7,
-        });
-        ctx.body = { error: 'invalid_grant', error_description: 'invalid username or password' };
-        ctx.status = 400;
-        return next();
-      }
-
-      const valid = await bcryptMod.compare(pwd, user.passwordHash);
-      if (!valid) {
-        await auditService.log({
-          organizationId,
-          userId: user.id,
-          action: 'oauth.ropc',
-          resource: `application:${applicationId}`,
-          result: 'FAILURE',
-          metadata: { username, reason: 'wrong_password', grant_type: 'password' },
-          riskScore: 0.8,
-        });
-        ctx.body = { error: 'invalid_grant', error_description: 'invalid username or password' };
-        ctx.status = 400;
-        return next();
-      }
-
-      // Issue access token only (NO id_token for ROPC per spec)
-      const scope = requestedScope || 'openid';
-      const at = new provider.AccessToken({
-        accountId: user.id,
-        client,
-        grantId: ctx.oidc.uid || crypto.randomUUID(),
-        scope,
-      });
-      at.setAudiences(client.clientId);
-
-      const accessToken = await at.save();
-      const tokenType = at.tokenType || 'Bearer';
-
-      ctx.body = {
-        access_token: accessToken,
-        token_type: tokenType,
-        expires_in: at.expiration,
-        scope,
-      };
-
-      // Optionally issue refresh token
-      if (application.allowRefreshForROPC) {
-        const rt = new provider.RefreshToken({
-          accountId: user.id,
-          client,
-          grantId: ctx.oidc.uid || crypto.randomUUID(),
-          scope,
-        });
-        const refreshToken = await rt.save();
-        ctx.body.refresh_token = refreshToken;
-      }
-
-      await auditService.log({
-        organizationId,
-        userId: user.id,
-        action: 'oauth.ropc',
-        resource: `application:${applicationId}`,
-        result: 'SUCCESS',
-        metadata: { username, scope, grant_type: 'password' },
-        riskScore: 0.5,
-      });
-
-      await next();
-    }, ['username', 'password', 'scope']);
+    return this.prisma.oidcSigningKey.create({
+      data: {
+        applicationId,
+        kid,
+        algorithm: 'RS256',
+        publicKey: JSON.stringify(publicJwk),
+        privateKey: JSON.stringify({ ...privateJwk, kid, alg: 'RS256', use: 'sig' }),
+        isDefault: true,
+      },
+    });
   }
 
   /**
    * Create database adapter for oidc-provider
    */
-  private createAdapter(organizationId: string, applicationId: string) {
+  private createAdapter(applicationId: string) {
     const prisma = this.prisma;
 
     return class Adapter {
@@ -364,15 +288,13 @@ export class OidcIdpService {
 
         await prisma.oidcToken.upsert({
           where: {
-            organizationId_applicationId_type_tokenId: {
-              organizationId,
+            applicationId_type_tokenId: {
               applicationId,
               type: this.name,
               tokenId: id,
             },
           },
           create: {
-            organizationId,
             applicationId,
             type: this.name,
             tokenId: id,
@@ -389,8 +311,7 @@ export class OidcIdpService {
       async find(id: string) {
         const token = await prisma.oidcToken.findUnique({
           where: {
-            organizationId_applicationId_type_tokenId: {
-              organizationId,
+            applicationId_type_tokenId: {
               applicationId,
               type: this.name,
               tokenId: id,
@@ -408,7 +329,6 @@ export class OidcIdpService {
       async findByUserCode(userCode: string) {
         const token = await prisma.oidcToken.findFirst({
           where: {
-            organizationId,
             applicationId,
             type: this.name,
             payload: {
@@ -427,7 +347,6 @@ export class OidcIdpService {
       async findByUid(uid: string) {
         const token = await prisma.oidcToken.findFirst({
           where: {
-            organizationId,
             applicationId,
             type: this.name,
             payload: {
@@ -446,8 +365,7 @@ export class OidcIdpService {
       async consume(id: string) {
         await prisma.oidcToken.update({
           where: {
-            organizationId_applicationId_type_tokenId: {
-              organizationId,
+            applicationId_type_tokenId: {
               applicationId,
               type: this.name,
               tokenId: id,
@@ -463,8 +381,7 @@ export class OidcIdpService {
       async destroy(id: string) {
         await prisma.oidcToken.delete({
           where: {
-            organizationId_applicationId_type_tokenId: {
-              organizationId,
+            applicationId_type_tokenId: {
               applicationId,
               type: this.name,
               tokenId: id,
@@ -476,7 +393,7 @@ export class OidcIdpService {
       async revokeByGrantId(grantId: string) {
         await prisma.oidcToken.deleteMany({
           where: {
-            organizationId,
+            applicationId,
             type: this.name,
             payload: {
               contains: grantId,
@@ -488,63 +405,12 @@ export class OidcIdpService {
   }
 
   /**
-   * Get registered OIDC clients for the organization
-   */
-  private async getClients(organizationId: string) {
-    const applications = await this.prisma.application.findMany({
-      where: {
-        organizationId,
-        type: 'OIDC',
-        status: 'ACTIVE',
-      },
-    });
-
-    return applications.map((app) => {
-      // Public clients (no secret stored) use PKCE-only auth.
-      // Confidential clients pass the stored hash; oidc-provider stores it
-      // verbatim — token-endpoint verification is handled by the custom
-      // client_secret_verify callback below.
-      const isPublic = !app.clientSecretHash;
-      return {
-        client_id: app.clientId,
-        ...(!isPublic ? { client_secret: app.clientSecretHash } : {}),
-        grant_types: ['authorization_code', 'refresh_token'],
-        redirect_uris: app.redirectUris as string[],
-        post_logout_redirect_uris: app.redirectUris as string[],
-        response_types: ['code'],
-        token_endpoint_auth_method: isPublic ? 'none' : 'client_secret_post',
-      };
-    });
-  }
-
-  /**
    * Find user account by ID
    */
   private async findAccount(applicationId: string, userId: string) {
-    const application = await this.prisma.application.findUnique({
-      where: { id: applicationId },
-      select: { organizationId: true }
-    });
-
-    if (!application) return undefined;
-
-    const organizationId = application.organizationId;
-
     const user = await this.prisma.user.findFirst({
       where: {
         id: userId,
-        organizationMembers: {
-          some: {
-            organizationId,
-            status: 'ACTIVE',
-          },
-        },
-      },
-      include: {
-        organization: true,
-        organizationMembers: {
-          where: { organizationId, status: 'ACTIVE' },
-        }
       },
     });
 
@@ -552,7 +418,6 @@ export class OidcIdpService {
       return undefined;
     }
 
-    const member = user.organizationMembers[0];
     const customClaims = await this.oidcConfigService.getClaims(applicationId);
 
     return {
@@ -566,11 +431,11 @@ export class OidcIdpService {
           given_name: user.firstName,
           family_name: user.lastName,
           updated_at: Math.floor(user.updatedAt.getTime() / 1000),
-          // Organization context
-          org_id: organizationId,
-          org_name: user.organization?.name,
-          org_role: member?.role,
         };
+
+        if (user.role) {
+          claims.roles = [user.role];
+        }
 
         // Process custom claims
         for (const claimDef of customClaims) {
@@ -633,7 +498,6 @@ export class OidcIdpService {
    * Returns the returnTo URL for the caller to redirect the user to.
    */
   async handleInteraction(
-    organizationId: string,
     applicationId: string,
     _uid: string,
     actorId: string,
@@ -688,15 +552,16 @@ export class OidcIdpService {
   /**
    * Get OIDC discovery metadata (dynamic per application)
    */
-  async getDiscoveryMetadata(organizationId: string, applicationId: string) {
+  async getDiscoveryMetadata(applicationId: string) {
     const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
-    const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${organizationId}/${applicationId}`;
+    const issuer = `${baseUrl}/api/v1/sso/oidc-idp/${applicationId}`;
 
     const app = await this.prisma.application.findUnique({
       where: { id: applicationId },
       select: { allowROPC: true, allowClientCredentials: true },
     });
 
+    const oauthBase = `${baseUrl}/api/v1/oauth`;
     const grantTypes = ['authorization_code', 'refresh_token'];
     if (app?.allowClientCredentials) grantTypes.push('client_credentials');
     if (app?.allowROPC) grantTypes.push('password');
@@ -704,16 +569,26 @@ export class OidcIdpService {
     return {
       issuer,
       authorization_endpoint: `${issuer}/authorize`,
-      token_endpoint: `${issuer}/token`,
+      token_endpoint: `${oauthBase}/token`,
       userinfo_endpoint: `${issuer}/userinfo`,
       jwks_uri: `${issuer}/jwks`,
-      registration_endpoint: `${issuer}/register`,
+      revocation_endpoint: `${oauthBase}/revoke`,
+      introspection_endpoint: `${oauthBase}/introspect`,
+      end_session_endpoint: `${issuer}/end-session`,
       scopes_supported: ['openid', 'email', 'profile', 'offline_access'],
       response_types_supported: ['code'],
       grant_types_supported: grantTypes,
       subject_types_supported: ['public'],
       id_token_signing_alg_values_supported: ['RS256'],
       token_endpoint_auth_methods_supported: [
+        'client_secret_post',
+        'client_secret_basic',
+      ],
+      revocation_endpoint_auth_methods_supported: [
+        'client_secret_post',
+        'client_secret_basic',
+      ],
+      introspection_endpoint_auth_methods_supported: [
         'client_secret_post',
         'client_secret_basic',
       ],
@@ -725,6 +600,7 @@ export class OidcIdpService {
         'given_name',
         'family_name',
         'updated_at',
+        'roles',
       ],
       code_challenge_methods_supported: ['S256'],
     };
@@ -732,13 +608,13 @@ export class OidcIdpService {
 
   /**
    * Returns the URL pathname component of the issuer, e.g.
-   * '/api/v1/sso/oidc-idp/:orgId'. Used to strip the prefix from req.url
+   * '/api/v1/sso/oidc-idp/:appId'. Used to strip the prefix from req.url
    * before forwarding to oidc-provider's Koa app (which registers routes
    * without this prefix).
    */
-  private getIssuerPath(organizationId: string, applicationId: string): string {
+  private getIssuerPath(applicationId: string): string {
     const baseUrl = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').split(',')[0].trim();
-    return new URL(`${baseUrl}/api/v1/sso/oidc-idp/${organizationId}/${applicationId}`).pathname;
+    return new URL(`${baseUrl}/api/v1/sso/oidc-idp/${applicationId}`).pathname;
   }
 
   /**
@@ -746,18 +622,20 @@ export class OidcIdpService {
    * issuer path prefix from req.url first so Koa's router can match routes.
    * Use this in every controller handler that delegates to oidc-provider.
    */
-  async dispatchToProvider(organizationId: string, applicationId: string, req: any, res: any): Promise<void> {
+  async dispatchToProvider(applicationId: string, req: any, res: any): Promise<void> {
     const provider = await this.getProviderInstance(applicationId);
-    const issuerPath = this.getIssuerPath(organizationId, applicationId);
-    const originalUrl: string = req.url;
+    const issuerPath = this.getIssuerPath(applicationId);
+    let originalUrl: string = req.url || '';
+    const safeLogUrl = JSON.stringify(originalUrl);
 
-    console.log(`🔍 [OIDC] Dispatching request. Original URL: ${originalUrl}, Issuer Path: ${issuerPath}`);
+    console.log(`🔍 [OIDC] Dispatching request. Original URL: ${safeLogUrl}, Issuer Path: ${issuerPath}`);
 
     req.url = originalUrl.startsWith(issuerPath)
       ? originalUrl.slice(issuerPath.length) || '/'
       : originalUrl;
 
-    console.log(`🔍 [OIDC] Stripped URL: ${req.url}`);
+    const safeStrippedUrl = JSON.stringify(req.url);
+    console.log(`🔍 [OIDC] Stripped URL: ${safeStrippedUrl}`);
 
     await (provider.app.callback())(req, res);
     req.url = originalUrl;

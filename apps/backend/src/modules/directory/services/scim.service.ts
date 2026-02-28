@@ -6,53 +6,20 @@ import * as crypto from 'crypto';
 export class SCIMService {
     constructor(private prisma: PrismaService) { }
 
-    async resolveOrganizationId(orgRef: string): Promise<string> {
-        const normalizedRef = (orgRef || '').trim();
-        if (!normalizedRef) {
-            throw new NotFoundException('Organization not found');
-        }
-
-        // UUID input
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-        if (uuidRegex.test(normalizedRef)) {
-            return normalizedRef;
-        }
-
-        // Support legacy "org_<slug_like>" references.
-        const legacyCandidate = normalizedRef.startsWith('org_')
-            ? normalizedRef.slice(4).replace(/_/g, '-')
-            : normalizedRef;
-
-        const organization = await this.prisma.organization.findFirst({
-            where: {
-                OR: [
-                    { slug: normalizedRef },
-                    { slug: legacyCandidate },
-                    { name: normalizedRef },
-                    { name: legacyCandidate },
-                ],
-            },
-            select: { id: true },
-        });
-
-        if (!organization) {
-            throw new NotFoundException('Organization not found');
-        }
-
-        return organization.id;
-    }
-
-    async validateToken(organizationId: string, token: string) {
+    async validateToken(token: string) {
         if (!token) {
             throw new UnauthorizedException('Missing SCIM token');
         }
 
-        const config = await this.prisma.directoryConfig.findUnique({
-            where: { organizationId },
+        const config = await this.prisma.directoryConfig.findFirst({
+            where: {
+                type: 'SCIM',
+                enabled: true,
+            },
         });
 
-        if (!config || !config.scimToken || config.type !== 'SCIM' || !config.enabled) {
-            throw new UnauthorizedException('SCIM not enabled or configured for this organization');
+        if (!config || !config.scimToken) {
+            throw new UnauthorizedException('SCIM not enabled or configured');
         }
 
         const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
@@ -63,24 +30,31 @@ export class SCIMService {
         return config;
     }
 
-    async generateToken(organizationId: string): Promise<{ token: string }> {
+    async generateToken(): Promise<{ token: string }> {
         const token = `st_live_${crypto.randomBytes(24).toString('hex')}`;
         const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-        await this.prisma.directoryConfig.upsert({
-            where: { organizationId },
-            update: {
-                type: 'SCIM',
-                enabled: true,
-                scimToken: hashedToken,
-            },
-            create: {
-                organizationId,
-                type: 'SCIM',
-                enabled: true,
-                scimToken: hashedToken,
-            },
+        const existingConfig = await this.prisma.directoryConfig.findFirst({
+            where: { type: 'SCIM' },
         });
+
+        if (existingConfig) {
+            await this.prisma.directoryConfig.update({
+                where: { id: existingConfig.id },
+                data: {
+                    enabled: true,
+                    scimToken: hashedToken,
+                },
+            });
+        } else {
+            await this.prisma.directoryConfig.create({
+                data: {
+                    type: 'SCIM',
+                    enabled: true,
+                    scimToken: hashedToken,
+                },
+            });
+        }
 
         return { token };
     }
@@ -133,12 +107,10 @@ export class SCIMService {
         };
     }
 
-    async getUsers(organizationId: string, filter?: string, startIndex = 1, count = 100) {
+    async getUsers(filter?: string, startIndex = 1, count = 100) {
         const value = this.parseEqFilterValue(filter);
         const normalizedFilter = filter?.toLowerCase() || '';
-        const where: any = {
-            organizationMembers: { some: { organizationId } },
-        };
+        const where: any = {};
 
         if (value) {
             if (normalizedFilter.includes('username')) {
@@ -169,30 +141,26 @@ export class SCIMService {
         return users.map((user) => this.mapUserToScim(user));
     }
 
-    async getUserResource(organizationId: string, userId: string) {
-        const member = await this.prisma.organizationMember.findUnique({
-            where: { organizationId_userId: { organizationId, userId } },
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        email: true,
-                        firstName: true,
-                        lastName: true,
-                        status: true,
-                        externalId: true,
-                        agentMetadata: true,
-                    },
-                },
+    async getUserResource(userId: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                status: true,
+                externalId: true,
+                agentMetadata: true,
             },
         });
-        if (!member) {
+        if (!user) {
             throw new NotFoundException('User not found');
         }
-        return this.mapUserToScim(member.user);
+        return this.mapUserToScim(user);
     }
 
-    async createUser(organizationId: string, scimUser: any) {
+    async createUser(scimUser: any) {
         const email =
             scimUser.userName ||
             scimUser.emails?.find((entry: any) => entry?.value)?.value;
@@ -223,7 +191,6 @@ export class SCIMService {
                 : await tx.user.create({
                       data: {
                           email,
-                          organizationId,
                           role: 'READ_ONLY_ADMIN',
                           firstName: scimUser.name?.givenName ?? null,
                           lastName: scimUser.name?.familyName ?? null,
@@ -235,37 +202,22 @@ export class SCIMService {
                       },
                   });
 
-            await tx.organizationMember.upsert({
-                where: { organizationId_userId: { organizationId, userId: userRecord.id } },
-                create: {
-                    organizationId,
-                    userId: userRecord.id,
-                    role: 'READ_ONLY_ADMIN',
-                    status: active ? 'ACTIVE' : 'SUSPENDED',
-                },
-                update: {
-                    status: active ? 'ACTIVE' : 'SUSPENDED',
-                },
-            });
-
             return userRecord;
         });
 
-        return this.getUserResource(organizationId, user.id);
+        return this.getUserResource(user.id);
     }
 
-    async patchUser(organizationId: string, userId: string, patch: any) {
-        const member = await this.prisma.organizationMember.findUnique({
-            where: { organizationId_userId: { organizationId, userId } },
-            include: { user: true },
+    async patchUser(userId: string, patch: any) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
         });
-        if (!member) {
+        if (!user) {
             throw new NotFoundException('User not found');
         }
 
         const data: any = {};
-        let memberStatus: 'ACTIVE' | 'SUSPENDED' | undefined;
-        const metadata = { ...((member.user.agentMetadata as any) || {}) };
+        const metadata = { ...((user.agentMetadata as any) || {}) };
         const enterpriseKey = 'urn:ietf:params:scim:schemas:extension:enterprise:2.0:user';
 
         const operations: any[] = patch?.Operations || [];
@@ -279,7 +231,6 @@ export class SCIMService {
                 if (path.includes('name.familyname')) data.lastName = null;
                 if (path.includes('active')) {
                     data.status = 'SUSPENDED';
-                    memberStatus = 'SUSPENDED';
                 }
                 if (path.includes(`${enterpriseKey}:manager`) || path === `${enterpriseKey}`) {
                     const currentEnterprise = { ...(metadata.scimEnterprise || {}) };
@@ -296,7 +247,6 @@ export class SCIMService {
             if (path === 'active') {
                 const active = value !== false;
                 data.status = active ? 'ACTIVE' : 'SUSPENDED';
-                memberStatus = active ? 'ACTIVE' : 'SUSPENDED';
             }
             if (path.includes(`${enterpriseKey}:manager`) && value && typeof value === 'object') {
                 metadata.scimEnterprise = {
@@ -315,7 +265,6 @@ export class SCIMService {
                 if (typeof value.userName === 'string') data.email = value.userName;
                 if (typeof value.active === 'boolean') {
                     data.status = value.active ? 'ACTIVE' : 'SUSPENDED';
-                    memberStatus = value.active ? 'ACTIVE' : 'SUSPENDED';
                 }
                 if (value.name?.givenName) data.firstName = value.name.givenName;
                 if (value.name?.familyName) data.lastName = value.name.familyName;
@@ -327,44 +276,32 @@ export class SCIMService {
         }
         data.agentMetadata = metadata;
 
-        await this.prisma.$transaction(async (tx) => {
-            if (Object.keys(data).length) {
-                await tx.user.update({ where: { id: userId }, data });
-            }
-            if (memberStatus) {
-                await tx.organizationMember.update({
-                    where: { organizationId_userId: { organizationId, userId } },
-                    data: { status: memberStatus },
-                });
-            }
-        });
+        if (Object.keys(data).length) {
+            await this.prisma.user.update({ where: { id: userId }, data });
+        }
 
-        return this.getUserResource(organizationId, userId);
+        return this.getUserResource(userId);
     }
 
-    async deleteUser(organizationId: string, userId: string) {
-        const member = await this.prisma.organizationMember.findUnique({
-            where: { organizationId_userId: { organizationId, userId } },
+    async deleteUser(userId: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
             select: { id: true },
         });
-        if (!member) {
+        if (!user) {
             throw new NotFoundException('User not found');
         }
 
-        await this.prisma.organizationMember.update({
-            where: { organizationId_userId: { organizationId, userId } },
-            data: { status: 'SUSPENDED' },
-        });
         await this.prisma.user.update({
             where: { id: userId },
             data: { status: 'SUSPENDED' },
         });
     }
 
-    async getGroups(organizationId: string, filter?: string, startIndex = 1, count = 100) {
+    async getGroups(filter?: string, startIndex = 1, count = 100) {
         const value = this.parseEqFilterValue(filter);
         const normalizedFilter = filter?.toLowerCase() || '';
-        const where: any = { organizationId };
+        const where: any = {};
 
         if (value) {
             if (normalizedFilter.includes('displayname')) where.name = value;
@@ -409,9 +346,9 @@ export class SCIMService {
         };
     }
 
-    async getGroupResource(organizationId: string, groupId: string) {
-        const group = await this.prisma.group.findFirst({
-            where: { id: groupId, organizationId },
+    async getGroupResource(groupId: string) {
+        const group = await this.prisma.group.findUnique({
+            where: { id: groupId },
             include: {
                 members: {
                     include: { user: { select: { id: true, email: true } } },
@@ -433,7 +370,7 @@ export class SCIMService {
         });
     }
 
-    async createGroup(organizationId: string, scimGroup: any) {
+    async createGroup(scimGroup: any) {
         const displayName = scimGroup.displayName;
         if (!displayName || typeof displayName !== 'string') {
             throw new BadRequestException('displayName is required');
@@ -441,29 +378,27 @@ export class SCIMService {
 
         const group = await this.prisma.group.create({
             data: {
-                organizationId,
                 name: displayName,
                 externalId: scimGroup.externalId || null,
             },
         });
 
         if (Array.isArray(scimGroup.members) && scimGroup.members.length) {
-            await this.syncGroupMembers(organizationId, group.id, scimGroup.members.map((m: any) => m.value));
+            await this.syncGroupMembers(group.id, scimGroup.members.map((m: any) => m.value));
         }
 
-        return this.getGroupResource(organizationId, group.id);
+        return this.getGroupResource(group.id);
     }
 
-    private async syncGroupMembers(organizationId: string, groupId: string, userIds: string[]) {
+    private async syncGroupMembers(groupId: string, userIds: string[]) {
         const validIds = [...new Set((userIds || []).filter(Boolean))];
-        const existing = await this.prisma.organizationMember.findMany({
+        const existing = await this.prisma.user.findMany({
             where: {
-                organizationId,
-                userId: { in: validIds },
+                id: { in: validIds },
             },
-            select: { userId: true },
+            select: { id: true },
         });
-        const existingIds = new Set(existing.map((entry) => entry.userId));
+        const existingIds = new Set(existing.map((entry) => entry.id));
         const filteredUserIds = validIds.filter((id) => existingIds.has(id));
 
         await this.prisma.groupMember.deleteMany({ where: { groupId } });
@@ -475,9 +410,9 @@ export class SCIMService {
         }
     }
 
-    async patchGroup(organizationId: string, groupId: string, patch: any) {
-        const group = await this.prisma.group.findFirst({
-            where: { id: groupId, organizationId },
+    async patchGroup(groupId: string, patch: any) {
+        const group = await this.prisma.group.findUnique({
+            where: { id: groupId },
             include: { members: true },
         });
         if (!group) {
@@ -521,13 +456,13 @@ export class SCIMService {
             }
         }
 
-        await this.syncGroupMembers(organizationId, groupId, [...nextMemberIds]);
-        return this.getGroupResource(organizationId, groupId);
+        await this.syncGroupMembers(groupId, [...nextMemberIds]);
+        return this.getGroupResource(groupId);
     }
 
-    async deleteGroup(organizationId: string, groupId: string) {
-        const group = await this.prisma.group.findFirst({
-            where: { id: groupId, organizationId },
+    async deleteGroup(groupId: string) {
+        const group = await this.prisma.group.findUnique({
+            where: { id: groupId },
             select: { id: true },
         });
         if (!group) {

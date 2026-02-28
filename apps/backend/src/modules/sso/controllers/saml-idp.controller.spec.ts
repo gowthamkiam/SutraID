@@ -5,7 +5,7 @@
  * authentication checks, auto-submit form generation, XSS escaping.
  */
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { SamlIdpController } from './saml-idp.controller';
 import { SamlIdpService } from '../services/saml-idp.service';
 import { AuthService } from '../../auth/services/auth.service';
@@ -13,7 +13,7 @@ import { AuthService } from '../../auth/services/auth.service';
 describe('SamlIdpController', () => {
   let controller: SamlIdpController;
 
-  const TEST_ORG_ID = '22843968-59d7-4488-9ef2-f9f720945b57';
+  const TEST_APP_ID = '22843968-59d7-4488-9ef2-f9f720945b57';
   const TEST_USER = {
     id: 'usr_a1b2c3d4e5f6',
     email: 'john@example.com',
@@ -45,7 +45,7 @@ describe('SamlIdpController', () => {
         return undefined;
       }),
       protocol: 'http',
-      originalUrl: `/api/v1/sso/saml-idp/${TEST_ORG_ID}/sso?SAMLRequest=test`,
+      originalUrl: `/api/v1/sso/saml-idp/${TEST_APP_ID}/sso?SAMLRequest=test`,
       ...overrides,
     };
   }
@@ -90,8 +90,9 @@ describe('SamlIdpController', () => {
         '<EntityDescriptor>mock-metadata</EntityDescriptor>',
       );
 
-      await controller.getMetadata(TEST_ORG_ID, res);
+      await controller.getMetadata(TEST_APP_ID, res);
 
+      expect(mockSamlIdpService.getIdpMetadata).toHaveBeenCalledWith(TEST_APP_ID);
       expect(res.set).toHaveBeenCalledWith('Content-Type', 'application/samlmetadata+xml');
       expect(res.send).toHaveBeenCalledWith(
         '<EntityDescriptor>mock-metadata</EntityDescriptor>',
@@ -101,10 +102,10 @@ describe('SamlIdpController', () => {
     it('should throw BadRequestException when service errors', async () => {
       const res = createMockRes();
       mockSamlIdpService.getIdpMetadata.mockRejectedValue(
-        new Error('Organization not found'),
+        new Error('Application not found'),
       );
 
-      await expect(controller.getMetadata(TEST_ORG_ID, res)).rejects.toThrow(
+      await expect(controller.getMetadata(TEST_APP_ID, res)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -124,7 +125,7 @@ describe('SamlIdpController', () => {
       const res = createMockRes();
 
       await expect(
-        controller.handleSsoGet(TEST_ORG_ID, undefined as any, undefined, req, res),
+        controller.handleSsoGet(TEST_APP_ID, undefined as any, undefined, req, res),
       ).rejects.toThrow('SAMLRequest parameter is required');
     });
 
@@ -135,13 +136,14 @@ describe('SamlIdpController', () => {
       mockSamlIdpService.parseAuthnRequest.mockResolvedValue(mockAuthnRequest);
 
       await controller.handleSsoGet(
-        TEST_ORG_ID,
+        TEST_APP_ID,
         'base64-saml-request',
         undefined,
         req,
         res,
       );
 
+      expect(mockSamlIdpService.parseAuthnRequest).toHaveBeenCalledWith(TEST_APP_ID, 'base64-saml-request');
       expect(res.redirect).toHaveBeenCalledWith(
         expect.stringContaining('http://localhost:3001/login?returnUrl='),
       );
@@ -160,13 +162,19 @@ describe('SamlIdpController', () => {
 
       await expect(
         controller.handleSsoGet(
-          TEST_ORG_ID,
+          TEST_APP_ID,
           'base64-saml-request',
           undefined,
           req,
           res,
         ),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockSamlIdpService.verifyUserAccess).toHaveBeenCalledWith(
+        TEST_USER,
+        TEST_APP_ID,
+        mockAuthnRequest.issuer,
+      );
     });
 
     it('should return auto-submit HTML form for authenticated user with access', async () => {
@@ -185,13 +193,21 @@ describe('SamlIdpController', () => {
       });
 
       await controller.handleSsoGet(
-        TEST_ORG_ID,
+        TEST_APP_ID,
         'base64-saml-request',
         'relay-state-123',
         req,
         res,
       );
 
+      expect(mockSamlIdpService.createSamlResponse).toHaveBeenCalledWith(
+        TEST_APP_ID,
+        TEST_USER,
+        mockAuthnRequest.id,
+        mockAuthnRequest.acsUrl,
+        mockAuthnRequest.issuer,
+        'relay-state-123',
+      );
       expect(res.send).toHaveBeenCalled();
       const html = res.send.mock.calls[0][0] as string;
       expect(html).toContain('<form method="post"');
@@ -218,7 +234,7 @@ describe('SamlIdpController', () => {
       });
 
       await controller.handleSsoGet(
-        TEST_ORG_ID,
+        TEST_APP_ID,
         'base64-saml-request',
         undefined,
         req,
@@ -252,7 +268,7 @@ describe('SamlIdpController', () => {
       });
 
       await controller.handleSsoGet(
-        TEST_ORG_ID,
+        TEST_APP_ID,
         'base64-saml-request',
         undefined,
         req,
@@ -282,7 +298,7 @@ describe('SamlIdpController', () => {
       const res = createMockRes();
 
       await expect(
-        controller.handleSsoPost(TEST_ORG_ID, undefined as any, undefined, req, res),
+        controller.handleSsoPost(TEST_APP_ID, undefined as any, undefined, req, res),
       ).rejects.toThrow('SAMLRequest parameter is required');
     });
 
@@ -293,7 +309,7 @@ describe('SamlIdpController', () => {
       mockSamlIdpService.parseAuthnRequest.mockResolvedValue(mockAuthnRequest);
 
       await controller.handleSsoPost(
-        TEST_ORG_ID,
+        TEST_APP_ID,
         'base64-saml-request',
         undefined,
         req,
@@ -321,7 +337,7 @@ describe('SamlIdpController', () => {
       });
 
       await controller.handleSsoPost(
-        TEST_ORG_ID,
+        TEST_APP_ID,
         'base64-saml-request',
         'post-relay',
         req,
@@ -347,13 +363,13 @@ describe('SamlIdpController', () => {
 
       await expect(
         controller.handleSsoPost(
-          TEST_ORG_ID,
+          TEST_APP_ID,
           'base64-saml-request',
           undefined,
           req,
           res,
         ),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 });

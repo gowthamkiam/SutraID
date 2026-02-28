@@ -8,19 +8,11 @@ export const auditSection: DocSection = {
     {
       id: 'query-audit-logs',
       method: 'GET',
-      path: '/api/v1/organizations/:orgId/audit/logs',
+      path: '/api/v1/audit/logs',
       title: 'Query audit logs',
-      description: 'Returns a paginated, filterable list of audit log entries for an organization. Requires the audit:read permission.',
+      description: 'Returns a paginated, filterable list of audit log entries for an team. Requires the audit:read permission.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'org_01hx9z1q2w3e4r5t6y7u',
-        },
         {
           name: 'userId',
           in: 'query',
@@ -82,7 +74,7 @@ export const auditSection: DocSection = {
       responseFields: [
         { name: 'data', type: 'AuditLog[]', description: 'Array of audit log entries for the current page.' },
         { name: 'data[].id', type: 'string', description: 'Unique identifier of the audit log entry.' },
-        { name: 'data[].organizationId', type: 'string', description: 'Organization the event belongs to.' },
+        { name: 'data[].teamId', type: 'string', description: 'Team the event belongs to.' },
         { name: 'data[].userId', type: 'string', description: 'ID of the user who performed the action.' },
         { name: 'data[].agentId', type: 'string', description: 'ID of the agent/service that performed the action (if applicable).' },
         { name: 'data[].action', type: 'string', description: 'Action that was performed (e.g. user.login).' },
@@ -101,7 +93,7 @@ export const auditSection: DocSection = {
         data: [
           {
             id: 'aud_01hx9z1q2w3e4r5t6y7u',
-            organizationId: 'org_01hx9z1q2w3e4r5t6y7u',
+            teamId: 'org_01hx9z1q2w3e4r5t6y7u',
             userId: 'usr_01hx9z1q2w3e4r5t6y7u',
             agentId: null,
             action: 'user.login',
@@ -119,13 +111,12 @@ export const auditSection: DocSection = {
         limit: 50,
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/organizations/org_01hx9z1q2w3e4r5t6y7u/audit/logs?result=SUCCESS&page=1&limit=50" \\
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/audit/logs?result=SUCCESS&page=1&limit=50" \\
   -H "Authorization: Bearer <your_token>"`,
 
         python: `import requests
 
-org_id = "org_01hx9z1q2w3e4r5t6y7u"
-url = f"https://api.sutraid.com/api/v1/organizations/{org_id}/audit/logs"
+url = "https://api.sutraid.com/api/v1/audit/logs"
 headers = {
     "Authorization": "Bearer <your_token>",
 }
@@ -140,10 +131,8 @@ print(response.json())`,
 
         nodejs: `const axios = require('axios');
 
-const orgId = 'org_01hx9z1q2w3e4r5t6y7u';
-
 const response = await axios.get(
-  \`https://api.sutraid.com/api/v1/organizations/\${orgId}/audit/logs\`,
+  'https://api.sutraid.com/api/v1/audit/logs',
   {
     headers: {
       Authorization: 'Bearer <your_token>',
@@ -163,14 +152,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-String orgId = "org_01hx9z1q2w3e4r5t6y7u";
-
 HttpClient client = HttpClient.newHttpClient();
 
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create(
-        "https://api.sutraid.com/api/v1/organizations/" + orgId +
-        "/audit/logs?result=SUCCESS&page=1&limit=50"
+        "https://api.sutraid.com/api/v1/audit/logs?result=SUCCESS&page=1&limit=50"
     ))
     .header("Authorization", "Bearer <your_token>")
     .GET()
@@ -188,9 +174,7 @@ import (
 )
 
 func main() {
-    orgID := "org_01hx9z1q2w3e4r5t6y7u"
-    url := "https://api.sutraid.com/api/v1/organizations/" + orgID +
-        "/audit/logs?result=SUCCESS&page=1&limit=50"
+    url := "https://api.sutraid.com/api/v1/audit/logs?result=SUCCESS&page=1&limit=50"
 
     req, _ := http.NewRequest("GET", url, nil)
     req.Header.Set("Authorization", "Bearer <your_token>")
@@ -204,12 +188,10 @@ func main() {
 }`,
 
         php: `<?php
-$orgId = 'org_01hx9z1q2w3e4r5t6y7u';
-
 $ch = curl_init();
 
 curl_setopt_array($ch, [
-    CURLOPT_URL => "https://api.sutraid.com/api/v1/organizations/{$orgId}/audit/logs?result=SUCCESS&page=1&limit=50",
+    CURLOPT_URL => "https://api.sutraid.com/api/v1/audit/logs?result=SUCCESS&page=1&limit=50",
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer <your_token>',
@@ -226,19 +208,11 @@ echo $response;`,
     {
       id: 'get-audit-stats',
       method: 'GET',
-      path: '/api/v1/organizations/:orgId/audit/stats',
+      path: '/api/v1/audit/stats',
       title: 'Get audit stats',
-      description: 'Returns aggregated audit statistics for an organization over a configurable time window. Requires the audit:read permission.',
+      description: 'Returns aggregated audit statistics for an team over a configurable time window. Requires the audit:read permission.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string (UUID)',
-          required: true,
-          description: 'Unique identifier of the organization.',
-          example: 'org_01hx9z1q2w3e4r5t6y7u',
-        },
         {
           name: 'days',
           in: 'query',
@@ -267,13 +241,12 @@ echo $response;`,
         ],
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/organizations/org_01hx9z1q2w3e4r5t6y7u/audit/stats?days=30" \\
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/audit/stats?days=30" \\
   -H "Authorization: Bearer <your_token>"`,
 
         python: `import requests
 
-org_id = "org_01hx9z1q2w3e4r5t6y7u"
-url = f"https://api.sutraid.com/api/v1/organizations/{org_id}/audit/stats"
+url = "https://api.sutraid.com/api/v1/audit/stats"
 headers = {
     "Authorization": "Bearer <your_token>",
 }
@@ -286,10 +259,8 @@ print(response.json())`,
 
         nodejs: `const axios = require('axios');
 
-const orgId = 'org_01hx9z1q2w3e4r5t6y7u';
-
 const response = await axios.get(
-  \`https://api.sutraid.com/api/v1/organizations/\${orgId}/audit/stats\`,
+  'https://api.sutraid.com/api/v1/audit/stats',
   {
     headers: {
       Authorization: 'Bearer <your_token>',
@@ -307,13 +278,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-String orgId = "org_01hx9z1q2w3e4r5t6y7u";
-
 HttpClient client = HttpClient.newHttpClient();
 
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create(
-        "https://api.sutraid.com/api/v1/organizations/" + orgId + "/audit/stats?days=30"
+        "https://api.sutraid.com/api/v1/audit/stats?days=30"
     ))
     .header("Authorization", "Bearer <your_token>")
     .GET()
@@ -331,8 +300,7 @@ import (
 )
 
 func main() {
-    orgID := "org_01hx9z1q2w3e4r5t6y7u"
-    url := "https://api.sutraid.com/api/v1/organizations/" + orgID + "/audit/stats?days=30"
+    url := "https://api.sutraid.com/api/v1/audit/stats?days=30"
 
     req, _ := http.NewRequest("GET", url, nil)
     req.Header.Set("Authorization", "Bearer <your_token>")
@@ -346,12 +314,10 @@ func main() {
 }`,
 
         php: `<?php
-$orgId = 'org_01hx9z1q2w3e4r5t6y7u';
-
 $ch = curl_init();
 
 curl_setopt_array($ch, [
-    CURLOPT_URL => "https://api.sutraid.com/api/v1/organizations/{$orgId}/audit/stats?days=30",
+    CURLOPT_URL => "https://api.sutraid.com/api/v1/audit/stats?days=30",
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer <your_token>',

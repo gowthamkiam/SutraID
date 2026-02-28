@@ -6,8 +6,8 @@ import Link from 'next/link';
 const steps = [
     {
         id: 'setup',
-        title: '1. Organization Setup',
-        description: 'Get your unique workspace and configure your environment.',
+        title: '1. Project Setup',
+        description: 'Configure your SutraID instance and environment.',
         icon: '🏢'
     },
     {
@@ -165,21 +165,20 @@ export default function IntegrationGuide() {
                     <div style={cardStyle}>
                         {activeStep === 'setup' && (
                             <div>
-                                <h2 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '1.5rem' }}>Register Your Organization</h2>
+                                <h2 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '1.5rem' }}>Initialize Your Project</h2>
                                 <p style={{ fontSize: '1.1rem', color: '#64748b', lineHeight: 1.6, marginBottom: '2rem' }}>
-                                    The first step is creating your SutraID workspace. This gives you access to a secure tenant where all your identity data and policies will live.
+                                    The first step is initializing the SutraID SDK. This gives you access to a secure instance where all your identity data and policies will live.
                                 </p>
                                 <div style={codeBlockStyle}>
                                     {`// 1. Initialize the SDK
 const sutra = new SutraID({
-  organizationId: 'acme-corp-123',
-  apiKey: process.env.SUTRA_API_KEY
+  apiKey: process.env.SUTRA_API_KEY,
+  apiUrl: 'https://your-sutraid-instance.com'
 });
 
-// 2. Configure your environment
-await sutra.organizations.configure({
-  domain: 'acme.com',
-  defaultRegion: 'us-east-1'
+// 2. Start authenticating users
+const session = await sutra.auth.login({
+  email: 'user@acme.com'
 });`}
                                 </div>
                             </div>

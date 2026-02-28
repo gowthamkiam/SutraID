@@ -12,20 +12,12 @@ export const oidcConfigSection: DocSection = {
     {
       id: 'get-oidc-config',
       method: 'GET',
-      path: '/api/v1/orgs/:orgId/applications/:appId/oidc-config',
+      path: '/api/v1/applications/:appId/oidc-config',
       title: 'Get OIDC Config',
       description:
         'Returns the complete OIDC configuration for an application, including scopes, claims, regex rules, signing keys, and token policy.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -92,17 +84,19 @@ export const oidcConfigSection: DocSection = {
         updatedAt: '2025-01-15T10:30:00Z',
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config" \\
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config" \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config"
+app_id = "app_01hxyz"
+url = f"https://api.sutraid.com/api/v1/applications/{app_id}/oidc-config"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.get(url, headers=headers)
 print(response.json())`,
-        nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config',
+        nodejs: `const appId = 'app_01hxyz';
+const response = await fetch(
+  \`https://api.sutraid.com/api/v1/applications/\${appId}/oidc-config\`,
   {
     headers: {
       'Authorization': 'Bearer <token>',
@@ -115,8 +109,9 @@ console.log(data);`,
 import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
+String appId = "app_01hxyz";
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/" + appId + "/oidc-config"))
     .header("Authorization", "Bearer <token>")
     .GET()
     .build();
@@ -132,8 +127,9 @@ import (
 )
 
 func main() {
+    appID := "app_01hxyz"
     req, _ := http.NewRequest("GET",
-        "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config",
+        fmt.Sprintf("https://api.sutraid.com/api/v1/applications/%s/oidc-config", appID),
         nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
@@ -147,7 +143,8 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config');
+$appId = 'app_01hxyz';
+$ch = curl_init("https://api.sutraid.com/api/v1/applications/{$appId}/oidc-config");
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER     => [
@@ -167,20 +164,12 @@ echo $response;`,
     {
       id: 'create-oidc-scope',
       method: 'POST',
-      path: '/api/v1/orgs/:orgId/applications/:appId/oidc-config/scopes',
+      path: '/api/v1/applications/:appId/oidc-config/scopes',
       title: 'Create Custom Scope',
       description:
         'Add a custom OAuth scope to the application OIDC configuration. Custom scopes can be used to control access granularity beyond the standard OpenID Connect scopes.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -231,7 +220,7 @@ echo $response;`,
         createdAt: '2025-01-15T10:30:00Z',
       },
       codeSamples: {
-        curl: `curl -X POST "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/scopes" \\
+        curl: `curl -X POST "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/scopes" \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -241,7 +230,7 @@ echo $response;`,
   }'`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/scopes"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/scopes"
 headers = {
     "Authorization": "Bearer <token>",
     "Content-Type": "application/json"
@@ -255,7 +244,7 @@ payload = {
 response = requests.post(url, headers=headers, json=payload)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/scopes',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/scopes',
   {
     method: 'POST',
     headers: {
@@ -284,7 +273,7 @@ String body = """
     """;
 
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/scopes"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/scopes"))
     .header("Authorization", "Bearer <token>")
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -311,7 +300,7 @@ func main() {
     jsonData, _ := json.Marshal(payload)
 
     req, _ := http.NewRequest("POST",
-        "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/scopes",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/scopes",
         bytes.NewBuffer(jsonData))
     req.Header.Set("Authorization", "Bearer <token>")
     req.Header.Set("Content-Type", "application/json")
@@ -326,7 +315,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/scopes');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/scopes');
 $payload = json_encode([
     'name'        => 'custom:billing',
     'description' => 'Access billing information and invoices.',
@@ -355,20 +344,12 @@ echo $response;`,
     {
       id: 'list-oidc-scopes',
       method: 'GET',
-      path: '/api/v1/orgs/:orgId/applications/:appId/oidc-config/scopes',
+      path: '/api/v1/applications/:appId/oidc-config/scopes',
       title: 'List Scopes',
       description:
         'List all configured OAuth scopes for the application, including both default and custom scopes.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -412,17 +393,17 @@ echo $response;`,
         ],
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/scopes" \\
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/scopes" \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/scopes"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/scopes"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.get(url, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/scopes',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/scopes',
   {
     headers: {
       'Authorization': 'Bearer <token>',
@@ -436,7 +417,7 @@ import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/scopes"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/scopes"))
     .header("Authorization", "Bearer <token>")
     .GET()
     .build();
@@ -453,7 +434,7 @@ import (
 
 func main() {
     req, _ := http.NewRequest("GET",
-        "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/scopes",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/scopes",
         nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
@@ -467,7 +448,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/scopes');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/scopes');
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER     => [
@@ -487,20 +468,12 @@ echo $response;`,
     {
       id: 'create-oidc-claim',
       method: 'POST',
-      path: '/api/v1/orgs/:orgId/applications/:appId/oidc-config/claims',
+      path: '/api/v1/applications/:appId/oidc-config/claims',
       title: 'Create Custom Claim',
       description:
         'Add a custom token claim to the application OIDC configuration. Custom claims map user attributes to access tokens and/or ID tokens, optionally applying a regex transformation rule.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -562,7 +535,7 @@ echo $response;`,
         createdAt: '2025-01-15T10:30:00Z',
       },
       codeSamples: {
-        curl: `curl -X POST "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/claims" \\
+        curl: `curl -X POST "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/claims" \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -572,7 +545,7 @@ echo $response;`,
   }'`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/claims"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/claims"
 headers = {
     "Authorization": "Bearer <token>",
     "Content-Type": "application/json"
@@ -586,7 +559,7 @@ payload = {
 response = requests.post(url, headers=headers, json=payload)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/claims',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/claims',
   {
     method: 'POST',
     headers: {
@@ -615,7 +588,7 @@ String body = """
     """;
 
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/claims"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/claims"))
     .header("Authorization", "Bearer <token>")
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -642,7 +615,7 @@ func main() {
     jsonData, _ := json.Marshal(payload)
 
     req, _ := http.NewRequest("POST",
-        "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/claims",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/claims",
         bytes.NewBuffer(jsonData))
     req.Header.Set("Authorization", "Bearer <token>")
     req.Header.Set("Content-Type", "application/json")
@@ -657,7 +630,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/claims');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/claims');
 $payload = json_encode([
     'name'          => 'department',
     'userAttribute' => 'department',
@@ -686,20 +659,12 @@ echo $response;`,
     {
       id: 'list-oidc-claims',
       method: 'GET',
-      path: '/api/v1/orgs/:orgId/applications/:appId/oidc-config/claims',
+      path: '/api/v1/applications/:appId/oidc-config/claims',
       title: 'List Claims',
       description:
         'List all configured token claims for the application, including the user attribute mapping and target tokens.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -739,17 +704,17 @@ echo $response;`,
         ],
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/claims" \\
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/claims" \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/claims"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/claims"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.get(url, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/claims',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/claims',
   {
     headers: {
       'Authorization': 'Bearer <token>',
@@ -763,7 +728,7 @@ import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/claims"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/claims"))
     .header("Authorization", "Bearer <token>")
     .GET()
     .build();
@@ -780,7 +745,7 @@ import (
 
 func main() {
     req, _ := http.NewRequest("GET",
-        "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/claims",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/claims",
         nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
@@ -794,7 +759,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/claims');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/claims');
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER     => [
@@ -814,20 +779,12 @@ echo $response;`,
     {
       id: 'create-oidc-regex-rule',
       method: 'POST',
-      path: '/api/v1/orgs/:orgId/applications/:appId/oidc-config/regex-rules',
+      path: '/api/v1/applications/:appId/oidc-config/regex-rules',
       title: 'Create Regex Rule',
       description:
         'Add a claim transformation regex rule. Regex rules can be referenced by custom claims to transform user attribute values before they are included in tokens.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -888,7 +845,7 @@ echo $response;`,
         createdAt: '2025-01-15T10:30:00Z',
       },
       codeSamples: {
-        curl: `curl -X POST "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/regex-rules" \\
+        curl: `curl -X POST "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/regex-rules" \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -899,7 +856,7 @@ echo $response;`,
   }'`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/regex-rules"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/regex-rules"
 headers = {
     "Authorization": "Bearer <token>",
     "Content-Type": "application/json"
@@ -914,7 +871,7 @@ payload = {
 response = requests.post(url, headers=headers, json=payload)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/regex-rules',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/regex-rules',
   {
     method: 'POST',
     headers: {
@@ -945,7 +902,7 @@ String body = """
     """;
 
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/regex-rules"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/regex-rules"))
     .header("Authorization", "Bearer <token>")
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -973,7 +930,7 @@ func main() {
     jsonData, _ := json.Marshal(payload)
 
     req, _ := http.NewRequest("POST",
-        "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/regex-rules",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/regex-rules",
         bytes.NewBuffer(jsonData))
     req.Header.Set("Authorization", "Bearer <token>")
     req.Header.Set("Content-Type", "application/json")
@@ -988,7 +945,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/regex-rules');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/regex-rules');
 $payload = json_encode([
     'name'        => 'Extract domain',
     'pattern'     => '^.+@(.+)$',
@@ -1018,20 +975,12 @@ echo $response;`,
     {
       id: 'list-oidc-regex-rules',
       method: 'GET',
-      path: '/api/v1/orgs/:orgId/applications/:appId/oidc-config/regex-rules',
+      path: '/api/v1/applications/:appId/oidc-config/regex-rules',
       title: 'List Regex Rules',
       description:
         'List all claim transformation regex rules configured for the application.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -1071,17 +1020,17 @@ echo $response;`,
         ],
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/regex-rules" \\
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/regex-rules" \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/regex-rules"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/regex-rules"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.get(url, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/regex-rules',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/regex-rules',
   {
     headers: {
       'Authorization': 'Bearer <token>',
@@ -1095,7 +1044,7 @@ import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/regex-rules"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/regex-rules"))
     .header("Authorization", "Bearer <token>")
     .GET()
     .build();
@@ -1112,7 +1061,7 @@ import (
 
 func main() {
     req, _ := http.NewRequest("GET",
-        "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/regex-rules",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/regex-rules",
         nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
@@ -1126,7 +1075,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/regex-rules');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/regex-rules');
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER     => [
@@ -1146,20 +1095,12 @@ echo $response;`,
     {
       id: 'create-oidc-signing-key',
       method: 'POST',
-      path: '/api/v1/orgs/:orgId/applications/:appId/oidc-config/signing-keys',
+      path: '/api/v1/applications/:appId/oidc-config/signing-keys',
       title: 'Create Signing Key',
       description:
         'Add a signing key for token issuance. Signing keys are used to sign access tokens and ID tokens. Multiple keys can be configured to support key rotation.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -1235,7 +1176,7 @@ echo $response;`,
         createdAt: '2025-01-15T10:30:00Z',
       },
       codeSamples: {
-        curl: `curl -X POST "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/signing-keys" \\
+        curl: `curl -X POST "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/signing-keys" \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1247,7 +1188,7 @@ echo $response;`,
   }'`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/signing-keys"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/signing-keys"
 headers = {
     "Authorization": "Bearer <token>",
     "Content-Type": "application/json"
@@ -1263,7 +1204,7 @@ payload = {
 response = requests.post(url, headers=headers, json=payload)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/signing-keys',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/signing-keys',
   {
     method: 'POST',
     headers: {
@@ -1296,7 +1237,7 @@ String body = """
     """;
 
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/signing-keys"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/signing-keys"))
     .header("Authorization", "Bearer <token>")
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -1325,7 +1266,7 @@ func main() {
     jsonData, _ := json.Marshal(payload)
 
     req, _ := http.NewRequest("POST",
-        "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/signing-keys",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/signing-keys",
         bytes.NewBuffer(jsonData))
     req.Header.Set("Authorization", "Bearer <token>")
     req.Header.Set("Content-Type", "application/json")
@@ -1340,7 +1281,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/signing-keys');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/signing-keys');
 $payload = json_encode([
     'kid'        => 'sig-rs256-2025',
     'algorithm'  => 'RS256',
@@ -1371,20 +1312,12 @@ echo $response;`,
     {
       id: 'list-oidc-signing-keys',
       method: 'GET',
-      path: '/api/v1/orgs/:orgId/applications/:appId/oidc-config/signing-keys',
+      path: '/api/v1/applications/:appId/oidc-config/signing-keys',
       title: 'List Signing Keys',
       description:
         'List all signing keys configured for the application. Private key material is not included in the response.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -1421,17 +1354,17 @@ echo $response;`,
         ],
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/signing-keys" \\
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/signing-keys" \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/signing-keys"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/signing-keys"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.get(url, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/signing-keys',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/signing-keys',
   {
     headers: {
       'Authorization': 'Bearer <token>',
@@ -1445,7 +1378,7 @@ import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/signing-keys"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/signing-keys"))
     .header("Authorization", "Bearer <token>")
     .GET()
     .build();
@@ -1462,7 +1395,7 @@ import (
 
 func main() {
     req, _ := http.NewRequest("GET",
-        "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/signing-keys",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/signing-keys",
         nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
@@ -1476,7 +1409,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/signing-keys');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/signing-keys');
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER     => [
@@ -1496,20 +1429,12 @@ echo $response;`,
     {
       id: 'update-oidc-token-policy',
       method: 'PUT',
-      path: '/api/v1/orgs/:orgId/applications/:appId/oidc-config/token-policy',
+      path: '/api/v1/applications/:appId/oidc-config/token-policy',
       title: 'Update Token Policy',
       description:
         'Configure token lifetimes and refresh token rotation policy for the application. All fields are optional; only provided fields are updated.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -1578,7 +1503,7 @@ echo $response;`,
         updatedAt: '2025-01-15T10:30:00Z',
       },
       codeSamples: {
-        curl: `curl -X PUT "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/token-policy" \\
+        curl: `curl -X PUT "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/token-policy" \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1590,7 +1515,7 @@ echo $response;`,
   }'`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/token-policy"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/token-policy"
 headers = {
     "Authorization": "Bearer <token>",
     "Content-Type": "application/json"
@@ -1606,7 +1531,7 @@ payload = {
 response = requests.put(url, headers=headers, json=payload)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/token-policy',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/token-policy',
   {
     method: 'PUT',
     headers: {
@@ -1639,7 +1564,7 @@ String body = """
     """;
 
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/token-policy"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/token-policy"))
     .header("Authorization", "Bearer <token>")
     .header("Content-Type", "application/json")
     .PUT(HttpRequest.BodyPublishers.ofString(body))
@@ -1668,7 +1593,7 @@ func main() {
     jsonData, _ := json.Marshal(payload)
 
     req, _ := http.NewRequest("PUT",
-        "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/token-policy",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/token-policy",
         bytes.NewBuffer(jsonData))
     req.Header.Set("Authorization", "Bearer <token>")
     req.Header.Set("Content-Type", "application/json")
@@ -1683,7 +1608,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/token-policy');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/token-policy');
 $payload = json_encode([
     'accessTokenLifetime'  => 3600,
     'idTokenLifetime'      => 3600,
@@ -1714,20 +1639,12 @@ echo $response;`,
     {
       id: 'get-oidc-token-policy',
       method: 'GET',
-      path: '/api/v1/orgs/:orgId/applications/:appId/oidc-config/token-policy',
+      path: '/api/v1/applications/:appId/oidc-config/token-policy',
       title: 'Get Token Policy',
       description:
         'Get the current token policy settings for the application, including access token, ID token, and refresh token lifetimes, as well as rotation configuration.',
       auth: 'bearer',
       parameters: [
-        {
-          name: 'orgId',
-          in: 'path',
-          type: 'string',
-          required: true,
-          description: 'The unique identifier of the organization.',
-          example: 'org_01hxyz',
-        },
         {
           name: 'appId',
           in: 'path',
@@ -1754,17 +1671,17 @@ echo $response;`,
         updatedAt: '2025-01-15T10:30:00Z',
       },
       codeSamples: {
-        curl: `curl -X GET "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/token-policy" \\
+        curl: `curl -X GET "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/token-policy" \\
   -H "Authorization: Bearer <token>"`,
         python: `import requests
 
-url = "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/token-policy"
+url = "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/token-policy"
 headers = {"Authorization": "Bearer <token>"}
 
 response = requests.get(url, headers=headers)
 print(response.json())`,
         nodejs: `const response = await fetch(
-  'https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/token-policy',
+  'https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/token-policy',
   {
     headers: {
       'Authorization': 'Bearer <token>',
@@ -1778,7 +1695,7 @@ import java.net.URI;
 
 HttpClient client = HttpClient.newHttpClient();
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/token-policy"))
+    .uri(URI.create("https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/token-policy"))
     .header("Authorization", "Bearer <token>")
     .GET()
     .build();
@@ -1795,7 +1712,7 @@ import (
 
 func main() {
     req, _ := http.NewRequest("GET",
-        "https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/token-policy",
+        "https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/token-policy",
         nil)
     req.Header.Set("Authorization", "Bearer <token>")
 
@@ -1809,7 +1726,7 @@ func main() {
     fmt.Println(string(body))
 }`,
         php: `<?php
-$ch = curl_init('https://api.sutraid.com/api/v1/orgs/org_01hxyz/applications/app_01hxyz/oidc-config/token-policy');
+$ch = curl_init('https://api.sutraid.com/api/v1/applications/app_01hxyz/oidc-config/token-policy');
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER     => [

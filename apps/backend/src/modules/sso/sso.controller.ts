@@ -16,7 +16,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OrgContextGuard } from '../organization/guards/org-context.guard';
 import { RbacGuard, RequirePermission } from '../rbac/rbac.guard';
 
-@Controller('organizations/:orgId/sso/providers')
+@Controller('sso/providers')
 @UseGuards(JwtAuthGuard, OrgContextGuard, RbacGuard)
 export class SsoController {
   constructor(private readonly ssoService: SsoService) {}
@@ -25,16 +25,15 @@ export class SsoController {
   @RequirePermission('sso:create')
   async create(
     @Request() req: any,
-    @Param('orgId') orgId: string,
     @Body() dto: CreateSsoProviderDto,
   ) {
-    return this.ssoService.create(orgId, req.user.id, dto);
+    return this.ssoService.create(req.user.id, dto);
   }
 
   @Get()
   @RequirePermission('sso:read')
-  async findAll(@Request() req: any, @Param('orgId') orgId: string) {
-    return this.ssoService.findAll(orgId, req.user.id);
+  async findAll(@Request() req: any) {
+    return this.ssoService.findAll(req.user.id);
   }
 
   @Get(':providerId')

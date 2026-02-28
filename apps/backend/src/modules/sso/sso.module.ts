@@ -12,11 +12,10 @@ import { OidcConfigService } from './services/oidc-config.service';
 import { RegexService } from './utils/regex.service';
 import { OidcConfigController } from './controllers/oidc-config.controller';
 import { PrismaModule } from '../prisma/prisma.module';
-import { OrganizationModule } from '../organization/organization.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [PrismaModule, OrganizationModule, AuthModule],
+  imports: [PrismaModule, AuthModule],
   controllers: [SsoController, SsoAuthController, SamlIdpController, OidcIdpController, OidcConfigController],
   providers: [SsoService, SamlSpService, SamlIdpService, OidcIdpService, OidcClientService, OidcConfigService, RegexService],
   exports: [SsoService, SamlSpService, SamlIdpService, OidcIdpService, OidcClientService, OidcConfigService, RegexService],

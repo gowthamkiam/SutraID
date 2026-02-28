@@ -14,7 +14,7 @@ describe('AiAgentService', () => {
 
     describe('executeTool', () => {
         it('should execute calculator tool', async () => {
-            const result = await service.executeTool('org-1', 'agent-1', {
+            const result = await service.executeTool('agent-1', {
                 tool_name: 'calculator',
                 parameters: { op: 'add', a: 5, b: 3 },
             });
@@ -24,7 +24,7 @@ describe('AiAgentService', () => {
         });
 
         it('should execute echo tool', async () => {
-            const result = await service.executeTool('org-1', 'agent-1', {
+            const result = await service.executeTool('agent-1', {
                 tool_name: 'echo',
                 parameters: { message: 'hello' },
             });
@@ -33,7 +33,7 @@ describe('AiAgentService', () => {
         });
 
         it('should return error for unknown tool', async () => {
-            const result = await service.executeTool('org-1', 'agent-1', {
+            const result = await service.executeTool('agent-1', {
                 tool_name: 'unknown_tool',
             });
 
@@ -43,7 +43,7 @@ describe('AiAgentService', () => {
         });
 
         it('should return error for prototype methods (security check)', async () => {
-            const result = await service.executeTool('org-1', 'agent-1', {
+            const result = await service.executeTool('agent-1', {
                 tool_name: 'toString',
             });
 

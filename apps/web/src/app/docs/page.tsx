@@ -11,11 +11,11 @@ const sections = [
     count: 18,
   },
   {
-    title: 'Organizations',
-    href: '/docs/api-reference/organizations',
+    title: 'Settings & Configuration',
+    href: '/docs/api-reference/settings',
     description:
-      'Multi-tenant organization management, member invitations, role updates, and settings.',
-    count: 10,
+      'Instance settings, branding configuration, onboarding, and session statistics.',
+    count: 6,
   },
   {
     title: 'Users',
@@ -114,7 +114,7 @@ export default function DocsHomePage() {
         }}
       >
         Complete REST API documentation for the SutraID CIAM platform. Build
-        authentication, SSO, multi-tenancy, and directory integration into your
+        authentication, SSO, user management, and directory integration into your
         applications.
       </p>
       <div
@@ -151,7 +151,7 @@ export default function DocsHomePage() {
             color: 'var(--text-secondary)',
           }}
         >
-          121 endpoints
+          127 endpoints
         </div>
         <div
           style={{

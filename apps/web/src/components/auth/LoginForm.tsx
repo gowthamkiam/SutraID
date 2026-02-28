@@ -13,8 +13,6 @@ export interface CustomLoginConfig {
 }
 
 interface LoginFormProps {
-  organizationId: string;
-  organizationName: string;
   branding?: CustomLoginConfig | null;
 }
 
@@ -25,7 +23,6 @@ interface SsoProviderInfo {
   name: string;
   type: string;
   protocol: string;
-  organizationId: string;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -43,11 +40,19 @@ const inputStyle: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
+  fontSize: '0.9rem',
+  fontWeight: '500',
   marginBottom: '0.5rem',
-  fontWeight: 500,
-  fontSize: '0.875rem',
   color: '#374151',
 };
+
+function darkenHex(hex: string, percent: number): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.max(0, ((num >> 16) & 0xFF) - Math.round(255 * percent / 100));
+  const g = Math.max(0, ((num >> 8) & 0xFF) - Math.round(255 * percent / 100));
+  const b = Math.max(0, (num & 0xFF) - Math.round(255 * percent / 100));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
 
 function handleInputFocus(e: React.FocusEvent<HTMLInputElement>) {
   e.target.style.borderColor = '#4f46e5';
@@ -59,7 +64,7 @@ function handleInputBlur(e: React.FocusEvent<HTMLInputElement>) {
   e.target.style.boxShadow = 'none';
 }
 
-export default function LoginForm({ organizationId, organizationName, branding }: LoginFormProps) {
+export default function LoginForm({ branding }: LoginFormProps) {
   const [mode, setMode] = useState<AuthMode>('magic-link');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -74,16 +79,28 @@ export default function LoginForm({ organizationId, organizationName, branding }
   const [mfaToken, setMfaToken] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [isBackupCode, setIsBackupCode] = useState(false);
+  const [showDemoTip, setShowDemoTip] = useState(false);
 
-  const accent = branding?.primaryColor || '#4f46e5';
-  const accentHover = branding?.primaryColor ? darkenHex(branding.primaryColor, 15) : '#4338ca';
+  const isAccentUnset = !branding?.primaryColor || branding.primaryColor === '#000000';
+  const accent = isAccentUnset ? '#6366f1' : branding!.primaryColor!;
+  const accentHover = isAccentUnset ? '#4f46e5' : darkenHex(branding!.primaryColor!, 15);
+  const cyanAccent = '#06b6d4';
 
   const redirectAfterLogin = (_accessToken: string) => {
     const params = new URLSearchParams(window.location.search);
     const returnUrl = params.get('returnUrl');
     if (returnUrl) {
-      window.location.href = decodeURIComponent(returnUrl);
-      return;
+      const decodedUrl = decodeURIComponent(returnUrl);
+      if (decodedUrl.startsWith('/') && !decodedUrl.startsWith('//')) {
+        window.location.href = decodedUrl;
+        return;
+      }
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+      const apiOrigin = new URL(apiUrl).origin;
+      if (decodedUrl.startsWith(apiOrigin + '/')) {
+        window.location.href = decodedUrl;
+        return;
+      }
     }
     window.location.href = '/dashboard';
   };
@@ -139,7 +156,7 @@ export default function LoginForm({ organizationId, organizationName, branding }
   const handleSsoLogin = (provider: SsoProviderInfo) => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
     if (provider.protocol === 'SAML2') {
-      window.location.href = `${apiUrl}/sso/saml/${provider.organizationId}/login?providerId=${provider.id}`;
+      window.location.href = `${apiUrl}/sso/saml/login?providerId=${provider.id}`;
     } else {
       window.location.href = `${apiUrl}/sso/oidc/${provider.id}/login`;
     }
@@ -175,7 +192,7 @@ export default function LoginForm({ organizationId, organizationName, branding }
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ email, password, organizationId }),
+          body: JSON.stringify({ email, password }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || 'Invalid email or password');
@@ -191,8 +208,6 @@ export default function LoginForm({ organizationId, organizationName, branding }
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
         localStorage.setItem('user', JSON.stringify(data.user));
-        const orgId = data.organization?.id || data.user?.organizationId;
-        if (orgId) localStorage.setItem('currentOrgId', orgId);
         if (data.mustChangePassword || data.user?.mustChangePassword) {
           window.location.href = '/auth/change-password';
           return;
@@ -227,8 +242,6 @@ export default function LoginForm({ organizationId, organizationName, branding }
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.user));
-      const orgId = data.organization?.id || data.user?.organizationId;
-      if (orgId) localStorage.setItem('currentOrgId', orgId);
       if (data.mustChangePassword || data.user?.mustChangePassword) {
         window.location.href = '/auth/change-password';
         return;
@@ -250,9 +263,6 @@ export default function LoginForm({ organizationId, organizationName, branding }
     setError('');
   };
 
-  const getHeading = () => {
-    return `Sign in to ${organizationName}`;
-  };
 
   const getButtonLabel = () => {
     if (loading) {
@@ -268,33 +278,17 @@ export default function LoginForm({ organizationId, organizationName, branding }
       {branding?.customCss && <style dangerouslySetInnerHTML={{ __html: branding.customCss }} />}
 
       {/* Logo */}
-      <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
-        {branding?.logoUrl ? (
+      {branding?.logoUrl && (
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img
             src={branding.logoUrl}
-            alt={organizationName}
+            alt="Logo"
             style={{ maxHeight: '48px', maxWidth: '200px', objectFit: 'contain' }}
           />
-        ) : (
-          <h1 style={{
-            fontSize: '2.25rem',
-            fontWeight: 700,
-            margin: 0,
-            letterSpacing: '-0.5px',
-            color: '#111827',
-          }}>
-            <span style={{ color: accent }}>S</span>utra
-            <span style={{ color: accent }}>ID</span>
-          </h1>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Heading */}
-      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <p style={{ color: '#374151', fontSize: '1.1rem', fontWeight: 500, margin: 0 }}>
-          {mfaRequired ? 'Two-Factor Authentication' : getHeading()}
-        </p>
-      </div>
+
 
       {/* MFA Challenge Form */}
       {mfaRequired ? (
@@ -334,9 +328,16 @@ export default function LoginForm({ organizationId, organizationName, branding }
             type="submit"
             disabled={loading}
             style={{
-              width: '100%', padding: '0.9rem', background: loading ? '#9ca3af' : accent,
-              color: '#fff', border: 'none', borderRadius: '50px', fontSize: '1rem',
-              fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', transition: 'background 0.2s',
+              width: '100%',
+              padding: '0.75rem 2rem',
+              background: loading ? '#9ca3af' : accent,
+              color: '#fff',
+              border: 'none',
+              borderRadius: '50px',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'background 0.2s',
             }}
             onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = accentHover; }}
             onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = accent; }}
@@ -358,11 +359,62 @@ export default function LoginForm({ organizationId, organizationName, branding }
         </form>
       ) : (
         <form onSubmit={handleSubmit}>
-          <input type="hidden" name="orgId" value={organizationId} />
+          <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
+              <label htmlFor="email" style={{ ...labelStyle, marginBottom: 0 }}>Email Address</label>
+              <button
+                type="button"
+                onMouseEnter={() => setShowDemoTip(true)}
+                onMouseLeave={() => setShowDemoTip(false)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  background: '#e0e7ff',
+                  color: '#4f46e5',
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+                aria-label="Demo environment help text"
+              >
+                ?
+              </button>
+            </div>
 
-          {/* Email */}
-          <div style={{ marginBottom: '1.25rem' }}>
-            <label htmlFor="email" style={labelStyle}>Email Address</label>
+            {showDemoTip && (
+              <div style={{
+                position: 'absolute',
+                top: '-10px',
+                right: '0',
+                transform: 'translateY(-100%)',
+                background: '#111827',
+                color: '#fff',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                width: '100%',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                zIndex: 10,
+              }}>
+                <strong>Demo Environment:</strong> Ensure your email is registered first before logging in.
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-5px',
+                  left: '115px',
+                  width: '10px',
+                  height: '10px',
+                  background: '#111827',
+                  transform: 'rotate(45deg)',
+                }} />
+              </div>
+            )}
+
             <input
               id="email"
               type="email"
@@ -457,20 +509,28 @@ export default function LoginForm({ organizationId, organizationName, branding }
           )}
 
           {/* Submit button */}
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%', padding: '0.9rem', background: loading ? '#9ca3af' : accent,
-              color: '#fff', border: 'none', borderRadius: '50px', fontSize: '1rem',
-              fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background 0.2s, transform 0.1s', letterSpacing: '0.01em',
-            }}
-            onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = accentHover; }}
-            onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = accent; }}
-          >
-            {getButtonLabel()}
-          </button>
+          <div style={{ marginTop: '2rem' }}>
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '0.75rem 2rem',
+                background: loading ? '#9ca3af' : accent,
+                color: '#fff',
+                border: 'none',
+                borderRadius: '50px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                transition: 'background 0.2s',
+              }}
+              onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = accentHover; }}
+              onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = accent; }}
+            >
+              {getButtonLabel()}
+            </button>
+          </div>
         </form>
       )}
 
@@ -497,29 +557,27 @@ export default function LoginForm({ organizationId, organizationName, branding }
 
       {/* Mode toggle links */}
       {!mfaRequired && (
-        <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+        <div style={{ marginTop: '2rem', textAlign: 'center' }}>
           {mode === 'magic-link' && (
             <>
               <button
                 type="button"
                 onClick={() => switchMode('password')}
-                style={{ background: 'none', border: 'none', color: accent, fontSize: '0.9rem', fontWeight: 500, cursor: 'pointer', textDecoration: 'none', padding: 0 }}
+                style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'none', padding: 0 }}
                 onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
                 onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
               >
                 Sign in with password
               </button>
-              <div style={{ marginTop: '0.75rem' }}>
-                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>Don&apos;t have an account? </span>
+              {/* <div style={{ marginTop: '1rem' }}>
+                <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>Don&apos;t have an account? </span>
                 <Link
                   href="/onboard"
-                  style={{ color: accent, fontSize: '0.85rem', fontWeight: 500, textDecoration: 'none' }}
-                  onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                  onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                  style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none', borderBottom: `1px solid ${cyanAccent}` }}
                 >
-                  Sign up for a new organization
+                  Sign up
                 </Link>
-              </div>
+              </div> */}
             </>
           )}
 
@@ -528,36 +586,25 @@ export default function LoginForm({ organizationId, organizationName, branding }
               <button
                 type="button"
                 onClick={() => switchMode('magic-link')}
-                style={{ background: 'none', border: 'none', color: accent, fontSize: '0.9rem', fontWeight: 500, cursor: 'pointer', textDecoration: 'none', padding: 0 }}
+                style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'none', padding: 0 }}
                 onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
                 onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
               >
                 Sign in with magic link
               </button>
-              <div style={{ marginTop: '0.75rem' }}>
-                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>Don&apos;t have an account? </span>
+              {/* <div style={{ marginTop: '1rem' }}>
+                <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>Don&apos;t have an account? </span>
                 <Link
                   href="/onboard"
-                  style={{ color: accent, fontSize: '0.85rem', fontWeight: 500, textDecoration: 'none' }}
-                  onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                  onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                  style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none', borderBottom: `1px solid ${cyanAccent}` }}
                 >
-                  Sign up for a new organization
+                  Sign up
                 </Link>
-              </div>
+              </div> */}
             </>
           )}
-
         </div>
       )}
     </>
   );
-}
-
-function darkenHex(hex: string, percent: number): string {
-  const num = parseInt(hex.replace('#', ''), 16);
-  const r = Math.max(0, ((num >> 16) & 0xFF) - Math.round(255 * percent / 100));
-  const g = Math.max(0, ((num >> 8) & 0xFF) - Math.round(255 * percent / 100));
-  const b = Math.max(0, (num & 0xFF) - Math.round(255 * percent / 100));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }

@@ -22,7 +22,7 @@ export class SamlSpService {
     }
 
     const baseUrl = (process.env.BACKEND_URL || 'http://localhost:3000').split(',')[0].trim();
-    const acsUrl = `${baseUrl}/api/v1/sso/saml/${provider.organizationId}/acs`;
+    const acsUrl = `${baseUrl}/api/v1/sso/saml/acs`;
 
     return {
       // IdP Configuration
@@ -214,10 +214,10 @@ export class SamlSpService {
   /**
    * Generate SAML metadata XML
    */
-  async getMetadata(organizationId: string): Promise<string> {
+  async getMetadata(): Promise<string> {
     const baseUrl = (process.env.BACKEND_URL || 'http://localhost:3000').split(',')[0].trim();
-    const acsUrl = `${baseUrl}/api/v1/sso/saml/${organizationId}/acs`;
-    const entityId = `${baseUrl}/api/v1/sso/saml/${organizationId}/metadata`;
+    const acsUrl = `${baseUrl}/api/v1/sso/saml/acs`;
+    const entityId = `${baseUrl}/api/v1/sso/saml/metadata`;
 
     return `<?xml version="1.0"?>
 <md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"

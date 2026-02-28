@@ -25,13 +25,13 @@ export default function ErrorsPage() {
       status: 403,
       title: 'Forbidden',
       description: 'The authenticated user lacks permission for this action.',
-      resolution: 'Check the user\'s organization role. The required permission is listed in each endpoint\'s documentation.',
+      resolution: 'Check the user\'s role. The required permission is listed in each endpoint\'s documentation.',
     },
     {
       status: 404,
       title: 'Not Found',
       description: 'The requested resource does not exist or is not accessible to the current user.',
-      resolution: 'Verify the resource ID in the URL path. Ensure you are querying within the correct organization scope.',
+      resolution: 'Verify the resource ID in the URL path.',
     },
     {
       status: 409,

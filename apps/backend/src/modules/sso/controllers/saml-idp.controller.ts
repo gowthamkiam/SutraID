@@ -18,25 +18,25 @@ import { SamlIdpService } from '../services/saml-idp.service';
 import { AuthService } from '../../auth/services/auth.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
-@Controller('sso/saml-idp/:orgId')
+@Controller('sso/saml-idp/:appId')
 export class SamlIdpController {
   constructor(
     private samlIdpService: SamlIdpService,
     private authService: AuthService,
-  ) {}
+  ) { }
 
   /**
-   * GET /api/v1/sso/saml-idp/:orgId/metadata
+   * GET /api/v1/sso/saml-idp/:appId/metadata
    * Provides SAML IDP metadata XML for configuration in external SPs
    */
   @Get('metadata')
   @HttpCode(HttpStatus.OK)
   async getMetadata(
-    @Param('orgId') organizationId: string,
+    @Param('appId') applicationId: string,
     @Res() res: Response,
   ) {
     try {
-      const metadata = await this.samlIdpService.getIdpMetadata(organizationId);
+      const metadata = await this.samlIdpService.getIdpMetadata(applicationId);
 
       // Return XML with correct content type
       res.set('Content-Type', 'application/samlmetadata+xml');
@@ -47,12 +47,12 @@ export class SamlIdpController {
   }
 
   /**
-   * GET /api/v1/sso/saml-idp/:orgId/sso
+   * GET /api/v1/sso/saml-idp/:appId/sso
    * Handle SAML AuthnRequest via HTTP-Redirect binding
    */
   @Get('sso')
   async handleSsoGet(
-    @Param('orgId') organizationId: string,
+    @Param('appId') applicationId: string,
     @Query('SAMLRequest') samlRequest: string,
     @Query('RelayState') relayState: string | undefined,
     @Req() req: Request,
@@ -65,12 +65,11 @@ export class SamlIdpController {
     try {
       // Parse the SAML AuthnRequest
       const authnRequest = await this.samlIdpService.parseAuthnRequest(
-        organizationId,
+        applicationId,
         samlRequest,
       );
 
       console.log('📥 SAML AuthnRequest received:', {
-        organizationId,
         requestId: authnRequest.id,
         issuer: authnRequest.issuer,
         acsUrl: authnRequest.acsUrl,
@@ -95,7 +94,7 @@ export class SamlIdpController {
       // Verify user has access to this application
       const hasAccess = await this.samlIdpService.verifyUserAccess(
         user,
-        organizationId,
+        applicationId,
         authnRequest.issuer,
       );
 
@@ -110,7 +109,7 @@ export class SamlIdpController {
       // Generate SAML Response
       const { samlResponse, relayState: responseRelayState } =
         await this.samlIdpService.createSamlResponse(
-          organizationId,
+          applicationId,
           user,
           authnRequest.id,
           authnRequest.acsUrl,
@@ -128,17 +127,20 @@ export class SamlIdpController {
       ));
     } catch (error: any) {
       console.error('❌ SAML IDP error:', error);
+      if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+        throw error;
+      }
       throw new BadRequestException(error.message);
     }
   }
 
   /**
-   * POST /api/v1/sso/saml-idp/:orgId/sso
+   * POST /api/v1/sso/saml-idp/:appId/sso
    * Handle SAML AuthnRequest via HTTP-POST binding
    */
   @Post('sso')
   async handleSsoPost(
-    @Param('orgId') organizationId: string,
+    @Param('appId') applicationId: string,
     @Body('SAMLRequest') samlRequest: string,
     @Body('RelayState') relayState: string | undefined,
     @Req() req: Request,
@@ -151,12 +153,11 @@ export class SamlIdpController {
     try {
       // Parse the SAML AuthnRequest
       const authnRequest = await this.samlIdpService.parseAuthnRequest(
-        organizationId,
+        applicationId,
         samlRequest,
       );
 
       console.log('📥 SAML AuthnRequest received (POST):', {
-        organizationId,
         requestId: authnRequest.id,
         issuer: authnRequest.issuer,
         acsUrl: authnRequest.acsUrl,
@@ -181,7 +182,7 @@ export class SamlIdpController {
       // Verify user has access to this application
       const hasAccess = await this.samlIdpService.verifyUserAccess(
         user,
-        organizationId,
+        applicationId,
         authnRequest.issuer,
       );
 
@@ -196,7 +197,7 @@ export class SamlIdpController {
       // Generate SAML Response
       const { samlResponse, relayState: responseRelayState } =
         await this.samlIdpService.createSamlResponse(
-          organizationId,
+          applicationId,
           user,
           authnRequest.id,
           authnRequest.acsUrl,
@@ -214,6 +215,9 @@ export class SamlIdpController {
       ));
     } catch (error: any) {
       console.error('❌ SAML IDP error:', error);
+      if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+        throw error;
+      }
       throw new BadRequestException(error.message);
     }
   }

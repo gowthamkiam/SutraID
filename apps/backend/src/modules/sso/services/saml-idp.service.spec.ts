@@ -91,12 +91,10 @@ describe('SamlIdpService', () => {
   } as any;
 
   const mockPrismaService = {
-    organization: {
-      findUnique: jest.fn(),
-      update: jest.fn(),
-    },
     application: {
+      findUnique: jest.fn(),
       findFirst: jest.fn(),
+      update: jest.fn(),
     },
   };
 
@@ -138,14 +136,13 @@ describe('SamlIdpService', () => {
 
   describe('getIdpMetadata', () => {
     it('should return metadata XML from IDP instance', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue({
+      const encryptedKey = (service as any).encryptPrivateKey('some-key');
+      mockPrismaService.application.findUnique.mockResolvedValue({
         ...mockOrganization,
-        samlIdpCertificate: '-----BEGIN CERTIFICATE-----\nexisting\n-----END CERTIFICATE-----',
-        samlIdpPrivateKey: null,
+        samlCertificate: '-----BEGIN CERTIFICATE-----\nexisting\n-----END CERTIFICATE-----',
+        samlPrivateKey: encryptedKey,
       });
-      // When privateKey is null, it will try to generate — let's set both
-      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
-      mockPrismaService.organization.update.mockResolvedValue({});
+      mockPrismaService.application.update.mockResolvedValue({});
 
       const result = await service.getIdpMetadata(mockOrganization.id);
 
@@ -154,7 +151,7 @@ describe('SamlIdpService', () => {
     });
 
     it('should throw BadRequestException when organization not found', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(null);
+      mockPrismaService.application.findUnique.mockResolvedValue(null);
 
       await expect(service.getIdpMetadata('non-existent')).rejects.toThrow(
         BadRequestException,
@@ -162,8 +159,8 @@ describe('SamlIdpService', () => {
     });
 
     it('should throw BadRequestException when getMetadata fails', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
-      mockPrismaService.organization.update.mockResolvedValue({});
+      mockPrismaService.application.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.update.mockResolvedValue({});
       mockIdpInstance.getMetadata.mockImplementation(() => {
         throw new Error('metadata generation failed');
       });
@@ -178,8 +175,8 @@ describe('SamlIdpService', () => {
 
   describe('parseAuthnRequest', () => {
     beforeEach(() => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
-      mockPrismaService.organization.update.mockResolvedValue({});
+      mockPrismaService.application.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.update.mockResolvedValue({});
     });
 
     it('should extract id, acsUrl, issuer from valid SAMLRequest', async () => {
@@ -220,8 +217,8 @@ describe('SamlIdpService', () => {
 
   describe('createSamlResponse', () => {
     beforeEach(() => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
-      mockPrismaService.organization.update.mockResolvedValue({});
+      mockPrismaService.application.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.update.mockResolvedValue({});
     });
 
     it('should generate SAML response with correct parameters', async () => {
@@ -369,7 +366,7 @@ describe('SamlIdpService', () => {
 
       expect(mockPrismaService.application.findFirst).toHaveBeenCalledWith({
         where: {
-          organizationId: mockOrganization.id,
+          id: mockOrganization.id,
           samlSpEntityId: 'https://sp.example.com/entity',
           type: 'SAML',
           status: 'ACTIVE',
@@ -382,19 +379,19 @@ describe('SamlIdpService', () => {
 
   describe('clearIdpCache', () => {
     it('should force recreation of IDP instance on next call', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue(mockOrganization);
-      mockPrismaService.organization.update.mockResolvedValue({});
+      mockPrismaService.application.findUnique.mockResolvedValue(mockOrganization);
+      mockPrismaService.application.update.mockResolvedValue({});
 
       // First call creates and caches
       await service.getIdpMetadata(mockOrganization.id);
-      const firstCallCount = mockPrismaService.organization.findUnique.mock.calls.length;
+      const firstCallCount = mockPrismaService.application.findUnique.mock.calls.length;
 
       // Clear cache
       service.clearIdpCache(mockOrganization.id);
 
       // Second call should re-create
       await service.getIdpMetadata(mockOrganization.id);
-      expect(mockPrismaService.organization.findUnique.mock.calls.length).toBeGreaterThan(firstCallCount);
+      expect(mockPrismaService.application.findUnique.mock.calls.length).toBeGreaterThan(firstCallCount);
     });
   });
 
@@ -402,21 +399,21 @@ describe('SamlIdpService', () => {
 
   describe('getOrCreateIdpCertificate', () => {
     it('should generate new certificate when none exists in database', async () => {
-      mockPrismaService.organization.findUnique.mockResolvedValue({
-        samlIdpCertificate: null,
-        samlIdpPrivateKey: null,
+      mockPrismaService.application.findUnique.mockResolvedValue({
+        samlCertificate: null,
+        samlPrivateKey: null,
       });
-      mockPrismaService.organization.update.mockResolvedValue({});
+      mockPrismaService.application.update.mockResolvedValue({});
 
       const result = await (service as any).getOrCreateIdpCertificate(mockOrganization.id);
 
       expect(result.certificate).toContain('BEGIN CERTIFICATE');
       expect(result.privateKey).toContain('BEGIN RSA PRIVATE KEY');
-      expect(mockPrismaService.organization.update).toHaveBeenCalledWith(
+      expect(mockPrismaService.application.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: mockOrganization.id },
           data: expect.objectContaining({
-            samlIdpCertificate: expect.stringContaining('BEGIN CERTIFICATE'),
+            samlCertificate: expect.stringContaining('BEGIN CERTIFICATE'),
           }),
         }),
       );
@@ -424,16 +421,16 @@ describe('SamlIdpService', () => {
 
     it('should return existing certificate when present in database', async () => {
       const encryptedKey = (service as any).encryptPrivateKey('mock-private-key');
-      mockPrismaService.organization.findUnique.mockResolvedValue({
-        samlIdpCertificate: '-----BEGIN CERTIFICATE-----\nexisting\n-----END CERTIFICATE-----',
-        samlIdpPrivateKey: encryptedKey,
+      mockPrismaService.application.findUnique.mockResolvedValue({
+        samlCertificate: '-----BEGIN CERTIFICATE-----\nexisting\n-----END CERTIFICATE-----',
+        samlPrivateKey: encryptedKey,
       });
 
       const result = await (service as any).getOrCreateIdpCertificate(mockOrganization.id);
 
       expect(result.certificate).toContain('existing');
       expect(result.privateKey).toBe('mock-private-key');
-      expect(mockPrismaService.organization.update).not.toHaveBeenCalled();
+      expect(mockPrismaService.application.update).not.toHaveBeenCalled();
     });
   });
 
