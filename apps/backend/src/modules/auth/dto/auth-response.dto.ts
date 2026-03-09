@@ -13,6 +13,7 @@ export class AuthResponseDto {
   };
 
   mfaRequired?: boolean;
+  mfaEnrollmentRequired?: boolean;
   mfaToken?: string;
   mustChangePassword?: boolean;
 }
