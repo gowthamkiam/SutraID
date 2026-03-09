@@ -52,7 +52,7 @@ function VerifyContent() {
         if (data.mfaRequired && data.mfaEnrollmentRequired) {
           setStatus('success');
           setMessage('MFA setup required. Redirecting...');
-          setTimeout(() => router.push('/dashboard/security?mfa_setup=required'), 1500);
+          setTimeout(() => router.push('/dashboard/settings?tab=security&mfa_setup=required'), 1500);
           return;
         }
 

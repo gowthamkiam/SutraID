@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { OrgRole, OrganizationProfile, organizationSettingsApi } from '@/lib/api';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { hasPermission } from '@/lib/permissions';
@@ -19,9 +20,13 @@ type TabKey = (typeof tabs)[number]['key'];
 export default function SettingsPage() {
   const { role: orgRole } = useAuth();
   const canEdit = hasPermission(orgRole as OrgRole, 'settings:update');
+  const searchParams = useSearchParams();
+
+  const initialTab = (searchParams.get('tab') as TabKey) || 'organization_info';
+  const validTab = tabs.some((t) => t.key === initialTab) ? initialTab : 'organization_info';
 
   const [org, setOrg] = useState<OrganizationProfile | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>('organization_info');
+  const [activeTab, setActiveTab] = useState<TabKey>(validTab);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');

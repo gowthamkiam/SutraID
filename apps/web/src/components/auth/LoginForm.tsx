@@ -201,7 +201,7 @@ export default function LoginForm({ branding }: LoginFormProps) {
           localStorage.setItem('accessToken', data.accessToken);
           localStorage.setItem('refreshToken', data.refreshToken);
           localStorage.setItem('user', JSON.stringify(data.user));
-          window.location.href = '/dashboard/security?mfa_setup=required';
+          window.location.href = '/dashboard/settings?tab=security&mfa_setup=required';
           return;
         }
 
