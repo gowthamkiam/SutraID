@@ -313,6 +313,30 @@ export class OidcIdpController {
     }
   }
 
+  /**
+   * POST /introspect
+   * Token Introspection endpoint (RFC 7662)
+   * Proxies to oidc-provider's /token/introspection
+   */
+  @Post('introspect')
+  @HttpCode(HttpStatus.OK)
+  async introspect(
+    @Param('appId') applicationId: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      // oidc-provider registers introspection at /token/introspection
+      const originalUrl = req.url;
+      req.url = '/token/introspection';
+      const provider = await this.oidcIdpService.getProviderInstance(applicationId);
+      await (provider.app.callback())(req, res);
+      req.url = originalUrl;
+    } catch (error: any) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
   @Get('end-session')
   async endSessionGet(
     @Param('appId') applicationId: string,

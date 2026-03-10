@@ -596,7 +596,7 @@ export class OidcIdpService {
       userinfo_endpoint: `${issuer}/userinfo`,
       jwks_uri: `${issuer}/jwks`,
       revocation_endpoint: `${oauthBase}/revoke`,
-      introspection_endpoint: `${oauthBase}/introspect`,
+      introspection_endpoint: `${issuer}/introspect`,
       end_session_endpoint: `${issuer}/end-session`,
       scopes_supported: ['openid', 'email', 'profile', 'offline_access'],
       response_types_supported: ['code'],

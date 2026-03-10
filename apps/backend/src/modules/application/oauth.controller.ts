@@ -245,6 +245,11 @@ export class OauthController {
         body: any,
         authHeader: string | undefined,
     ): Promise<void> {
+        // Public clients don't have a secret
+        if (application.isPublicClient || !application.clientSecretHash) {
+            return;
+        }
+
         let clientSecret: string | null = null;
 
         if (authHeader && authHeader.startsWith('Basic ')) {
