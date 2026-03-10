@@ -424,8 +424,10 @@ export class MfaService {
     return this.config.get<string>('APP_DOMAIN') || 'localhost';
   }
 
-  private get expectedOrigin(): string {
-    return this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+  private get expectedOrigin(): string | string[] {
+    const raw = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    const origins = raw.split(',').map((s) => s.trim()).filter(Boolean);
+    return origins.length === 1 ? origins[0] : origins;
   }
 
   async getPasskeyOptions(userId: string) {
