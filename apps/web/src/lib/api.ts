@@ -648,7 +648,8 @@ export const mfaApi = {
   },
 
   async getPasskeyOptions(): Promise<PublicKeyCredentialCreationOptionsJSON> {
-    const response = await fetch(`${API_URL}/auth/passkey/options`, {
+    const response = await fetch(`${API_URL}/auth/mfa/passkey/register-options`, {
+      method: 'POST',
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch Passkey options');
@@ -656,12 +657,34 @@ export const mfaApi = {
   },
 
   async enrollPasskey(credential: any): Promise<{ success: boolean }> {
-    const response = await fetch(`${API_URL}/auth/passkey/enroll`, {
+    const response = await fetch(`${API_URL}/auth/mfa/passkey/register`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ credential }),
+      body: JSON.stringify(credential),
     });
     if (!response.ok) throw new Error('Failed to enroll Passkey');
+    return response.json();
+  },
+
+  async getPasskeyAuthOptions(mfaToken: string): Promise<any> {
+    const response = await fetch(`${API_URL}/auth/mfa/passkey/auth-options`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mfaToken }),
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error('No passkeys available');
+    return response.json();
+  },
+
+  async verifyPasskeyAuth(mfaToken: string, credential: any): Promise<any> {
+    const response = await fetch(`${API_URL}/auth/mfa/passkey/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mfaToken, credential }),
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error('Passkey authentication failed');
     return response.json();
   },
 

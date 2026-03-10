@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ssoApi } from '@/lib/api';
+import { startAuthentication } from '@simplewebauthn/browser';
+import { ssoApi, mfaApi } from '@/lib/api';
 
 export interface CustomLoginConfig {
   logoUrl?: string;
@@ -79,6 +80,7 @@ export default function LoginForm({ branding }: LoginFormProps) {
   const [mfaToken, setMfaToken] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [isBackupCode, setIsBackupCode] = useState(false);
+  const [passkeySupported, setPasskeySupported] = useState(false);
   const [showDemoTip, setShowDemoTip] = useState(false);
 
   const isAccentUnset = !branding?.primaryColor || branding.primaryColor === '#000000';
@@ -209,6 +211,9 @@ export default function LoginForm({ branding }: LoginFormProps) {
           setMfaRequired(true);
           setMfaToken(data.mfaToken);
           setMessage('Enter the 6-digit code from your authenticator app');
+          if (typeof window !== 'undefined' && window.PublicKeyCredential) {
+            setPasskeySupported(true);
+          }
           setLoading(false);
           return;
         }
@@ -262,6 +267,24 @@ export default function LoginForm({ branding }: LoginFormProps) {
     }
   };
 
+  const handlePasskeySignIn = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const options = await mfaApi.getPasskeyAuthOptions(mfaToken);
+      const credential = await startAuthentication({ optionsJSON: options });
+      const data = await mfaApi.verifyPasskeyAuth(mfaToken, credential);
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      redirectAfterLogin(data.accessToken);
+    } catch (err: any) {
+      setError(err.message || 'Passkey sign-in failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const cancelMfa = () => {
     setMfaRequired(false);
     setMfaToken('');
@@ -301,6 +324,31 @@ export default function LoginForm({ branding }: LoginFormProps) {
       {/* MFA Challenge Form */}
       {mfaRequired ? (
         <form onSubmit={handleMfaVerify}>
+          {passkeySupported ? (
+            <div style={{ marginBottom: '1.25rem' }}>
+              <button
+                type="button"
+                onClick={handlePasskeySignIn}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  background: 'transparent',
+                  color: accent,
+                  border: `2px solid ${accent}`,
+                  borderRadius: '50px',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {loading ? 'Signing in...' : 'Sign in with Passkey'}
+              </button>
+              <div style={{ textAlign: 'center', margin: '0.75rem 0', fontSize: '0.8rem', color: '#9ca3af' }}>
+                — or enter your code below —
+              </div>
+            </div>
+          ) : null}
           <div style={{ marginBottom: '1.25rem' }}>
             <label htmlFor="mfaCode" style={labelStyle}>
               {isBackupCode ? 'Backup Code' : 'Authentication Code'}

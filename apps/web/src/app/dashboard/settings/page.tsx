@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { startRegistration } from '@simplewebauthn/browser';
 import { OrgRole, OrganizationProfile, organizationSettingsApi, mfaApi } from '@/lib/api';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { hasPermission } from '@/lib/permissions';
@@ -34,9 +35,14 @@ export default function SettingsPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.PublicKeyCredential) setPasskeyAvailable(true);
+  }, []);
+
   // MFA enrollment modal state
   const [showMfaModal, setShowMfaModal] = useState(mfaSetupRequired);
-  const [mfaStep, setMfaStep] = useState<'prompt' | 'qr' | 'verify' | 'done'>('prompt');
+  const [mfaStep, setMfaStep] = useState<'prompt' | 'qr' | 'verify' | 'done' | 'passkey-registering' | 'passkey-done'>('prompt');
   const [mfaMethodId, setMfaMethodId] = useState('');
   const [mfaQr, setMfaQr] = useState('');
   const [mfaSecret, setMfaSecret] = useState('');
@@ -71,6 +77,23 @@ export default function SettingsPage() {
       setMfaStep('done');
     } catch (err: any) {
       setMfaError(err.message || 'Invalid code. Try again.');
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const enrollPasskey = async () => {
+    setMfaLoading(true);
+    setMfaError('');
+    setMfaStep('passkey-registering');
+    try {
+      const options = await mfaApi.getPasskeyOptions();
+      const credential = await startRegistration({ optionsJSON: options });
+      await mfaApi.enrollPasskey(credential);
+      setMfaStep('passkey-done');
+    } catch (err: any) {
+      setMfaError(err.message || 'Passkey registration failed');
+      setMfaStep('prompt');
     } finally {
       setMfaLoading(false);
     }
@@ -159,15 +182,49 @@ export default function SettingsPage() {
                   <h2 style={{ margin: 0, fontSize: '1.2rem' }}>MFA Setup Required</h2>
                 </div>
                 <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                  Your organization requires multi-factor authentication. Set up an authenticator app to continue.
+                  Your organization requires multi-factor authentication. Choose a method to continue.
                 </p>
                 {mfaError ? <div style={errorStyle}>{mfaError}</div> : null}
-                <button
-                  onClick={startTotpEnrollment}
-                  disabled={mfaLoading}
-                  style={{ ...btnPrimary, justifySelf: 'start' }}
-                >
-                  {mfaLoading ? 'Starting...' : 'Set Up Authenticator App'}
+                <div style={{ display: 'grid', gap: '0.6rem' }}>
+                  <button
+                    onClick={startTotpEnrollment}
+                    disabled={mfaLoading}
+                    style={{ ...btnPrimary, textAlign: 'left', padding: '0.75rem 1rem' }}
+                  >
+                    <div style={{ fontWeight: 700 }}>Authenticator App</div>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.8, fontWeight: 400 }}>Google Authenticator, Authy, 1Password</div>
+                  </button>
+                  {passkeyAvailable ? (
+                    <button
+                      onClick={enrollPasskey}
+                      disabled={mfaLoading}
+                      style={{ ...btnSecondary, textAlign: 'left', padding: '0.75rem 1rem' }}
+                    >
+                      <div style={{ fontWeight: 700 }}>Passkey / Security Key</div>
+                      <div style={{ fontSize: '0.8rem', opacity: 0.7, fontWeight: 400 }}>Face ID, Touch ID, hardware key</div>
+                    </button>
+                  ) : null}
+                </div>
+              </>
+            ) : mfaStep === 'passkey-registering' ? (
+              <>
+                <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Register Passkey</h2>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  Follow your browser or device prompt to register your passkey...
+                </p>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Working...</div>
+              </>
+            ) : mfaStep === 'passkey-done' ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.5rem' }}>✅</span>
+                  <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Passkey Registered</h2>
+                </div>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  Your passkey has been registered. You can now sign in with it.
+                </p>
+                <button onClick={dismissMfaModal} style={{ ...btnPrimary, justifySelf: 'start' }}>
+                  Continue
                 </button>
               </>
             ) : mfaStep === 'qr' ? (
@@ -416,6 +473,15 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+const btnSecondary: React.CSSProperties = {
+  background: 'var(--bg-input)',
+  color: 'var(--text-primary)',
+  border: '1px solid var(--border-color)',
+  borderRadius: 10,
+  padding: '0.55rem 1rem',
+  cursor: 'pointer',
+};
 
 const btnPrimary: React.CSSProperties = {
   background: 'var(--btn-primary-bg)',
