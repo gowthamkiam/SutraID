@@ -382,6 +382,31 @@ export default function SettingsPage() {
                 <option value="true">Enabled</option>
                 <option value="false">Disabled</option>
               </select>
+
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>My Authentication Methods</div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+                  Add or manage your personal MFA methods.
+                </div>
+                {mfaError ? <div style={{ ...errorStyle, marginBottom: '0.5rem' }}>{mfaError}</div> : null}
+                <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => { setMfaStep('prompt'); setMfaError(''); setShowMfaModal(true); }}
+                    style={btnPrimary}
+                  >
+                    Add MFA Method
+                  </button>
+                  {passkeyAvailable ? (
+                    <button
+                      onClick={enrollPasskey}
+                      disabled={mfaLoading}
+                      style={btnSecondary}
+                    >
+                      {mfaLoading ? 'Registering...' : 'Register a Passkey'}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </div>
           ) : null}
 
