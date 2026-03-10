@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { OidcConfigService } from '../services/oidc-config.service';
+import { OidcIdpService } from '../services/oidc-idp.service';
 import {
     CreateOidcScopeDto,
     CreateOidcClaimDto,
@@ -22,7 +23,10 @@ import {
 @Controller('applications/:appId/oidc-config')
 @UseGuards(JwtAuthGuard)
 export class OidcConfigController {
-    constructor(private readonly oidcConfigService: OidcConfigService) { }
+    constructor(
+        private readonly oidcConfigService: OidcConfigService,
+        private readonly oidcIdpService: OidcIdpService,
+    ) { }
 
     @Get()
     async getConfig(@Param('appId') applicationId: string) {
@@ -49,7 +53,9 @@ export class OidcConfigController {
         @Param('appId') applicationId: string,
         @Body() dto: CreateOidcClaimDto,
     ) {
-        return this.oidcConfigService.createClaim(applicationId, dto);
+        const result = await this.oidcConfigService.createClaim(applicationId, dto);
+        this.oidcIdpService.clearProviderCache(applicationId);
+        return result;
     }
 
     @Get('claims')

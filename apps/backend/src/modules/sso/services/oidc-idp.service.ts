@@ -124,10 +124,10 @@ export class OidcIdpService {
         AccessToken: 'jwt',
       },
 
-      // Claims — register app-level scopes (e.g. ai:tool:call) so oidc-provider
+      // Claims — register app-level scopes and custom claims so oidc-provider
       // doesn't strip them as unknown
       claims: {
-        openid: ['sub'],
+        openid: ['sub', ...customClaims.filter(c => c.targetTokens.includes('ID_TOKEN' as any)).map(c => c.name)],
         email: ['email', 'email_verified'],
         profile: ['name', 'given_name', 'family_name', 'updated_at'],
         ...(application.scopes as string[] || []).reduce((acc: any, s: string) => {
@@ -146,14 +146,37 @@ export class OidcIdpService {
       extraAccessTokenClaims: async (ctx: any, token: any) => {
         const claims: any = {};
 
-        // Include roles claim from user
         if (token.accountId) {
           const user = await this.prisma.user.findUnique({
             where: { id: token.accountId },
-            select: { role: true },
           });
+
+          // Include roles claim from user
           if (user?.role) {
             claims.roles = [user.role];
+          }
+
+          // Include custom claims targeted at ACCESS_TOKEN
+          if (user) {
+            for (const claimDef of customClaims) {
+              if (!claimDef.targetTokens.includes('ACCESS_TOKEN' as any)) continue;
+
+              let value = this.getNestedProperty(user, claimDef.userAttribute);
+              if (value === undefined || value === null) continue;
+
+              if (claimDef.regexRule) {
+                try {
+                  value = await this.regexService.replace(
+                    String(value), claimDef.regexRule.pattern,
+                    claimDef.regexRule.replacement, claimDef.regexRule.flags,
+                  );
+                } catch (err) {
+                  console.error(`Error applying regex for claim ${claimDef.name}:`, err);
+                }
+              }
+
+              claims[claimDef.name] = value;
+            }
           }
         }
 
