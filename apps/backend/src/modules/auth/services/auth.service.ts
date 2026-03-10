@@ -122,6 +122,46 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
+    const mfaRequiredByPolicy = await this.isMfaRequiredByPolicy();
+
+    if (challenge.user.mfaEnabled) {
+      const mfaToken = await this.mfaService.createMfaToken(challenge.userId);
+      await this.auditService.log({
+        userId: challenge.userId,
+        action: 'user.login',
+        resource: 'auth:magic-link',
+        result: 'SUCCESS',
+        metadata: { method: 'magic_link', email: challenge.identifier, mfa_required: true },
+      });
+      return {
+        tokenType: 'Bearer',
+        user: {
+          id: challenge.user.id,
+          email: challenge.user.email,
+          firstName: challenge.user.firstName,
+          lastName: challenge.user.lastName,
+        },
+        mfaRequired: true,
+        mfaToken,
+      } as AuthResponseDto;
+    }
+
+    if (mfaRequiredByPolicy) {
+      const session = await this.createSession(challenge.user);
+      await this.auditService.log({
+        userId: challenge.userId,
+        action: 'user.login',
+        resource: 'auth:magic-link',
+        result: 'SUCCESS',
+        metadata: { method: 'magic_link', email: challenge.identifier, mfa_enrollment_required: true },
+      });
+      return {
+        ...session,
+        mfaRequired: true,
+        mfaEnrollmentRequired: true,
+      };
+    }
+
     const session = await this.createSession(challenge.user);
 
     await this.auditService.log({
@@ -184,6 +224,28 @@ export class AuthService {
       },
       mustChangePassword: userMustChangePassword,
     };
+  }
+
+  private async isMfaRequiredByPolicy(): Promise<boolean> {
+    const appConfig = await this.prisma.appConfig.findUnique({
+      where: { id: 'singleton' },
+    });
+    if (appConfig?.mfaRequired) return true;
+
+    const signOnPolicies = await this.prisma.policy.findMany({
+      where: { type: 'SIGN_ON', enabled: true },
+      orderBy: { priority: 'desc' },
+    });
+
+    for (const policy of signOnPolicies) {
+      const rules = policy.rules as any[];
+      if (!Array.isArray(rules)) continue;
+      for (const rule of rules) {
+        if (rule.requirement === 'MFA_REQUIRED') return true;
+      }
+    }
+
+    return false;
   }
 
   async registerWithPassword(email: string, password: string): Promise<AuthResponseDto> {
@@ -358,6 +420,46 @@ export class AuthService {
         data: { lastLoginAt: new Date(), status: 'ACTIVE' },
       });
 
+      const mfaRequiredByPolicy = await this.isMfaRequiredByPolicy();
+
+      if (ldapUser.mfaEnabled) {
+        const mfaToken = await this.mfaService.createMfaToken(ldapUser.id);
+        await this.auditService.log({
+          userId: ldapUser.id,
+          action: 'user.login',
+          resource: 'auth:password',
+          result: 'SUCCESS',
+          metadata: { method: 'ldap_password', email, mfa_required: true },
+        });
+        return {
+          tokenType: 'Bearer',
+          user: {
+            id: ldapUser.id,
+            email: ldapUser.email,
+            firstName: ldapUser.firstName,
+            lastName: ldapUser.lastName,
+          },
+          mfaRequired: true,
+          mfaToken,
+        } as AuthResponseDto;
+      }
+
+      if (mfaRequiredByPolicy) {
+        const session = await this.createSession(ldapUser);
+        await this.auditService.log({
+          userId: ldapUser.id,
+          action: 'user.login',
+          resource: 'auth:password',
+          result: 'SUCCESS',
+          metadata: { method: 'ldap_password', email, mfa_enrollment_required: true },
+        });
+        return {
+          ...session,
+          mfaRequired: true,
+          mfaEnrollmentRequired: true,
+        };
+      }
+
       const session = await this.createSession(ldapUser);
       await this.auditService.log({
         userId: ldapUser.id,
@@ -404,6 +506,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    const mfaRequiredByPolicy = await this.isMfaRequiredByPolicy();
+    const userMustChangePassword = !!(user as any).mustChangePassword;
+
     if (user.mfaEnabled) {
       const mfaToken = await this.mfaService.createMfaToken(user.id);
 
@@ -415,7 +520,6 @@ export class AuthService {
         metadata: { method: 'password', email, mfa_required: true },
       });
 
-      const userMustChangePassword = !!(user as any).mustChangePassword;
       return {
         tokenType: 'Bearer',
         user: {
@@ -429,6 +533,28 @@ export class AuthService {
         mfaToken,
         mustChangePassword: userMustChangePassword,
       } as AuthResponseDto;
+    }
+
+    if (mfaRequiredByPolicy) {
+      await this.auditService.log({
+        userId: user.id,
+        action: 'user.login',
+        resource: 'auth:password',
+        result: 'SUCCESS',
+        metadata: { method: 'password', email, mfa_enrollment_required: true },
+      });
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() },
+      });
+
+      const session = await this.createSession(user);
+      return {
+        ...session,
+        mfaRequired: true,
+        mfaEnrollmentRequired: true,
+      };
     }
 
     await this.prisma.user.update({

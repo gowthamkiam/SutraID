@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { OrgRole, OrganizationProfile, organizationSettingsApi } from '@/lib/api';
+import { useEffect, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { OrgRole, OrganizationProfile, organizationSettingsApi, mfaApi } from '@/lib/api';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { hasPermission } from '@/lib/permissions';
 
@@ -19,13 +20,66 @@ type TabKey = (typeof tabs)[number]['key'];
 export default function SettingsPage() {
   const { role: orgRole } = useAuth();
   const canEdit = hasPermission(orgRole as OrgRole, 'settings:update');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const initialTab = (searchParams.get('tab') as TabKey) || 'organization_info';
+  const validTab = tabs.some((t) => t.key === initialTab) ? initialTab : 'organization_info';
+  const mfaSetupRequired = searchParams.get('mfa_setup') === 'required';
 
   const [org, setOrg] = useState<OrganizationProfile | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>('organization_info');
+  const [activeTab, setActiveTab] = useState<TabKey>(validTab);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  // MFA enrollment modal state
+  const [showMfaModal, setShowMfaModal] = useState(mfaSetupRequired);
+  const [mfaStep, setMfaStep] = useState<'prompt' | 'qr' | 'verify' | 'done'>('prompt');
+  const [mfaMethodId, setMfaMethodId] = useState('');
+  const [mfaQr, setMfaQr] = useState('');
+  const [mfaSecret, setMfaSecret] = useState('');
+  const [mfaBackupCodes, setMfaBackupCodes] = useState<string[]>([]);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaError, setMfaError] = useState('');
+  const [mfaLoading, setMfaLoading] = useState(false);
+
+  const startTotpEnrollment = async () => {
+    setMfaLoading(true);
+    setMfaError('');
+    try {
+      const data = await mfaApi.enrollTotp();
+      setMfaMethodId(data.methodId);
+      setMfaQr(data.qrCodeDataUrl);
+      setMfaSecret(data.secret);
+      setMfaBackupCodes(data.backupCodes);
+      setMfaStep('qr');
+    } catch (err: any) {
+      setMfaError(err.message || 'Failed to start MFA setup');
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const verifyTotpEnrollment = async () => {
+    if (mfaCode.length !== 6) return;
+    setMfaLoading(true);
+    setMfaError('');
+    try {
+      await mfaApi.verifyEnrollment(mfaMethodId, mfaCode);
+      setMfaStep('done');
+    } catch (err: any) {
+      setMfaError(err.message || 'Invalid code. Try again.');
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const dismissMfaModal = () => {
+    setShowMfaModal(false);
+    router.replace('/dashboard/settings?tab=security');
+  };
 
   const [orgName, setOrgName] = useState('');
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -82,6 +136,113 @@ export default function SettingsPage() {
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
+      {showMfaModal ? (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 16,
+            padding: '2rem',
+            width: '100%',
+            maxWidth: 440,
+            display: 'grid',
+            gap: '1rem',
+          }}>
+            {mfaStep === 'prompt' ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.5rem' }}>🔐</span>
+                  <h2 style={{ margin: 0, fontSize: '1.2rem' }}>MFA Setup Required</h2>
+                </div>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  Your organization requires multi-factor authentication. Set up an authenticator app to continue.
+                </p>
+                {mfaError ? <div style={errorStyle}>{mfaError}</div> : null}
+                <button
+                  onClick={startTotpEnrollment}
+                  disabled={mfaLoading}
+                  style={{ ...btnPrimary, justifySelf: 'start' }}
+                >
+                  {mfaLoading ? 'Starting...' : 'Set Up Authenticator App'}
+                </button>
+              </>
+            ) : mfaStep === 'qr' ? (
+              <>
+                <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Scan QR Code</h2>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  Scan with Google Authenticator, Authy, or any TOTP app.
+                </p>
+                {mfaQr ? (
+                  <img src={mfaQr} alt="QR Code" style={{ width: 200, height: 200, justifySelf: 'center', borderRadius: 8 }} />
+                ) : null}
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
+                  Manual key: <strong style={{ color: 'var(--text-primary)' }}>{mfaSecret}</strong>
+                </div>
+                <button onClick={() => setMfaStep('verify')} style={{ ...btnPrimary, justifySelf: 'start' }}>
+                  Next: Enter Code
+                </button>
+              </>
+            ) : mfaStep === 'verify' ? (
+              <>
+                <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Verify Code</h2>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  Enter the 6-digit code from your authenticator app.
+                </p>
+                {mfaError ? <div style={errorStyle}>{mfaError}</div> : null}
+                <input
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  maxLength={6}
+                  style={{ ...inputStyle, fontSize: '1.4rem', letterSpacing: '0.3em', textAlign: 'center' }}
+                  onKeyDown={(e) => e.key === 'Enter' && verifyTotpEnrollment()}
+                  autoFocus
+                />
+                <button
+                  onClick={verifyTotpEnrollment}
+                  disabled={mfaLoading || mfaCode.length !== 6}
+                  style={mfaCode.length === 6 ? { ...btnPrimary, justifySelf: 'start' } : { ...btnDisabled, justifySelf: 'start' }}
+                >
+                  {mfaLoading ? 'Verifying...' : 'Verify & Enable MFA'}
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.5rem' }}>✅</span>
+                  <h2 style={{ margin: 0, fontSize: '1.2rem' }}>MFA Enabled</h2>
+                </div>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  Your account is now protected with multi-factor authentication.
+                </p>
+                {mfaBackupCodes.length > 0 ? (
+                  <div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                      Save these backup codes in a safe place:
+                    </div>
+                    <div style={{
+                      display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem',
+                      background: 'var(--bg-input)', borderRadius: 8, padding: '0.75rem',
+                      border: '1px solid var(--border-input)',
+                    }}>
+                      {mfaBackupCodes.map((code) => (
+                        <span key={code} style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{code}</span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                <button onClick={dismissMfaModal} style={{ ...btnPrimary, justifySelf: 'start' }}>
+                  Continue
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
       <header
         style={{
           border: '1px solid var(--border-color)',

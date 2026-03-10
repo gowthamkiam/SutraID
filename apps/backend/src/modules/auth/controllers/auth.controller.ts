@@ -91,8 +91,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
     const result = await this.authService.loginWithPassword(dto.email, dto.password);
-    if (result.accessToken && !result.mfaRequired) {
-      // codeql[js/clear-text-storage-of-sensitive-data]
+    if (result.accessToken && (!result.mfaRequired || result.mfaEnrollmentRequired)) {
       res.cookie('access_token', result.accessToken, {
         httpOnly: true,
         secure: true,

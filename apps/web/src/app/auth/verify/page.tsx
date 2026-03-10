@@ -36,15 +36,29 @@ function VerifyContent() {
           throw new Error(data.message || 'Verification failed');
         }
 
-        // Store tokens
+        if (data.mfaRequired && !data.mfaEnrollmentRequired && data.mfaToken) {
+          localStorage.setItem('mfaToken', data.mfaToken);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          setStatus('success');
+          setMessage('MFA verification required. Redirecting...');
+          setTimeout(() => router.push('/login?mfa=true'), 1500);
+          return;
+        }
+
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
         localStorage.setItem('user', JSON.stringify(data.user));
 
+        if (data.mfaRequired && data.mfaEnrollmentRequired) {
+          setStatus('success');
+          setMessage('MFA setup required. Redirecting...');
+          setTimeout(() => router.push('/dashboard/settings?tab=security&mfa_setup=required'), 1500);
+          return;
+        }
+
         setStatus('success');
         setMessage('Successfully signed in! Redirecting...');
 
-        // Redirect to dashboard
         setTimeout(() => {
           if (data.mustChangePassword || data.user?.mustChangePassword) {
             router.push('/auth/change-password');

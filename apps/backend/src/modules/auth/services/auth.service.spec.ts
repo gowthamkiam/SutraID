@@ -46,6 +46,12 @@ describe('AuthService', () => {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
     },
+    appConfig: {
+      findUnique: jest.fn(),
+    },
+    policy: {
+      findMany: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -99,6 +105,8 @@ describe('AuthService', () => {
     mfaService = module.get(MfaService);
 
     mockPrismaService.directoryConfig.findFirst.mockResolvedValue(null as any);
+    mockPrismaService.appConfig.findUnique.mockResolvedValue(null as any);
+    mockPrismaService.policy.findMany.mockResolvedValue([]);
   });
 
   afterEach(() => {
