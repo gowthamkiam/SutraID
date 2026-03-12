@@ -124,6 +124,10 @@ export class OidcIdpService {
         AccessToken: 'jwt',
       },
 
+      // Always include granted claims in id_token (don't limit to userinfo-only
+      // when an access_token is also issued)
+      conformIdTokenClaims: false,
+
       // Claims — register app-level scopes and custom claims so oidc-provider
       // doesn't strip them as unknown
       claims: {
@@ -504,9 +508,11 @@ export class OidcIdpService {
 
   /**
    * Helper to resolve nested properties from an object using a dot-notated path.
+   * Strips leading 'user.' prefix since the object is already the user record.
    */
   private getNestedProperty(obj: any, path: string): any {
-    return path.split('.').reduce((acc, part) => {
+    const resolvedPath = path.startsWith('user.') ? path.slice(5) : path;
+    return resolvedPath.split('.').reduce((acc, part) => {
       if (acc && typeof acc === 'object') {
         return acc[part];
       }
