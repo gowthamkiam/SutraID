@@ -30,7 +30,7 @@ jobs:
         # No 'version:' here → respects "packageManager": "pnpm@8.15.1" from package.json
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: "pnpm"                    # Caches the pnpm store automatically
